@@ -1,0 +1,26 @@
+
+For file names:
+
+- include guards for the headers all capital with a _H on the end, e.g.
+
+For Interface files:
+- prefix: 
+- suffix: 
+- after the prefix use camelCase
+
+For HAL drivers 
+- prefix: type of drivers exp: io_, com_, cpx_, mem_
+- suffix: 
+- after the prefix use camelCase, starting with lower case
+
+Struct naming (typedef):
+
+prefix:
+suffix: _t
+after the prefix use camelCase, starting with lower case
+
+Enum naming (typedef):
+
+prefix:
+suffix: _t
+after the prefix use camelCase, starting with lower case
