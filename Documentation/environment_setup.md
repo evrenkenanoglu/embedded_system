@@ -2,23 +2,17 @@
 
 ## IDEs
 
-- Eclipse CDT
+- Visual Studio Code
 
 ## Build Tools
 
-- Make
-  - (https://gnuwin32.sourceforge.net/packages/make.htm)
+- CMake VS Code Extension
 
 ## Unit Test Environment
 
-- Ruby
+- GoogleTest (Clone the repository to your workspace)
 
-  - ([https://www.ruby-lang.org/en/downloads/](https://www.ruby-lang.org/en/downloads/))
-- Unity
-- Cmock
-- Ceedling
-
-(https://github.com/ThrowTheSwitch)
+(https://github.com/google/googletest)
 
 ## CD/CI Tools
 
