@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 
 project(Embedded_System_Tests)
 
+# Set embedded system directory
+set(EMBEDDED_SYSTEM_DIR ${PROJECT_SOURCE_DIR}/..)
+
 # set the C++ standard to C++11
 set(CMAKE_CXX_STANDARD 11)
 
@@ -24,14 +27,14 @@ add_subdirectory(${GTEST_DIR} gtest)
 #############################################################################
 
 # add the source files for your project
-file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR}/../Library/*.c*
-                            ${PROJECT_SOURCE_DIR}/../Library/*.h*
-                            # ${PROJECT_SOURCE_DIR}/../HAL/*.c*
-                            # ${PROJECT_SOURCE_DIR}/../HAL/*.h*
-                            # ${PROJECT_SOURCE_DIR}/../Process/*.c* 
-                            # ${PROJECT_SOURCE_DIR}/../Process/*.h*
-                            # ${PROJECT_SOURCE_DIR}/../System/*.c* 
-                            # ${PROJECT_SOURCE_DIR}/../System/*.h*
+file(GLOB_RECURSE SRC_FILES ${EMBEDDED_SYSTEM_DIR}/Library/*.c*
+                            ${EMBEDDED_SYSTEM_DIR}/Library/*.h*
+                            # ${EMBEDDED_SYSTEM_DIR}/HAL/*.c*
+                            # ${EMBEDDED_SYSTEM_DIR}/HAL/*.h*
+                            # ${EMBEDDED_SYSTEM_DIR}/Process/*.c* 
+                            # ${EMBEDDED_SYSTEM_DIR}/Process/*.h*
+                            # ${EMBEDDED_SYSTEM_DIR}/System/*.c* 
+                            # ${EMBEDDED_SYSTEM_DIR}/System/*.h*
                             )
 
 add_library(Embedded_System_Library STATIC ${SRC_FILES})
@@ -49,11 +52,11 @@ set_target_properties(Embedded_System_Library PROPERTIES
 ############################################################################# 
 # INCLUDE DIRECTORY
 #############################################################################
-include_directories(${PROJECT_SOURCE_DIR}/../)
-include_directories(${PROJECT_SOURCE_DIR}/../HAL)
-include_directories(${PROJECT_SOURCE_DIR}/../Library)
-include_directories(${PROJECT_SOURCE_DIR}/../Process)
-include_directories(${PROJECT_SOURCE_DIR}/../System)
+include_directories(${EMBEDDED_SYSTEM_DIR}/)
+include_directories(${EMBEDDED_SYSTEM_DIR}/HAL)
+include_directories(${EMBEDDED_SYSTEM_DIR}/Library)
+include_directories(${EMBEDDED_SYSTEM_DIR}/Process)
+include_directories(${EMBEDDED_SYSTEM_DIR}/System)
 
 
 ############################################################################# 
@@ -61,8 +64,8 @@ include_directories(${PROJECT_SOURCE_DIR}/../System)
 #############################################################################
 
 # add the unit test executable
-file(GLOB_RECURSE UNIT_TEST_FILES   ${PROJECT_SOURCE_DIR}/../Tests/Unit_Test/*.cpp
-                                    ${PROJECT_SOURCE_DIR}/../Tests/Unit_Test/Support/*.cpp  )
+file(GLOB_RECURSE UNIT_TEST_FILES   ${EMBEDDED_SYSTEM_DIR}/Tests/Unit_Test/*.cpp
+                                    ${EMBEDDED_SYSTEM_DIR}/Tests/Unit_Test/Support/*.cpp  )
 add_executable(unit_tests ${UNIT_TEST_FILES})
 
 # link the test executable with the GoogleTest library and your project library
@@ -89,6 +92,6 @@ enable_testing()
 # target_sources(unit_tests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mocks.h)
 
 # Specify the output directory for makefile
-set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/../build)
+set(CMAKE_BINARY_DIR ${EMBEDDED_SYSTEM_DIR}/build)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
