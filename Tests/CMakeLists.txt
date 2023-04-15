@@ -12,15 +12,21 @@ set(CMAKE_CXX_STANDARD 11)
 # GOOGLE TEST LIBRARY SETTINGS
 #############################################################################
 
-# set the path to the location of the GoogleTest library
-set(GTEST_DIR "C:/Workspace_Personal/googletest")
-
 # Set the runtime library to use
+# These lines tell Google Test to use the dynamic release version of the runtime library (/MD) and to match your project's runtime library settings.
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+set(gtest_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL" CACHE STRING "MD" FORCE)
 
-# add the GoogleTest library
-add_subdirectory(${GTEST_DIR} gtest)
+# use FetchContent to download and build googletest
+include(FetchContent)
 
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.10.0 # Replace with the release tag you want to use
+)
+
+FetchContent_MakeAvailable(googletest)
 
 ############################################################################# 
 # EMBEDDED SYSTEM LIBRARY SETTINGS
@@ -50,7 +56,7 @@ set_target_properties(Embedded_System_Library PROPERTIES
 
 
 ############################################################################# 
-# INCLUDE DIRECTORY
+# INCLUDE DIRECTORIES
 #############################################################################
 include_directories(${EMBEDDED_SYSTEM_DIR}/)
 include_directories(${EMBEDDED_SYSTEM_DIR}/HAL)
@@ -69,7 +75,7 @@ file(GLOB_RECURSE UNIT_TEST_FILES   ${EMBEDDED_SYSTEM_DIR}/Tests/Unit_Test/*.cpp
 add_executable(unit_tests ${UNIT_TEST_FILES})
 
 # link the test executable with the GoogleTest library and your project library
-target_link_libraries(unit_tests gtest_main Embedded_System_Library)
+target_link_libraries(unit_tests gtest gtest_main Embedded_System_Library)
 
 # add the test to CTest
 include(GoogleTest)
