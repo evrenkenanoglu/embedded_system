@@ -1,26 +1,24 @@
+For File Names:
 
-For file names:
+Header File (include guards): All capital with a _H on the end, e.g., MY_HEADER_H.
 
-- include guards for the headers all capital with a _H on the end, e.g.
+For Interface Files:
+Prefix: I_
+Suffix: Leave empty
+After the prefix, use camelCase, starting with an uppercase letter, e.g., I_ExampleInterface
 
-For Interface files:
-- prefix: 
-- suffix: 
-- after the prefix use camelCase
-
-For HAL drivers 
+For HAL Drivers:
 - prefix: type of drivers exp: io_, com_, cpx_, mem_
-- suffix: 
-- after the prefix use camelCase, starting with lower case
+Suffix: Leave empty
+After the prefix, use camelCase, starting with an uppercase letter, e.g., io_, com_, cpx_, mem_
 
-Struct naming (typedef):
+For Struct Naming (typedef):
+Prefix: Leave empty
+Suffix: _t
+After the suffix, use camelCase, starting with a lowercase letter, e.g., exampleStruct_t
 
-prefix:
-suffix: _t
-after the prefix use camelCase, starting with lower case
-
-Enum naming (typedef):
-
-prefix:
-suffix: _t
-after the prefix use camelCase, starting with lower case
+For Enum Naming (typedef):
+Prefix: Leave empty
+Suffix: _t
+After the suffix, use camelCase, starting with a lowercase letter, e.g., exampleEnum_t
+With these naming conventions, file names, interface files, HAL drivers, structs, and enums will be more self-descriptive and follow a consistent and readable format.
