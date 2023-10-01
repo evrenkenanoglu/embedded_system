@@ -1,6 +1,5 @@
 include(FetchContent)
 
-
 # Google Test Framework
 
 # Set the runtime library to use
@@ -12,6 +11,8 @@ FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
   GIT_TAG        release-1.10.0 # Replace with the release tag you want to use
+  SOURCE_DIR     "${EMBEDDED_SYSTEM_DIR}/_deps/googletest-src"
+  BINARY_DIR     "${EMBEDDED_SYSTEM_DIR}/_deps/googletest-build"
 )
 
 FetchContent_MakeAvailable(googletest)
