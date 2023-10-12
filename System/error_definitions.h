@@ -15,7 +15,7 @@
 typedef int32_t error_t;
 
 // Macro for handling errors and returning on error
-#define RETURN_ON_ERROR(expr)                                                                                                                                                                          \
+#define RETURN_ON_ERROR_WITH_OUTPUT(expr, logWrapper)                                                                                                                                                  \
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
         error_t err = (expr);                                                                                                                                                                          \
@@ -23,7 +23,18 @@ typedef int32_t error_t;
         {                                                                                                                                                                                              \
             char errMsg[256];                                                                                                                                                                          \
             std::sprintf(errMsg, "Error in %s at line %d: Error Code: &d\n", __FILE__, __LINE__, err);                                                                                                 \
-            log(LogWrapper::LogLevel::ERROR, errMsg);                                                                                                                                                  \
+            logWrapper.log(LogWrapper::LogLevel::ERROR, errMsg);                                                                                                                                       \
+            return err;                                                                                                                                                                                \
+        }                                                                                                                                                                                              \
+    } while (0)
+
+// Macro for handling errors and returning on error
+#define RETURN_ON_ERROR(expr)                                                                                                                                                                          \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        error_t err = (expr);                                                                                                                                                                          \
+        if (err != ERROR_NONE)                                                                                                                                                                         \
+        {                                                                                                                                                                                              \
             return err;                                                                                                                                                                                \
         }                                                                                                                                                                                              \
     } while (0)
