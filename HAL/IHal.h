@@ -83,7 +83,7 @@ public:
     /**
      * @brief Disconnect from the remote device or network.
      */
-    virtual void disconnect() = 0;
+    virtual error_t disconnect() = 0;
 
     /**
      * @brief Destructor for IHAL_COM.
@@ -172,7 +172,7 @@ public:
      * @param data Pointer to the buffer containing the data to be set.
      * @return error_t The error code indicating the success or failure of the operation.
      */
-    virtual error_t set(void* data) = 0;
+    virtual void set(void* data) = 0;
 
     /**
      * @brief Stop the complex operation.
@@ -184,9 +184,8 @@ public:
     /**
      * @brief Destructor for IHAL_CPX.
      */
-    virtual ~IHAL_IO() {}
+    virtual ~IHAL_CPX() {}
 };
-
 
 /** MACROS ********************************************************************/
 
@@ -196,4 +195,4 @@ public:
 
 #undef INTERFACE // Should not let this roam free
 
-#endif           // FILE_IHAL_H
+#endif // FILE_IHAL_H
