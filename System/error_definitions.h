@@ -9,7 +9,7 @@
  *
  */
 
-#include "logWrapper.h"
+#include "ILog.h"
 #include <cstdio>
 
 typedef int32_t error_t;
@@ -40,7 +40,7 @@ typedef int32_t error_t;
     } while (0)
 
 // General error codes
-#define ERROR_NONE                 0  // No error
+#define ERROR_SUCCESS              0  // Succesful
 #define ERROR_UNKNOWN              -1 // Unknown or unspecified error
 #define ERROR_INVALID_ARG          -2 // Invalid argument passed to a function
 #define ERROR_TIMEOUT              -3 // Operation timed out
