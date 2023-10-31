@@ -8,7 +8,8 @@
 #ifndef CPX_WIFI_HPP
 #define CPX_WIFI_HPP
 
-#include "IHal.h"
+#include "HAL/IHal.h"
+#include "System/ILog.h"
 #include "System/system.h"
 #include "esp_wifi_types.h"
 #include <string>
@@ -18,39 +19,40 @@ class cpx_wifi : public IHAL_CPX
 private:
     std::string _ssid;
     std::string _password;
+    LogHandler& _logHandler;
     wifi_mode_t _wifiMode;
 
 public:
-    cpx_wifi(void *config);
+    cpx_wifi(void* config, LogHandler& logHandler);
     ~cpx_wifi();
 
-    error_t start() override;
+    sys_error_t start() override;
 
-    error_t get() override;
+    void* get() override;
 
     void set(void* data) override;
 
-    error_t stop() override;
+    sys_error_t stop() override;
 
 public:
     /**
      * @brief Set the Ssid object
-     * 
-     * @param ssid 
+     *
+     * @param ssid
      */
-    void setSsid(std::string &ssid);
+    void setSsid(std::string& ssid);
     /**
      * @brief Set the Password object
-     * 
-     * @param password 
+     *
+     * @param password
      */
-    void setPassword(std::string &password);
+    void setPassword(std::string& password);
     /**
      * @brief Set the Wifi Mode object
-     * 
-     * @param mode 
+     *
+     * @param mode
      */
-    void setWifiMode(void *mode);
+    void setWifiMode(void* mode);
 };
 
 #endif /* CPX_WIFI_HPP */

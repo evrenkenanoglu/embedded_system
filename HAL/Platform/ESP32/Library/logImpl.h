@@ -1,6 +1,8 @@
+#ifndef LOGIMPL_H
+#define LOGIMPL_H
+
+#include "System/ILog.h"
 #include "esp_log.h"
-#include "system/ILog.h"
-#include <iosfwd>
 #include <iostream>
 
 class logImpl : public ILog
@@ -54,3 +56,4 @@ public:
     }
 };
 
+#endif // LOGIMPL_H

@@ -9,16 +9,15 @@
  *
  */
 
-#include "ILog.h"
 #include <cstdio>
 
-typedef int32_t error_t;
+typedef int32_t sys_error_t;
 
 // Macro for handling errors and returning on error
 #define RETURN_ON_ERROR_WITH_OUTPUT(expr, logWrapper)                                                                                                                                                  \
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
-        error_t err = (expr);                                                                                                                                                                          \
+        sys_error_t err = (expr);                                                                                                                                                                          \
         if (err != ERROR_NONE)                                                                                                                                                                         \
         {                                                                                                                                                                                              \
             char errMsg[256];                                                                                                                                                                          \
@@ -32,7 +31,7 @@ typedef int32_t error_t;
 #define RETURN_ON_ERROR(expr)                                                                                                                                                                          \
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
-        error_t err = (expr);                                                                                                                                                                          \
+        sys_error_t err = (expr);                                                                                                                                                                          \
         if (err != ERROR_NONE)                                                                                                                                                                         \
         {                                                                                                                                                                                              \
             return err;                                                                                                                                                                                \
@@ -47,6 +46,8 @@ typedef int32_t error_t;
 #define ERROR_MEMORY               -4 // Memory allocation or deallocation failure
 #define ERROR_IO                   -5 // Input/output error
 #define ERROR_NOT_SUPPORTED        -6 // The operation or feature is not supported
+#define ERROR_NOT_IMPLEMENTED      -7 // Not implemented yet
+#define ERROR_INVALID_CONFIG       -8 // Invalid configuration of the module
 
 // Error codes related to hardware and peripherals
 #define ERROR_INIT_FAILED          -100 // Hardware initialization failure

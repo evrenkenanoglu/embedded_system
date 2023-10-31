@@ -1,4 +1,6 @@
-#include <iosfwd>
+#ifndef ILOG_H
+#define ILOG_H
+
 #include <iostream>
 
 /**
@@ -56,15 +58,15 @@ public:
 class LogHandler
 {
 private:
-    ILog* _logWrapperImpl = nullptr;
+    ILog* _logImpl = nullptr;
 
 public:
     /**
      * @brief Constructs a new LogHandler object with the given ILog implementation.
      *
-     * @param logWrapperImpl An implementation of the ILog interface.
+     * @param logImpl An implementation of the ILog interface.
      */
-    LogHandler(ILog* logWrapperImpl) : _logWrapperImpl(logWrapperImpl) {}
+    LogHandler(ILog* logImpl) : _logImpl(logImpl) {}
 
     /**
      * @brief Destructor for the LogHandler class.
@@ -82,18 +84,19 @@ public:
         switch (level)
         {
             case ILog::LogLevel::INFO:
-                _logWrapperImpl->logInfo(message);
+                _logImpl->logInfo(message);
                 break;
             case ILog::LogLevel::WARNING:
-                _logWrapperImpl->logWarning(message);
+                _logImpl->logWarning(message);
                 break;
             case ILog::LogLevel::ERROR:
-                _logWrapperImpl->logError(message);
+                _logImpl->logError(message);
                 break;
         }
     }
 };
 
+#endif // ILOG_H
 // /**
 //  * @brief The logWrapperImpl class is an implementation of the ILog interface for logging messages to the console.
 //  */
@@ -171,7 +174,6 @@ public:
 //         }
 //     }
 // };
-
 
 // An example of usage
 // int main()

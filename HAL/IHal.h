@@ -11,7 +11,7 @@
 #ifndef FILE_IHAL_H
 #define FILE_IHAL_H
 
-#include "system.h"
+#include "System/system.h"
 
 /** INCLUDES ******************************************************************/
 
@@ -37,9 +37,9 @@ public:
      * @brief Set data to the I/O device.
      *
      * @param data Pointer to the buffer containing the data to be set.
-     * @return error_t The error code indicating the success or failure of the operation.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    virtual error_t set(void* data) = 0;
+    virtual sys_error_t set(void* data) = 0;
 
     /**
      * @brief Destructor for IHAL_IO.
@@ -57,18 +57,18 @@ public:
     /**
      * @brief Connect to a remote device or network.
      *
-     * @return error_t The error code indicating the success or failure of the connection.
+     * @return sys_error_t The error code indicating the success or failure of the connection.
      */
-    virtual error_t connect() = 0;
+    virtual sys_error_t connect() = 0;
 
     /**
      * @brief Send data over the communication channel.
      *
      * @param data Pointer to the data buffer to be sent.
      * @param length The length of the data to be sent.
-     * @return error_t The error code indicating the success or failure of the data transmission.
+     * @return sys_error_t The error code indicating the success or failure of the data transmission.
      */
-    virtual error_t sendData(const uint8_t* data, size_t length) = 0;
+    virtual sys_error_t sendData(const uint8_t* data, size_t length) = 0;
 
     /**
      * @brief Receive data from the communication channel.
@@ -76,14 +76,14 @@ public:
      * @param data Pointer to the buffer where the received data will be stored.
      * @param maxLength The maximum length of data to be received.
      * @param receivedLength Reference to store the actual received data length.
-     * @return error_t The error code indicating the success or failure of the data reception.
+     * @return sys_error_t The error code indicating the success or failure of the data reception.
      */
-    virtual error_t receiveData(uint8_t* data, size_t maxLength, size_t& receivedLength) = 0;
+    virtual sys_error_t receiveData(uint8_t* data, size_t maxLength, size_t& receivedLength) = 0;
 
     /**
      * @brief Disconnect from the remote device or network.
      */
-    virtual error_t disconnect() = 0;
+    virtual sys_error_t disconnect() = 0;
 
     /**
      * @brief Destructor for IHAL_COM.
@@ -155,9 +155,9 @@ public:
     /**
      * @brief Start the complex operation.
      *
-     * @return error_t The error code indicating the success or failure of the operation.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    virtual error_t start() = 0;
+    virtual sys_error_t start() = 0;
 
     /**
      * @brief Get the data result from the complex operation.
@@ -170,16 +170,16 @@ public:
      * @brief Set data for the complex operation.
      *
      * @param data Pointer to the buffer containing the data to be set.
-     * @return error_t The error code indicating the success or failure of the operation.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual void set(void* data) = 0;
 
     /**
      * @brief Stop the complex operation.
      *
-     * @return error_t The error code indicating the success or failure of the operation.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    virtual error_t stop() = 0;
+    virtual sys_error_t stop() = 0;
 
     /**
      * @brief Destructor for IHAL_CPX.
