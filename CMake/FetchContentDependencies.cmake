@@ -3,9 +3,9 @@ include(FetchContent)
 # Set Dependency Directory as a common base
 set(DEPENDENCIES_DIR "${WORKSPACE_DIR}/_deps")
 
-########################################################################################
+# #######################################################################################
 # Google Test Framework
-########################################################################################
+# #######################################################################################
 # Set the runtime library to use
 # These lines tell Google Test to use the dynamic release version of the runtime library (/MD) and to match your project's runtime library settings.
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

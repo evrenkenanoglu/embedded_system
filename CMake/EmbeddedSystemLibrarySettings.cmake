@@ -33,3 +33,16 @@ include_directories(${EMBEDDED_SYSTEM_DIR}/HAL)
 include_directories(${EMBEDDED_SYSTEM_DIR}/Library)
 include_directories(${EMBEDDED_SYSTEM_DIR}/Process)
 include_directories(${EMBEDDED_SYSTEM_DIR}/System)
+
+
+# add the source files for your project
+file(GLOB_RECURSE SRC_FILES_ESP32 
+                            # ${EMBEDDED_SYSTEM_DIR}/Library/*.c*
+                            # ${EMBEDDED_SYSTEM_DIR}/Library/*.h*
+                            ${EMBEDDED_SYSTEM_DIR}/HAL/*.c*
+                            ${EMBEDDED_SYSTEM_DIR}/HAL/*.h*
+                            # ${EMBEDDED_SYSTEM_DIR}/Process/*.c* 
+                            # ${EMBEDDED_SYSTEM_DIR}/Process/*.h*
+                            # ${EMBEDDED_SYSTEM_DIR}/System/*.c* 
+                            # ${EMBEDDED_SYSTEM_DIR}/System/*.h*
+                            )
