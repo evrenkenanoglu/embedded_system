@@ -21,6 +21,7 @@ private:
     std::string _password;
     LogHandler& _logHandler;
     wifi_mode_t _wifiMode;
+    wifi_config_t _wifiConfig;
 
 public:
     cpx_wifi(void* config, LogHandler& logHandler);
@@ -36,23 +37,11 @@ public:
 
 public:
     /**
-     * @brief Set the Ssid object
-     *
-     * @param ssid
-     */
-    void setSsid(std::string& ssid);
-    /**
-     * @brief Set the Password object
-     *
-     * @param password
-     */
-    void setPassword(std::string& password);
-    /**
      * @brief Set the Wifi Mode object
      *
      * @param mode
      */
-    void setWifiMode(void* mode);
+    void setWifiMode(wifi_mode_t mode);
 };
 
 #endif /* CPX_WIFI_HPP */
