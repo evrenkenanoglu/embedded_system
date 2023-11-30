@@ -18,7 +18,7 @@ typedef int32_t sys_error_t;
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
         sys_error_t err = (expr);                                                                                                                                                                          \
-        if (err != ERROR_NONE)                                                                                                                                                                         \
+        if (err != ERROR_SUCCESS)                                                                                                                                                                         \
         {                                                                                                                                                                                              \
             char errMsg[256];                                                                                                                                                                          \
             std::sprintf(errMsg, "Error in %s at line %d: Error Code: &d\n", __FILE__, __LINE__, err);                                                                                                 \
@@ -32,7 +32,7 @@ typedef int32_t sys_error_t;
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
         sys_error_t err = (expr);                                                                                                                                                                          \
-        if (err != ERROR_NONE)                                                                                                                                                                         \
+        if (err != ERROR_SUCCESS)                                                                                                                                                                         \
         {                                                                                                                                                                                              \
             return err;                                                                                                                                                                                \
         }                                                                                                                                                                                              \
