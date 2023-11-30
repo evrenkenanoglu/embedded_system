@@ -1,2 +1,3 @@
-clang-format
-clang-tidy
+clang-format >= 17.*
+clang-tidy >= 17.*
+cmake >= 3.25.*
