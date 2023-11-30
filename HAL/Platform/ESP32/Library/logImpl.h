@@ -13,11 +13,11 @@ private:
 public:
     logImpl(const char* tag) : _tag(tag)
     {
-        ESP_LOGI(_tag, "LogWrapperImpl is initialized");
+        ESP_LOGI(_tag, "ESP logger wrapper implementation is initialized");
     }
     ~logImpl()
     {
-        ESP_LOGI(_tag, "LogWrapperImpl is deinitialized");
+        ESP_LOGI(_tag, "ESP logger wrapper implementation is deinitialized");
     };
 
     /**
