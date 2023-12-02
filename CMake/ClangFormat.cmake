@@ -16,9 +16,9 @@ function(createClangFormatTargets targetName subdirectory checkonly)
             --Werror)
 
         # Define the formatting check and apply parameters as variables
-        message(STATUS "${FORMAT_CHECK_PARAMS}")
-        message(STATUS "${FILES_TO_FORMAT}")
-        message(STATUS "${CMAKE_CURRENT_SOURCE_DIR}")
+        # message(STATUS "${FORMAT_CHECK_PARAMS}")
+        # message(STATUS "${FILES_TO_FORMAT}")
+        # message(STATUS "${CMAKE_CURRENT_SOURCE_DIR}")
         add_custom_target(${targetName}
             COMMAND ${CLANG_FORMAT}
             ${FORMAT_CHECK_PARAMS}
@@ -32,9 +32,9 @@ function(createClangFormatTargets targetName subdirectory checkonly)
             -i)
 
         # Define a custom target for applying the formatting to all source files
-        message(STATUS "${FORMAT_APPLY_PARAMS}")
-        message(STATUS "${FILES_TO_FORMAT}")
-        message(STATUS "${CMAKE_CURRENT_SOURCE_DIR}")
+        # message(STATUS "${FORMAT_APPLY_PARAMS}")
+        # message(STATUS "${FILES_TO_FORMAT}")
+        # message(STATUS "${CMAKE_CURRENT_SOURCE_DIR}")
         add_custom_target(${targetName}
             COMMAND ${CLANG_FORMAT}
             ${FORMAT_APPLY_PARAMS}

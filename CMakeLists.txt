@@ -37,3 +37,9 @@ include(${CMAKE_LIB_DIR}/ClangFormat.cmake)
 # To be able to use those clang-format application must be installed
 createClangFormatCheckTarget("format_check_all" "System")
 createClangFormatApplyTarget("format_apply_all" "System")
+
+# ############################################################################
+# CREATING CLANG-TIDY TARGETS
+# ############################################################################
+include(${CMAKE_LIB_DIR}/ClangTidy.cmake)
+createClangTidyCheckTarget("tidy_check_all" "System")

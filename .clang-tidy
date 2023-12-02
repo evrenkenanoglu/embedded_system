@@ -1,0 +1,89 @@
+Checks: 'clang-diagnostic-*,
+        clang-analyzer-*,
+        cppcoreguidelines-*,
+        modernize-*,
+        -modernize-use-trailing-return-type,
+        portability-*,
+        readability-*,
+        performance-*,'
+
+HeaderFilterRegex: '.*\.(c|cc|cpp|h)$'
+SystemHeaders: false
+WarningsAsErrors: true
+AnalyzeTemporaryDtors: false
+FormatStyle:     none
+CheckOptions:
+  - key:             modernize-use-nullptr.NullMacros
+    value:           '1'
+  - key:             modernize-use-nullptr.IncludeStyle
+    value:           'google'
+  - key:             modernize-use-nullptr.MinConfidence
+    value:           reasonable
+  - key:             modernize-raw-string-literal.IncludeStyle
+    value:           'google'
+  - key:             modernize-redundant-void-arg.IncludeStyle
+    value:           'google'
+  - key:             modernize-deprecated-headers.AlgorithmHeader
+    value:           <algorithm.h>
+  - key:             modernize-deprecated-headers.CStdLibHeader
+    value:           <cstdlib.h>
+  - key:             modernize-deprecated-headers.CTimeHeader
+    value:           <ctime.h>
+  - key:             modernize-deprecated-headers.FunctionalHeader
+    value:           <functional.h>
+  - key:             modernize-deprecated-headers.IostreamHeader
+    value:           <iostream.h>
+  - key:             modernize-deprecated-headers.MathHeader
+    value:           <cmath.h>
+  - key:             modernize-deprecated-headers.MallocHeader
+    value:           <malloc.h>
+  - key:             modernize-deprecated-headers.StringHeader
+    value:           <string.h>
+  - key:             modernize-deprecated-headers.TypeTraitsHeader
+    value:           <type_traits.h>
+  - key:             modernize-deprecated-headers.UtilityHeader
+    value:           <utility.h>
+  - key:             modernize-loop-convert.RemoveBraces
+    value:           'true'
+  - key:             modernize-loop-convert.NamingStyle
+    value:           CamelCase
+  - key:             modernize-loop-convert.MinConfidence
+    value:           reasonable
+  - key:             modernize-loop-convert.MaxCopySize
+    value:           '16'
+  - key:             modernize-use-auto.IncludeStyle
+    value:           'google'
+  - key:             modernize-use-override.IncludeStyle
+    value:           'google'
+  - key:             modernize-use-bool-literals.BoolLiteralStyle
+    value:           Upper
+  - key:             google-readability-braces-around-statements.ShortStatementLines
+    value:           '1'
+  - key:             google-readability-namespace-comments.ShortNamespaceLines
+    value:           '10'
+  - key:             google-readability-namespace-comments.SpacesBeforeComments
+    value:           '2'
+  - key:             google-readability-todo.TodoPattern
+    value:           'NOTE\\(.*\\):'
+  - key:             cppcoreguidelines-pro-bounds-array-to-pointer-decay.DetectIncrements
+    value:           'true'
+  - key:             cppcoreguidelines-pro-type-vararg.VarargKind
+    value:           posix
+  - key:             cppcoreguidelines-pro-type-const-cast.CastCharPtr
+    value:           'false'
+  - key:             cppcoreguidelines-pro-type-cstyle-cast.CastCharPtr
+    value:           'false'
+  - key:             cppcoreguidelines-pro-type-member-init.InitStyle
+    value:           all
+  - key:             cppcoreguidelines-pro-type-reinterpret-cast.CastCharPtr
+    value:           'false'
+  - key:             cppcoreguidelines-pro-type-union-access.UnionAccessKind
+    value:           alias
+  - key:             cppcoreguidelines-pro-bounds-constant-array-index.ArrayIndexExpr
+    value:           '([0-9]+)|([a-zA-Z_][a-zA-Z0-9_]*)'
+  - key:             cppcoreguidelines-pro-bounds-pointer-arithmetic.PointerArithmeticStyle
+    value:           none
+  - key:             cert-dcl21-cpp.NewSuffixes
+    value:           'ul;lul;'
+  - key:             cert-dcl58-cpp.NewSuffixes
+    value:           'ull;llu'
