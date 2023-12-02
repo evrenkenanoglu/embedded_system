@@ -7,7 +7,7 @@
  *
  * This file defines the sys_error_t enum, which contains error codes for different types of errors
  * that can occur in the system. It also defines macros to handle errors and return on error.
- * 
+ *
  * @copyright Copyright (c) 2023
  *
  */
