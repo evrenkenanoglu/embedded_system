@@ -1,20 +1,27 @@
 #include "gtest/gtest.h"
-#include "myFile.h"
 
-TEST(AddTest, PositiveNumbers) {
+extern "C"
+{
+#include "myCFile.h"
+}
+
+TEST(AddTest2, PositiveNumbers)
+{
     // Test adding positive numbers
-    int result = add(2, 3);
+    int result = myCadd(2, 3);
     ASSERT_EQ(result, 5);
 }
 
-TEST(AddTest, NegativeNumbers) {
+TEST(AddTest2, NegativeNumbers)
+{
     // Test adding negative numbers
-    int result = add(-2, -3);
+    int result = myCadd(-2, -3);
     ASSERT_EQ(result, -5);
 }
 
-TEST(AddTest, MixedNumbers) {
+TEST(AddTest2, MixedNumbers)
+{
     // Test adding mixed positive and negative numbers
-    int result = add(2, -3);
+    int result = myCadd(2, -3);
     ASSERT_EQ(result, -1);
 }

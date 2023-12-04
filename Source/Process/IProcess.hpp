@@ -21,9 +21,7 @@ public:
         STOPPED,
     };
 
-    virtual ~IProcess()
-    {
-    }
+    virtual ~IProcess() {}
 
     virtual sys_error_t start()  = 0;
     virtual sys_error_t stop()   = 0;

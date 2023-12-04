@@ -3,8 +3,8 @@
 #############################################################################
 
 # add the unit test executable
-file(GLOB_RECURSE UNIT_TEST_FILES   ${EMBEDDED_SYSTEM_DIR}/Tests/Unit_Test/*.cpp
-                                    ${EMBEDDED_SYSTEM_DIR}/Tests/Unit_Test/Support/*.cpp  )
+file(GLOB_RECURSE UNIT_TEST_FILES   ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Test/*.cpp
+                                    ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Test/Support/*.cpp  )
 add_executable(unit_tests ${UNIT_TEST_FILES})
 
 # link the test executable with the GoogleTest library and your project library
@@ -31,6 +31,6 @@ enable_testing()
 # target_sources(unit_tests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mocks.h)
 
 # Specify the output directory for makefile
-set(CMAKE_BINARY_DIR ${EMBEDDED_SYSTEM_DIR}/build)
+set(CMAKE_BINARY_DIR ${PROJECT_SOURCE_DIR}/build)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})

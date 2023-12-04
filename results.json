@@ -1,0 +1,404 @@
+---
+MainSourceFile:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source/System/ILog.h'
+Diagnostics:
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         too many errors emitted, stopping now
+      FilePath:        ''
+      FileOffset:      0
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'expected '';'' after top level declarator'
+      FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\cstdio'
+      FileOffset:      713
+      Replacements:    []
+    Notes:
+      - Message:         'expanded from macro ''_STD_BEGIN'''
+        FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\yvals_core.h'
+        FileOffset:      94843
+        Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''namespace'''
+      FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\cstdio'
+      FileOffset:      713
+      Replacements:    []
+    Notes:
+      - Message:         'expanded from macro ''_STD_BEGIN'''
+        FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\yvals_core.h'
+        FileOffset:      94829
+        Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         expected function body after function declarator
+      FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\cstdlib'
+      FileOffset:      600
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'expected '';'' after top level declarator'
+      FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\yvals.h'
+      FileOffset:      12708
+      Replacements:    []
+    Notes:
+      - Message:         'expanded from macro ''_STD_BEGIN'''
+        FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\yvals_core.h'
+        FileOffset:      94843
+        Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''namespace'''
+      FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\yvals.h'
+      FileOffset:      12708
+      Replacements:    []
+    Notes:
+      - Message:         'expanded from macro ''_STD_BEGIN'''
+        FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\yvals_core.h'
+        FileOffset:      94829
+        Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'Error in C++ Standard Library usage'
+      FilePath:        'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.37.32822\include\yvals_core.h'
+      FileOffset:      1207
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      880
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      1418
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      1634
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      1839
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      2188
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      2335
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      2872
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      3238
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      3301
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      3490
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      3706
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      3937
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      4061
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      4203
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         'unknown type name ''FILE'''
+      FilePath:        'C:\Program Files (x86)\Windows Kits\10\Include\10.0.22000.0\ucrt\corecrt_wstdio.h'
+      FileOffset:      4380
+      Replacements:    []
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  cppcoreguidelines-macro-usage
+    DiagnosticMessage:
+      Message:         'function-like macro ''RETURN_ON_ERROR_WITH_OUTPUT'' used; consider a ''constexpr'' template function'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/error_definitions.h'
+      FileOffset:      553
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  cppcoreguidelines-macro-usage
+    DiagnosticMessage:
+      Message:         'function-like macro ''RETURN_ON_ERROR'' used; consider a ''constexpr'' template function'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/error_definitions.h'
+      FileOffset:      2847
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-use-using
+    DiagnosticMessage:
+      Message:         'use ''using'' instead of ''typedef'''
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/error_definitions.h'
+      FileOffset:      4474
+      Replacements:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/error_definitions.h'
+          Offset:          4474
+          Length:          3388
+          ReplacementText: "using sys_error_t = enum\r\n{\r\n    // General error codes\r\n    ERROR_SUCCESS         = 0,  // Succesful\r\n    ERROR_UNKNOWN         = -1, // Unknown or unspecified error\r\n    ERROR_INVALID_ARG     = -2, // Invalid argument passed to a function\r\n    ERROR_TIMEOUT         = -3, // Operation timed out\r\n    ERROR_MEMORY          = -4, // Memory allocation or deallocation failure\r\n    ERROR_IO              = -5, // Input/output error\r\n    ERROR_NOT_SUPPORTED   = -6, // The operation or feature is not supported\r\n    ERROR_NOT_IMPLEMENTED = -7, // Not implemented yet\r\n    ERROR_INVALID_CONFIG  = -8, // Invalid configuration of the module\r\n\r\n    // Error codes related to hardware and peripherals\r\n    ERROR_INIT_FAILED  = -100, // Hardware initialization failure\r\n    ERROR_READ_FAILED  = -101, // Data read from hardware failed\r\n    ERROR_WRITE_FAILED = -102, // Data write to hardware failed\r\n    ERROR_IRQ_HANDLER  = -103, // Error in interrupt handler\r\n    ERROR_DEVICE_BUSY  = -104, // Device or resource is busy\r\n\r\n    // Error codes related to memory\r\n    ERROR_OUT_OF_MEMORY    = -201, // Memory allocation failed, out of available memory\r\n    ERROR_MEMORY_CORRUPT   = -202, // Memory corruption detected\r\n    ERROR_NULL_POINTER     = -203, // Attempted to dereference a null pointer\r\n    ERROR_INVALID_POINTER  = -204, // Invalid memory pointer passed to a function\r\n    ERROR_BUFFER_OVERFLOW  = -205, // Buffer overflow detected\r\n    ERROR_BUFFER_UNDERFLOW = -206, // Buffer underflow detected\r\n    ERROR_MEMORY_ALIGNMENT = -207, // Memory alignment error\r\n\r\n    // Error codes related to communication\r\n    ERROR_CONNECTION_FAILED   = -300, // Failed to establish a connection\r\n    ERROR_PACKET_LOSS         = -301, // Data packet loss during communication\r\n    ERROR_PROTOCOL            = -302, // Communication protocol error\r\n    ERROR_TRANSMIT_FAILED     = -303, // Failed to transmit data\r\n    ERROR_RECEIVE_FAILED      = -304, // Failed to receive data\r\n    ERROR_DATA_CORRUPTED      = -305, // Data corruption during communication\r\n    ERROR_CONNECTION_LOST     = -306, // Connection lost unexpectedly\r\n    ERROR_DEVICE_UNRESPONSIVE = -307, // The communication device is not responding\r\n    ERROR_BUSY                = -308, // The communication channel is busy\r\n    ERROR_MESSAGE_TOO_LARGE   = -309, // The message size exceeds the allowed limit\r\n    ERROR_CONNECTION_CLOSED   = -310, // The connection was closed by the remote end\r\n\r\n    // Error codes related to network and internet\r\n    ERROR_NETWORK_UNAVAILABLE  = -401, // Network connection is not available\r\n    ERROR_DNS_LOOKUP_FAILED    = -402, // DNS lookup failed\r\n    ERROR_SERVER_UNREACHABLE   = -403, // Server or host is unreachable\r\n    ERROR_CONNECTION_REFUSED   = -404, // Connection to the server refused\r\n    ERROR_CONNECTION_RESET     = -405, // Connection reset by peer\r\n    ERROR_NETWORK_DISCONNECTED = -406, // Network disconnected unexpectedly\r\n    ERROR_NETWORK_CONFIG       = -407, // Network configuration error\r\n    ERROR_CONNECTION_ABORTED   = -408, // Connection aborted\r\n    ERROR_NO_ROUTE_TO_HOST     = -409, // No route to the host or server\r\n    ERROR_NETWORK_LIMIT        = -410, // Network resources exceeded or network bandwidth limit\r\n    ERROR_NETWORK_AUTH         = -411, // Network authentication failed\r\n    ERROR_NETWORK_TIMEOUT      = -412, // Network operation timed out\r\n}"
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         '''freertos/FreeRTOS.h'' file not found'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      834
+      Replacements:    []
+      Ranges:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          FileOffset:      834
+          Length:          21
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         replace macro with enum
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1460
+      Replacements:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1460
+          Length:          8
+          ReplacementText: "enum {\n"
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1480
+          Length:          0
+          ReplacementText: ' ='
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1482
+          Length:          0
+          ReplacementText: ','
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1484
+          Length:          8
+          ReplacementText: ''
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1504
+          Length:          0
+          ReplacementText: ' ='
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1508
+          Length:          0
+          ReplacementText: "};\n"
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  cppcoreguidelines-macro-usage
+    DiagnosticMessage:
+      Message:         'macro ''EXIT_SUCCESS'' used to declare a constant; consider using a ''constexpr'' constant'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1468
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         'macro ''EXIT_SUCCESS'' defines an integral constant; prefer an enum instead'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1468
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  cppcoreguidelines-macro-usage
+    DiagnosticMessage:
+      Message:         'macro ''EXIT_FAILURE'' used to declare a constant; consider using a ''constexpr'' constant'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1492
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         'macro ''EXIT_FAILURE'' defines an integral constant; prefer an enum instead'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1492
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         replace macro with enum
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1510
+      Replacements:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1510
+          Length:          8
+          ReplacementText: "enum {\n"
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1528
+          Length:          0
+          ReplacementText: ' ='
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1562
+          Length:          0
+          ReplacementText: "};\n"
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  cppcoreguidelines-macro-usage
+    DiagnosticMessage:
+      Message:         'macro ''QUEUE_SIZE'' used to declare a constant; consider using a ''constexpr'' constant'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1518
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-macro-to-enum
+    DiagnosticMessage:
+      Message:         'macro ''QUEUE_SIZE'' defines an integral constant; prefer an enum instead'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1518
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-use-using
+    DiagnosticMessage:
+      Message:         'use ''using'' instead of ''typedef'''
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1648
+      Replacements:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1648
+          Length:          132
+          ReplacementText: "using eTaskID_t = enum\r\n{\r\n    //**Demo App **//\r\n    eTaskDemo1 = 0,\r\n\r\n    //**Demo App2 **//\r\n    eTaskDemo2,\r\n\r\n    eTaskMax,\r\n}"
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-use-using
+    DiagnosticMessage:
+      Message:         'use ''using'' instead of ''typedef'''
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1785
+      Replacements:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1785
+          Length:          93
+          ReplacementText: "using eProcessID_t = enum\r\n{\r\n    eProcessDemo1 = 1,\r\n    eProcessDemo2,\r\n    eProcessMax,\r\n}"
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  modernize-use-using
+    DiagnosticMessage:
+      Message:         'use ''using'' instead of ''typedef'''
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+      FileOffset:      1883
+      Replacements:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System/system.h'
+          Offset:          1883
+          Length:          190
+          ReplacementText: "using Message_t = struct\r\n{\r\n    eProcessID_t senderProcess; ///> Sender Process ID\r\n    eTaskID_t    senderTask;    ///> Sender Task ID\r\n    uint32_t     data;          ///> Data pointer\r\n}"
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  cppcoreguidelines-avoid-non-const-global-variables
+    DiagnosticMessage:
+      Message:         'variable ''ILog'' is non-const and globally accessible, consider making it const'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System\ILog.h'
+      FileOffset:      176
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  cppcoreguidelines-avoid-non-const-global-variables
+    DiagnosticMessage:
+      Message:         'variable ''LogHandler'' is non-const and globally accessible, consider making it const'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System\ILog.h'
+      FileOffset:      1407
+      Replacements:    []
+    Level:           Warning
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+  - DiagnosticName:  clang-diagnostic-error
+    DiagnosticMessage:
+      Message:         '''freertos/FreeRTOS.h'' file not found'
+      FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System\system.h'
+      FileOffset:      834
+      Replacements:    []
+      Ranges:
+        - FilePath:        'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system\Source\System\system.h'
+          FileOffset:      834
+          Length:          21
+    Level:           Error
+    BuildDirectory:  'C:\Workspace_Personal\ESP32\Embedded_IoT_BT_WIFI_Base_Project\embedded_system'
+...

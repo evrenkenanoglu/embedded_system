@@ -14,18 +14,18 @@
 #include "demoProcess.h"
 
 using namespace std;
-const char *processTag = "Demo Process 1";
-const char *tagTask1 = "Task1";
+const char* processTag = "Demo Process 1";
+const char* tagTask1   = "Task1";
 /** TYPEDEFS ******************************************************************/
 
 /** MACROS ********************************************************************/
 #define TASK_DEMO_DELAY_INTERVAL 1000 // ms
-#define TASK_DEMO_1_QUEUE_SIZE 5
+#define TASK_DEMO_1_QUEUE_SIZE   5
 /** VARIABLES *****************************************************************/
 
 /** LOCAL FUNCTION DECLARATIONS ***********************************************/
-static void Delay(void);
-static void taskDemo1(void *pvParameters);
+static void  Delay(void);
+static void  taskDemo1(void* pvParameters);
 TaskHandle_t xHandle;
 
 /** INTERFACE FUNCTION DEFINITIONS ********************************************/
@@ -33,10 +33,8 @@ TaskHandle_t xHandle;
 uint32_t DemoProcess::start()
 {
     ESP_LOGI(processTag, " Process Started!");
-    demoParams_t *params = (demoParams_t *)this->_parameters;
-    const demoConsts_t *consts = (demoConsts_t *)this->_constants;
-
-
+    demoParams_t*       params = (demoParams_t*)this->_parameters;
+    const demoConsts_t* consts = (demoConsts_t*)this->_constants;
 
     return EXIT_SUCCESS;
 }

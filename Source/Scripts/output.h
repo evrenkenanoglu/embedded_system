@@ -1,7 +1,8 @@
-#ifndef UI_WELCOME_WIFI_CONNECT_H
-#define UI_WELCOME_WIFI_CONNECT_H
+#ifndef OUTPUT_H
+#define OUTPUT_H
 
-#define HTML_UI_WELCOME_WIFI_CONNECT_CONTENT "<!DOCTYPE HTML>\
+#define HTML_CONTENT                                                                                                                                                                                   \
+    "<!DOCTYPE HTML>\
 <html>\
   <head>\
     <title>ESP32 HTTP Server Interface</title>\
@@ -16,7 +17,7 @@
         margin: 0;\
       }\
       .center {\
-        display: flex; \
+        display: flex;\
         justify-content: center;\
         align-items: center;\
         height: 100vh;\
@@ -92,55 +93,32 @@
   <body>\
     <div class=\"center\">\
       <div class=\"form\">\
-        <div class=\"form__title\">ESP32 WELCOME WIFI CONNECT</div>\
-        <form method=\"POST\">\
-          <div class=\"form__group\">\
-            <label for=\"ssid\">SSID</label>\
-            <input type=\"text\" id=\"ssid\" name=\"ssid\" class=\"form__input\">\
-          </div>\
-          <div class=\"form__group\">\
-            <label for=\"password\">Password</label>\
-            <input type=\"password\" id=\"password\" name=\"password\" class=\"form__input\">\
-          </div>\
-          <div class=\"form__buttons\">\
-            <button type=\"submit\" class=\"form__button\">Connect</button>\
-            <button type=\"button\" class=\"form__button\" onclick=\"scan()\">Scan WiFi</button>\
-          </div>\
-        </form>\
+        <div class=\"form__title\">ESP32 HTTP Server Interface</div>\
+        <div class=\"form__group\">\
+          <label for=\"ssid\">SSID</label>\
+          <input type=\"text\" id=\"ssid\" name=\"ssid\" class=\"form__input\">\
+        </div>\
+        <div class=\"form__group\">\
+          <label for=\"password\">Password</label>\
+          <input type=\"password\" id=\"password\" name=\"password\" class=\"form__input\">\
+        </div>\
+        <div class=\"form__buttons\">\
+          <button class=\"form__button\" onclick=\"connect()\">Connect</button>\
+          <button class=\"form__button\" onclick=\"scan()\">Scan WiFi</button>\
+        </div>\
         <label for=\"output\">Output</label>\
         <textarea id=\"output\" name=\"output\" readonly class=\"form__output\"></textarea>\
       </div>\
     </div>\
     <script>\
-      function scan() {\
-        const output = document.getElementById('output');\
-        output.value = 'Scanning...';\
-        fetch('/scan')\
-        .then(response => response.json())\
-        .then(data => {\
-          output.value = data.join('\\n');\
-        })\
-        .catch(error => {\
-          output.value = 'Could not scan';\
-          console.error(error);\
-        });\
-      }\
-      const form = document.querySelector('form');\
-      form.addEventListener('submit', (event) => {\
-        event.preventDefault();\
+      function connect() {\
         const btn = document.querySelector('.form__button');\
         const output = document.getElementById('output');\
         const ssid = document.getElementById('ssid').value;\
         const password = document.getElementById('password').value;\
         btn.textContent = 'Connecting...';\
         btn.disabled = true;\
-        fetch('/connect', {\
-          method: 'post',\
-          headers: {\
-            ''\
-          },\
-          body: `ssid=${ssid}&password=${password}`\
-        })\
+        fetch(`/connect?ssid=${ssid}&password=${password}`)\
         .then(response => response.text())\
         .then(data => {\
           if (data === 'Connected') {\
@@ -162,11 +140,24 @@
             btn.textContent = 'Connect';\
             btn.disabled = false;\
           }\
-        }, 1000);\
-      });\
+        }, 10000);\
+      }\
+\
+      function scan() {\
+        const output = document.getElementById('output');\
+        output.value = 'Scanning...';\
+        fetch('/scan')\
+        .then(response => response.json())\
+        .then(data => {\
+          output.value = data.join('\n');\
+        })\
+        .catch(error => {\
+          output.value = 'Could not scan';\
+          console.error(error);\
+        });\
+      }\
     </script>\
   </body>\
-</html>\
-"
+</html>"
 
 #endif

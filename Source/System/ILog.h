@@ -6,7 +6,7 @@
 /**
  * @brief The ILog class is a platform interface for logging messages with different severity levels.
  */
-const class ILog
+class ILog
 {
 public:
     /**
@@ -55,7 +55,7 @@ public:
 /**
  * @brief The LogHandler class is a wrapper for the ILog class to log messages with different severity levels.
  */
-const class LogHandler
+class LogHandler
 {
 private:
     ILog* _logImpl = nullptr;

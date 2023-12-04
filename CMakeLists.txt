@@ -8,7 +8,7 @@ set(WORKSPACE_DIR "${PROJECT_SOURCE_DIR}/..")
 set(CMAKE_LIB_DIR "CMake")
 
 # Set embedded system directory
-set(EMBEDDED_SYSTEM_DIR ${PROJECT_SOURCE_DIR})
+set(EMBEDDED_SYSTEM_SOURCE_DIR ${PROJECT_SOURCE_DIR}/Source)
 
 # set the C++ standard to C++11
 set(CMAKE_CXX_STANDARD 11)
@@ -35,11 +35,11 @@ include(${CMAKE_LIB_DIR}/UnitTestSettings.cmake)
 # ############################################################################
 include(${CMAKE_LIB_DIR}/ClangFormat.cmake)
 # To be able to use those clang-format application must be installed
-createClangFormatCheckTarget("format_check_all" "System")
-createClangFormatApplyTarget("format_apply_all" "System")
+createClangFormatCheckTarget("format_check_all" "Source")
+createClangFormatApplyTarget("format_apply_all" "Source")
 
 # ############################################################################
 # CREATING CLANG-TIDY TARGETS
 # ############################################################################
 include(${CMAKE_LIB_DIR}/ClangTidy.cmake)
-createClangTidyCheckTarget("tidy_check_all" "System")
+createClangTidyCheckTarget("tidy_check_all" "Source/System")

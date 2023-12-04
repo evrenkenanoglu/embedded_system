@@ -1,11 +1,11 @@
 /** @file       process.c
- *  @brief      Process 
+ *  @brief      Process
  *  @copyright  (c) 2021- Evren Kenanoglu - All Rights Reserved
  *              Permission to use, reproduce, copy, prepare derivative works,
  *              modify, distribute, perform, display or sell this software and/or
  *              its documentation for any purpose is prohibited without the express
  *              written consent of Evren Kenanoglu.
- *  @author     Deniz Fer; Evren Kenanoglu; 
+ *  @author     Deniz Fer; Evren Kenanoglu;
  *  @date       07/08/2021
  */
 #define FILE_PROCESS_C
@@ -84,7 +84,6 @@ uint32_t processResume(Process* process)
         return EXIT_FAILURE;
     }
 }
-
 
 uint32_t processTerminate(Process* process)
 {

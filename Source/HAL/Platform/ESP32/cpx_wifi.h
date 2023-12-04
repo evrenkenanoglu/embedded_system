@@ -17,10 +17,10 @@
 class cpx_wifi : public IHAL_CPX
 {
 private:
-    std::string _ssid;
-    std::string _password;
-    LogHandler& _logHandler;
-    wifi_mode_t _wifiMode;
+    std::string   _ssid;
+    std::string   _password;
+    LogHandler&   _logHandler;
+    wifi_mode_t   _wifiMode;
     wifi_config_t _wifiConfig;
 
 public:

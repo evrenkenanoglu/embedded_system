@@ -43,7 +43,6 @@
 #include <thread>
 
 //** Process Architecture Includes **//
-#include "porting.h"
 // #include "process.h"
 
 ///** uController Includes **///
