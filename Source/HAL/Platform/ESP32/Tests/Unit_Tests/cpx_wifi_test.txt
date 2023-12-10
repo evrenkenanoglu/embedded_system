@@ -1,0 +1,100 @@
+#include "gtest/gtest.h"
+// #include "gmock/gmock.h"
+
+#include "HAL/Platform/ESP32/cpx_wifi.h"
+#include "esp_wifi_types.h"
+
+// Mock class for LogHandler
+class LogHandlerMock : public LogHandler {
+public:
+  MOCK_METHOD(void, log, (ILog::LogLevel level, const std::string& message), (override));
+};
+
+// Test suite for cpx_wifi::start()
+class CpxWifiStartTest : public ::testing::Test {
+protected:
+  void SetUp() override {
+    // Initialize LogHandler mock
+    log_handler_mock_ = new LogHandlerMock();
+
+    // Initialize cpx_wifi instance
+    wifi_ = new cpx_wifi(nullptr, *log_handler_mock_);
+  }
+
+  void TearDown() override {
+    // Clean up
+    delete wifi_;
+    delete log_handler_mock_;
+  }
+
+  // Pointer to cpx_wifi instance
+  cpx_wifi* wifi_;
+
+  // Pointer to LogHandler mock instance
+  LogHandlerMock* log_handler_mock_;
+};
+
+// Test case for starting Wi-Fi in soft-AP mode
+TEST_F(CpxWifiStartTest, StartSoftAP) {
+  // Configure cpx_wifi for soft-AP mode
+  wifi_->setWifiMode(WIFI_MODE_AP);
+  wifi_->setWifiConfig("test_ssid", "test_password");
+
+  // Set up expectations for LogHandler mock
+  EXPECT_CALL(*log_handler_mock_, log(ILog::LogLevel::WARNING, ::testing::_))
+    .WillOnce(::testing::Return());
+
+  // Call start() function
+  sys_error_t result = wifi_->start();
+
+  // Check that the function returns success
+  EXPECT_EQ(result, ERROR_SUCCESS);
+}
+
+// Test case for starting Wi-Fi in station mode (not implemented)
+TEST_F(CpxWifiStartTest, StartStation) {
+  // Configure cpx_wifi for station mode
+  wifi_->setWifiMode(WIFI_MODE_STA);
+
+  // Set up expectations for LogHandler mock
+  EXPECT_CALL(*log_handler_mock_, log(ILog::LogLevel::WARNING, ::testing::_))
+    .WillOnce(::testing::Return());
+
+  // Call start() function
+  sys_error_t result = wifi_->start();
+
+  // Check that the function returns not implemented error
+  EXPECT_EQ(result, ERROR_NOT_IMPLEMENTED);
+}
+
+// Test case for starting Wi-Fi in station + soft-AP mode (not implemented)
+TEST_F(CpxWifiStartTest, StartStationSoftAP) {
+  // Configure cpx_wifi for station + soft-AP mode
+  wifi_->setWifiMode(WIFI_MODE_APSTA);
+
+  // Set up expectations for LogHandler mock
+  EXPECT_CALL(*log_handler_mock_, log(ILog::LogLevel::WARNING, ::testing::_))
+    .WillOnce(::testing::Return());
+
+  // Call start() function
+  sys_error_t result = wifi_->start();
+
+  // Check that the function returns not implemented error
+  EXPECT_EQ(result, ERROR_NOT_IMPLEMENTED);
+}
+
+// Test case for starting Wi-Fi with invalid configuration
+TEST_F(CpxWifiStartTest, InvalidConfig) {
+  // Configure cpx_wifi with invalid mode
+  wifi_->setWifiMode((wifi_mode_t)99);
+
+  // Set up expectations for LogHandler mock
+  EXPECT_CALL(*log_handler_mock_, log(ILog::LogLevel::ERROR, ::testing::_))
+    .WillOnce(::testing::Return());
+
+  // Call start() function
+  sys_error_t result = wifi_->start();
+
+  // Check that the function returns invalid configuration error
+  EXPECT_EQ(result, ERROR_INVALID_CONFIG);
+}

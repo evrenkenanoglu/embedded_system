@@ -31,6 +31,11 @@ include(${CMAKE_LIB_DIR}/EmbeddedSystemLibrarySettings.cmake)
 include(${CMAKE_LIB_DIR}/UnitTestSettings.cmake)
 
 # ############################################################################
+# UNIT TESTS SETTINGS PLATFORM ESP32
+# ############################################################################
+include(${CMAKE_LIB_DIR}/TestSettingsESP32.cmake)
+
+# ############################################################################
 # CREATING CLANG-FORMAT TARGETS
 # ############################################################################
 include(${CMAKE_LIB_DIR}/ClangFormat.cmake)

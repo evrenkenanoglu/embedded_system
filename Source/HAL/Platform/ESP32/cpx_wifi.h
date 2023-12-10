@@ -10,7 +10,7 @@
 
 #include "HAL/IHal.h"
 #include "System/ILog.h"
-#include "System/system.h"
+#include "error_definitions.h"
 #include "esp_wifi_types.h"
 #include <string>
 

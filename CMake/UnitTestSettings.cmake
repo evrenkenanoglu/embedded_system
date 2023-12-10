@@ -1,10 +1,18 @@
-############################################################################# 
+# ############################################################################
 # UNIT TESTS SETTINGS
-#############################################################################
+# ############################################################################
 
 # add the unit test executable
-file(GLOB_RECURSE UNIT_TEST_FILES   ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Test/*.cpp
-                                    ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Test/Support/*.cpp  )
+file(GLOB_RECURSE UNIT_TEST_FILES   ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Tests/*.c*
+                                    ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Tests/*.h*
+)
+
+message(STATUS "UNIT TEST FILES -> ")
+
+foreach(file ${UNIT_TEST_FILES})
+    message(STATUS ${file})
+endforeach()
+
 add_executable(unit_tests ${UNIT_TEST_FILES})
 
 # link the test executable with the GoogleTest library and your project library

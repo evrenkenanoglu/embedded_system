@@ -22,16 +22,16 @@
 #include "error_definitions.h"
 
 ///** FreeRTOS Includes **///
-#include "freertos/FreeRTOS.h"
-#include "freertos/list.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "freertos/task.h"
-#include "freertos/timers.h"
+// #include "freertos/FreeRTOS.h"
+// #include "freertos/list.h"
+// #include "freertos/queue.h"
+// #include "freertos/semphr.h"
+// #include "freertos/task.h"
+// #include "freertos/timers.h"
 
 ///** POSIX Includes **///
-#include "esp_pthread.h"
-#include <pthread.h>
+// #include "esp_pthread.h"
+// #include <pthread.h>
 
 ///** CPP Standard Includes **//
 #include <chrono>
@@ -46,7 +46,7 @@
 // #include "process.h"
 
 ///** uController Includes **///
-#include "esp_log.h"
+// #include "esp_log.h"
 
 /** CONSTANTS *****************************************************************/
 #define EXIT_SUCCESS 0
