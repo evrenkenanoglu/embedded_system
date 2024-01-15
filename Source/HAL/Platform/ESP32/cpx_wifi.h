@@ -10,7 +10,7 @@
 
 #include "HAL/IHal.h"
 #include "System/ILog.h"
-#include "error_definitions.h"
+#include "System/error_definitions.h"
 #include "esp_wifi_types.h"
 #include <string>
 
@@ -22,6 +22,10 @@ private:
     LogHandler&   _logHandler;
     wifi_mode_t   _wifiMode;
     wifi_config_t _wifiConfig;
+
+private:
+    sys_error_t wifiInit();
+    sys_error_t wifiStart();
 
 public:
     cpx_wifi(void* config, LogHandler& logHandler);
