@@ -21,13 +21,13 @@
 ///** Errors Includes **///
 #include "error_definitions.h"
 
-///** FreeRTOS Includes **///
-// #include "freertos/FreeRTOS.h"
-// #include "freertos/list.h"
-// #include "freertos/queue.h"
-// #include "freertos/semphr.h"
-// #include "freertos/task.h"
-// #include "freertos/timers.h"
+/** FreeRTOS Includes **///
+#include "freertos/FreeRTOS.h"
+#include "freertos/list.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
 
 ///** POSIX Includes **///
 // #include "esp_pthread.h"
