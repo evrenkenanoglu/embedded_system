@@ -146,13 +146,13 @@ cpx_set_definition= ""
 stop_definition= ""
 
 if hal_type == "IO":
-    ihal_header_file    = "IHal_io.h"
+    ihal_header_file    = "IHal.h"
     ihal_classname      = "IHAL_IO"
     get_definition      = "void "           + classname  + "::get(void* data) override;\n"
     set_definition      = "sys_error_t "    + classname  + "::set(void* data) override;\n"
 
 elif hal_type == "COM":
-    ihal_header_file        = "IHal_com.h"
+    ihal_header_file        = "IHal.h"
     ihal_classname          = "IHAL_COM"
     connect_definition      = "sys_error_t "    + classname + "::connect() override;\n"
     disconnect_definition   = "void "           + classname + "::disconnect() override;\n"
@@ -160,7 +160,7 @@ elif hal_type == "COM":
     receiveData_definition  = "sys_error_t "    + classname + "::receiveData(uint8_t* data, size_t maxLength, size_t& receivedLength) override;\n"
 
 elif hal_type == "MEM":
-    ihal_header_file        = "IHal_mem.h"
+    ihal_header_file        = "IHal.h"
     ihal_classname          = "IHAL_MEM"
     initialize_definition   = "bool "   + classname + "::initialize() override;\n"
     readData_definition     = "bool "   + classname + "::readData(uint32_t address, uint8_t* data, size_t length) override;\n"
@@ -169,7 +169,7 @@ elif hal_type == "MEM":
     getSize_definition      = "size_t " + classname + "::getSize() override;\n"
 
 elif hal_type == "CPX":
-    ihal_header_file    = "IHal_cpx.h"
+    ihal_header_file    = "IHal.h"
     ihal_classname      = "IHAL_CPX"
     start_definition    = "sys_error_t "    + classname + "::start() override;\n"
     cpx_get_definition  = "void* "          + classname + "::get() override;\n"
@@ -181,7 +181,7 @@ elif hal_type == "PROC":
     iprocess_classname          = "IProcess"
     iprocess_start_definition   = "sys_error_t "    + classname + "::start() override;\n"
     iprocess_stop_definition    = "sys_error_t "    + classname + "::stop() override;\n"
-    iprocess_pause_definition   = "sys_error_t "    + classname + "::pause(void* data) override;\n"
+    iprocess_pause_definition   = "sys_error_t "    + classname + "::pause() override;\n"
     iprocess_resume_definition  = "sys_error_t "    + classname + "::resume() override;\n"
 
 else:
