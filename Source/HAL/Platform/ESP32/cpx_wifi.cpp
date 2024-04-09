@@ -13,6 +13,7 @@
 #include "esp_wifi.h"
 #include <iostream>
 #include <sstream>
+#include <string>
 
 #include "HAL/Platform/ESP32/Library/logImpl.h"
 #include "Library/Common/helperConversions.h"
@@ -20,7 +21,6 @@
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
-// @todo change the HAL type to CPX, it doesn't fit to com device description.
 cpx_wifi::cpx_wifi(void* config, LogHandler& logHandler) : _logHandler(logHandler), _wifiMode(WIFI_MODE_NULL) {}
 
 cpx_wifi::~cpx_wifi()
@@ -92,7 +92,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT STA Initializing...!" << std::endl << "SSID: " << _wifiConfig.sta.ssid << std::endl << "PASSWORD: " << _wifiConfig.sta.password << std::endl;
-            _logHandler.log(ILog::LogLevel::WARNING, ss.str());
+            _logHandler.log(ILog::LogLevel::INFO, ss.str());
             esp_netif_create_default_wifi_sta();
         }
         break;
@@ -101,7 +101,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT AP Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
-            _logHandler.log(ILog::LogLevel::WARNING, ss.str());
+            _logHandler.log(ILog::LogLevel::INFO, ss.str());
             esp_netif_create_default_wifi_ap();
         }
         break;
@@ -133,12 +133,14 @@ sys_error_t cpx_wifi::wifiStart()
     if (_wifiMode == WIFI_MODE_STA)
     {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &_wifiConfig));
+        ESP_ERROR_CHECK(esp_wifi_start());
+        ESP_ERROR_CHECK(esp_wifi_connect());
     }
     else // if (_wifiMode == WIFI_MODE_AP)
     {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &_wifiConfig));
+        ESP_ERROR_CHECK(esp_wifi_start());
     }
-    ESP_ERROR_CHECK(esp_wifi_start());
     return ERROR_SUCCESS;
 }
 
@@ -249,4 +251,38 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
     // }
 }
 
-static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {}
+static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+{
+
+    switch (event_id)
+    {
+        case IP_EVENT_STA_GOT_IP: /*!< station got IP from connected AP */
+        {
+            ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
+
+            std::cout << "IP_EVENT_STA_GOT_IP: " << std::endl;
+
+            char ipString[20];
+            sprintf(ipString, IPSTR, IP2STR(&event->ip_info.ip));
+            std::stringstream ss;
+            ss << "IP: " << std::string(ipString);
+            std::cout << ss.str() << std::endl;
+        }
+        break;
+
+        case IP_EVENT_STA_LOST_IP: /*!< station lost IP and the IP is reset to 0 */
+        {
+            std::cout << "IP_EVENT_STA_LOST_IP: " << std::endl;
+        }
+        break;
+
+        case IP_EVENT_AP_STAIPASSIGNED: /*!< soft-AP assign an IP to a connected station */
+        {
+            std::cout << "IP_EVENT_AP_STAIPASSIGNED: " << std::endl;
+        }
+        break;
+
+        default:
+            break;
+    }
+}
