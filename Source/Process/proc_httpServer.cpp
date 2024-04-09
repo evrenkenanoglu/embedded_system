@@ -9,6 +9,7 @@
 #include "Library/UI/HTTP/ui_welcome_wifi_connect.h"
 // #include "Library/UI/HTTP/output_test1.h"
 #include "protocol_examples_utils.h"
+#include <esp_log.h>
 #include <sstream>
 #include <stdlib.h>
 
