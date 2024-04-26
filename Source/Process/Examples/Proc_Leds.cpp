@@ -18,15 +18,29 @@ constexpr uint16_t led_blink_toggle_rate = led_task_delay * 2;        // ms
 constexpr uint16_t led_blink_once_rate   = led_blink_toggle_rate * 2; // ms
 constexpr uint16_t led_blick_twice_rate  = led_blink_once_rate * 2;   // ms
 constexpr uint16_t led_blick_thrice_rate = led_blink_once_rate * 3;   // ms
-
-const uint32_t stackSize    = 10000;
-const uint8_t  taskPriority = 10;
 } // namespace
 
-static void LedsTask(void* arg);
+/**
+ * @brief Task to handle the LEDs states
+ * @param arg - vector of LED data
+ */
+static void procLedsTask(void* arg);
+/**
+ * @brief Toggle the LED
+ *
+ * @param led - LED data struct
+ */
 static void toggle(Proc_Leds::ledData* led);
 
-Proc_Leds::Proc_Leds(std::vector<ledData*>& leds) : _leds(leds)
+/**
+ * @brief Handle the LED blink state
+ *
+ * @param led - LED data struct
+ * @param timeoutRate - the timeout rate for the LED
+ */
+static void handleBlink(Proc_Leds::ledData* led, uint32_t timeoutRate);
+
+Proc_Leds::Proc_Leds(std::vector<ledData*>& leds, uint32_t stackSize, uint8_t taskPriority) : _leds(leds), _stackSize(stackSize), _taskPriority(taskPriority)
 {
     // constructor implementation
 }
@@ -41,13 +55,18 @@ sys_error_t Proc_Leds::start()
     // start the LED task
 
     // Create the Button Listener
-    xTaskCreate(LedsTask,                   // Task function
-                "Leds_Task",                // Task name
-                stackSize,                  // Stack size
-                static_cast<void*>(&_leds), // Task parameter
-                taskPriority,               // Task priority
-                &_taskHandle);              // Task handle
+    BaseType_t result = xTaskCreate(procLedsTask,               // Task function
+                                    "Leds_Task",                // Task name
+                                    _stackSize,                 // Stack size
+                                    static_cast<void*>(&_leds), // Task parameter
+                                    _taskPriority,              // Task priority
+                                    &_taskHandle);              // Task handle
 
+    if (result != pdPASS)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Proc_Leds: Failed to create task!");
+        return ERROR_FAIL;
+    }
     return ERROR_SUCCESS;
 }
 
@@ -72,7 +91,7 @@ sys_error_t Proc_Leds::resume()
 
 sys_error_t Proc_Leds::setLedState(ledData& led, ledStateMachine state)
 {
-    // set the LED state
+    // loop through the LEDs and find the corresponding LED to update its state
     for (ledData* _led : _leds)
     {
         if (_led == &led)
@@ -93,17 +112,33 @@ static void toggle(Proc_Leds::ledData* led)
     led->gpio.set((void*)&(led->onOff));
 }
 
-static void handleBlink(Proc_Leds::ledData* led, uint32_t rate)
+static void handleBlink(Proc_Leds::ledData* led, uint32_t timeoutRate)
 {
     led->counter += led_task_delay;
-    if (led->counter >= rate)
+    if (led->counter >= timeoutRate) // reset the counter and toggle the LED
     {
         led->counter = 0;
         toggle(led);
     }
 }
 
-void LedsTask(void* arg)
+static void handleBlinkTimesX(Proc_Leds::ledData* led, uint32_t timeoutRate)
+{
+    led->counter += led_task_delay;
+
+    if (led->counter % led_blink_toggle_rate == 0) // toggle the LED
+    {
+        toggle(led);
+    }
+
+    if (led->counter >= timeoutRate) // reset the LED state
+    {
+        led->counter = 0;
+        led->state   = LED_OFF;
+    }
+}
+
+void procLedsTask(void* arg)
 {
     // get the LED data
     std::vector<Proc_Leds::ledData*> leds = *static_cast<std::vector<Proc_Leds::ledData*>*>(arg);
@@ -143,65 +178,16 @@ void LedsTask(void* arg)
                     break;
 
                 case LED_BLINK_ONCE:
-                {
-                    led->counter += led_task_delay;
-                    printf("Led State: %d\n", led->state);
-                    printf("Led Counter: %d\n", (int)led->counter);
-
-                    if (led->counter % led_blink_toggle_rate == 0)
-                    {
-                        printf("Toggling\n");
-                        toggle(led);
-                    }
-
-                    if (led->counter >= led_blink_once_rate)
-                    {
-                        led->counter = 0;
-                        led->state   = LED_OFF;
-                    }
-                }
-                break;
+                    handleBlinkTimesX(led, led_blink_once_rate);
+                    break;
 
                 case LED_BLINK_TWICE:
-                {
-                    led->counter += led_task_delay;
-                    printf("Led State: %d\n", led->state);
-                    printf("Led Counter: %d\n", (int)led->counter);
-
-                    if (led->counter % led_blink_toggle_rate == 0)
-                    {
-                        printf("Toggling\n");
-                        toggle(led);
-                    }
-
-                    if (led->counter >= led_blick_twice_rate)
-                    {
-                        led->counter = 0;
-                        led->state   = LED_OFF;
-                    }
-                }
-                break;
+                    handleBlinkTimesX(led, led_blick_twice_rate);
+                    break;
 
                 case LED_BLINK_THRICE:
-                {
-                    led->counter += led_task_delay;
-                    printf("Led State: %d\n", led->state);
-                    printf("Led Counter: %d\n", (int)led->counter);
-
-                    if (led->counter % led_blink_toggle_rate == 0)
-                    {
-
-                        printf("Toggling\n");
-                        toggle(led);
-                    }
-
-                    if (led->counter >= led_blick_thrice_rate)
-                    {
-                        led->counter = 0;
-                        led->state   = LED_OFF;
-                    }
+                    handleBlinkTimesX(led, led_blick_thrice_rate);
                     break;
-                }
                 default:
                     break;
             }
