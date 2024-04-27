@@ -27,11 +27,25 @@ public:
 
 private:
     std::vector<buttonData*>& _buttons;
+    uint32_t                  _stackSize;
+    uint8_t                   _taskPriority;
 
+    /**
+     * @brief Button Data Clear
+     * 
+     * @param button button data struct to clear
+     */
     void buttonDataClear(buttonData* button);
 
 public:
-    Proc_Button(std::vector<buttonData*>& button);
+    /**
+     * @brief Construct a new Proc_Button object
+     *
+     * @param button - vector of button data
+     * @param stackSize - stack size (default 2048) of each button task
+     * @param taskPriority - task priority (default 10)
+     */
+    Proc_Button(std::vector<buttonData*>& button, uint32_t stackSize = 2048, uint8_t taskPriority = 10);
     ~Proc_Button();
 
     sys_error_t start() override;

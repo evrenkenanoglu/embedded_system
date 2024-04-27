@@ -21,7 +21,7 @@
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
-cpx_wifi::cpx_wifi(void* config, LogHandler& logHandler) : _logHandler(logHandler), _wifiMode(WIFI_MODE_NULL) {}
+cpx_wifi::cpx_wifi(void* config) : _wifiMode(WIFI_MODE_NULL) {}
 
 cpx_wifi::~cpx_wifi()
 {
@@ -39,7 +39,7 @@ sys_error_t cpx_wifi::start()
             ESP_ERROR_CHECK(wifiStart());
             std::stringstream ss;
             ss << "WiFi Started!" << std::endl;
-            _logHandler.log(ILog::LogLevel::WARNING, ss.str());
+            logger().log(ILog::LogLevel::WARNING, ss.str());
             return ERROR_SUCCESS;
         }
         break;
@@ -51,7 +51,7 @@ sys_error_t cpx_wifi::start()
         break;
 
         default:
-            _logHandler.log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
+            logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
             return ERROR_INVALID_CONFIG;
             break;
     }
@@ -92,7 +92,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT STA Initializing...!" << std::endl << "SSID: " << _wifiConfig.sta.ssid << std::endl << "PASSWORD: " << _wifiConfig.sta.password << std::endl;
-            _logHandler.log(ILog::LogLevel::INFO, ss.str());
+            logger().log(ILog::LogLevel::INFO, ss.str());
             esp_netif_create_default_wifi_sta();
         }
         break;
@@ -101,13 +101,13 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT AP Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
-            _logHandler.log(ILog::LogLevel::INFO, ss.str());
+            logger().log(ILog::LogLevel::INFO, ss.str());
             esp_netif_create_default_wifi_ap();
         }
         break;
 
         default:
-            _logHandler.log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
+            logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
             return ERROR_INVALID_CONFIG;
             break;
     }

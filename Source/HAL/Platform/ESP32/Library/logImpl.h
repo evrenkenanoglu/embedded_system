@@ -11,15 +11,19 @@ private:
     const char* _tag;
 
 public:
-    logImpl(const char* tag) : _tag(tag)
-    {
-        ESP_LOGI(_tag, "ESP logger wrapper implementation is initialized");
-    }
+    // Delete copy constructor and assignment operator
+    logImpl(const logImpl&)            = delete;
+    logImpl& operator=(const logImpl&) = delete;
+
     ~logImpl()
     {
         ESP_LOGI(_tag, "ESP logger wrapper implementation is deinitialized");
     };
 
+    logImpl(const char* tag) : _tag(tag)
+    {
+        ESP_LOGI(_tag, "ESP logger wrapper implementation is initialized");
+    }
     /**
      * @brief Logs an informational message to the console.
      *
@@ -55,5 +59,13 @@ public:
         ESP_LOGE(_tag, "LOG-TO-FILE Feature Not Implemented");
     }
 };
+
+// Public method to get the Singleton instance
+static LogHandler& logger()
+{
+    static logImpl    logEsp("APP");
+    static LogHandler handler(&logEsp);
+    return handler;
+}
 
 #endif // LOGIMPL_H

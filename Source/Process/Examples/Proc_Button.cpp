@@ -10,8 +10,6 @@
 
 namespace
 {
-const uint32_t stackSize    = 2048;
-const uint8_t  taskPriority = 10;
 } // namespace
 
 /**
@@ -31,13 +29,13 @@ const uint8_t  taskPriority = 10;
 static void buttonListener(void* arg);
 
 /**
- * @brief Clear the queue
+ * @brief Clear the queue for unwanted events
  *
  * @param xQueue
  */
 static void clearQueue(QueueHandle_t xQueue);
 
-Proc_Button::Proc_Button(std::vector<buttonData*>& buttons) : _buttons(buttons)
+Proc_Button::Proc_Button(std::vector<buttonData*>& buttons, uint32_t stackSize, uint8_t taskPriority) : _buttons(buttons), _stackSize(stackSize), _taskPriority(taskPriority)
 {
     // constructor implementation
 }
@@ -55,9 +53,9 @@ sys_error_t Proc_Button::start()
         // Create the Button Listener
         xTaskCreate(buttonListener,             // Task function
                     "button_listener_task",     // Task name
-                    stackSize,                  // Stack size
+                    _stackSize,                 // Stack size
                     static_cast<void*>(button), // Task parameter
-                    taskPriority,               // Task priority
+                    _taskPriority,              // Task priority
                     &(button->taskHandle));     // Task handle
     }
     return ERROR_SUCCESS;
@@ -157,7 +155,7 @@ void Proc_Button::buttonDataClear(buttonData* button)
 {
     button->changeTime   = xTaskGetTickCount();
     button->currentState = GPIO_LOW;
-    button->prevState    = GPIO_LOW;
+    button->prevState    = GPIO_HIGH;
     // Clear the queue for unwanted events
     clearQueue(button->gpio.getEventQueue());
 }

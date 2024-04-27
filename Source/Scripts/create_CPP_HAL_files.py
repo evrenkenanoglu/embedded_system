@@ -97,7 +97,8 @@ filename = input("Enter the file name: ")
 hal_type = input("Enter the System Type (IO, COM, MEM, CPX, PROC): ").upper()
 
 if  hal_type != "":
-    filename = hal_type.lower() + "_" + filename
+    hal_type.lower()
+    filename = hal_type.capitalize() + "_" + filename.capitalize()
 
 # Get the class name from the user
 classname = filename

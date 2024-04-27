@@ -9,7 +9,6 @@
 #define CPX_WIFI_HPP
 
 #include "HAL/IHal.h"
-#include "System/ILog.h"
 #include "System/error_definitions.h"
 #include "esp_wifi_types.h"
 #include <string>
@@ -19,7 +18,6 @@ class cpx_wifi : public IHAL_CPX
 private:
     std::string   _ssid;
     std::string   _password;
-    LogHandler&   _logHandler;
     wifi_mode_t   _wifiMode;
     wifi_config_t _wifiConfig;
 
@@ -28,7 +26,7 @@ private:
     sys_error_t wifiStart();
 
 public:
-    cpx_wifi(void* config, LogHandler& logHandler);
+    cpx_wifi(void* config);
     ~cpx_wifi();
 
     sys_error_t start() override;

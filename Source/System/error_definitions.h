@@ -46,7 +46,7 @@ typedef enum
 {
     // General error codes
     ERROR_SUCCESS         = 0,  // Succesful
-    ERROR_UNKNOWN         = -1, // Unknown or unspecified error
+    ERROR_FAIL            = -1, // Generic failure
     ERROR_INVALID_ARG     = -2, // Invalid argument passed to a function
     ERROR_TIMEOUT         = -3, // Operation timed out
     ERROR_MEMORY          = -4, // Memory allocation or deallocation failure
@@ -54,6 +54,7 @@ typedef enum
     ERROR_NOT_SUPPORTED   = -6, // The operation or feature is not supported
     ERROR_NOT_IMPLEMENTED = -7, // Not implemented yet
     ERROR_INVALID_CONFIG  = -8, // Invalid configuration of the module
+    ERROR_UNKNOWN         = -9, // Unknown or unspecified error
 
     // Error codes related to hardware and peripherals
     ERROR_INIT_FAILED  = -100, // Hardware initialization failure

@@ -101,7 +101,7 @@ sys_error_t io_gpio::set(void* data)
     if (_config->mode == GPIO_MODE_INPUT)
         ESP_LOGW(TAG, "Gpio is an input type! Level can not be set!");
 
-    gpio_set_level(_gpioNumber, *(uint32_t*)data);
+    gpio_set_level(_gpioNumber, *(uint8_t*)data);
 
     return ERROR_SUCCESS;
 }
