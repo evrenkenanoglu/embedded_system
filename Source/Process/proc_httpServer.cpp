@@ -12,6 +12,7 @@
 #include <esp_log.h>
 #include <sstream>
 #include <stdlib.h>
+#include "cJSON.h"
 
 static const char* TAG = "example";
 #define MIN(x, y)                      ((x) < (y) ? (x) : (y))
@@ -36,6 +37,8 @@ proc_httpServer::proc_httpServer()
 {
     _server                  = NULL;
     _config                  = HTTPD_DEFAULT_CONFIG();
+    _config.max_uri_handlers = 64;  // Adjust as needed
+    _config.max_resp_headers = 256; // Adjust as needed
     _config.lru_purge_enable = true;
     setState(IProcess::State::INITIALIZED);
 }
@@ -181,38 +184,54 @@ static esp_err_t welcome_get_handler(httpd_req_t* req)
 /* An HTTP POST handler */
 static esp_err_t connect_post_handler(httpd_req_t* req)
 {
-    char ssid[32], password[32];
-
-    ESP_LOGI(TAG, "POST HANDLER TRIGGERED");
     char content[256];
-    int  ret, remaining = req->content_len;
-    while (remaining > 0)
-    {
-        if ((ret = httpd_req_recv(req, content, MIN(remaining, sizeof(content)))) <= 0)
-        {
-            if (ret == HTTPD_SOCK_ERR_TIMEOUT)
-            {
-                httpd_resp_send_408(req);
-            }
-            return ESP_FAIL;
-        }
-        remaining -= ret;
-    }
-    content[req->content_len] = '\0'; // null-terminate the received data
 
-    if (httpd_query_key_value(content, "ssid", ssid, sizeof(ssid)) == ESP_OK && httpd_query_key_value(content, "password", password, sizeof(password)) == ESP_OK)
-    {
-        // Do something with the received data, e.g. connect to the specified WiFi network
-        ESP_LOGI(TAG, "Received SSID: %s, password: %s", ssid, password);
-        // ...
-        httpd_resp_send(req, "Connected", HTTPD_RESP_USE_STRLEN);
-        return ESP_OK;
-    }
-    else
-    {
-        httpd_resp_send_500(req);
+    // Read the content of the POST request
+    int ret = httpd_req_recv(req, content, sizeof(content));
+
+    if (ret <= 0) {  // 0 return value indicates connection closed
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+            httpd_resp_send_408(req);
+        }
         return ESP_FAIL;
     }
+
+    // Null terminate the content string
+    content[ret] = '\0';
+
+    // Parse the JSON data
+    cJSON *json = cJSON_Parse(content);
+    if (json == NULL) {
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            ESP_LOGE(TAG, "Error before: %s", error_ptr);
+        }
+        return ESP_FAIL;
+    }
+
+    // Get the SSID and password from the JSON data
+    cJSON *json_ssid = cJSON_GetObjectItemCaseSensitive(json, "ssid");
+    cJSON *json_password = cJSON_GetObjectItemCaseSensitive(json, "password");
+
+    if (cJSON_IsString(json_ssid) && (json_ssid->valuestring != NULL) &&
+        cJSON_IsString(json_password) && (json_password->valuestring != NULL)) {
+        ESP_LOGI(TAG, "SSID: %s", json_ssid->valuestring);
+        ESP_LOGI(TAG, "Password: %s", json_password->valuestring);
+    }
+
+    cJSON_Delete(json);
+
+    // Send back the SSID and password
+    cJSON *response = cJSON_CreateObject();
+    cJSON_AddStringToObject(response, "ssid", json_ssid->valuestring);
+    cJSON_AddStringToObject(response, "password", json_password->valuestring);
+
+    char *response_str = cJSON_PrintUnformatted(response);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, response_str, strlen(response_str));
+
+    cJSON_Delete(response);
+    free(response_str);
 
     return ESP_OK;
 }
@@ -224,36 +243,6 @@ static esp_err_t connect_post_handler(httpd_req_t* req)
 // ESP_LOGI(TAG, "Password : %s", password);
 // ESP_LOGI(TAG, "====================================");
 
-// ESP_LOGI(TAG, "=========== RECEIVED DATA ENTER ==========");
-
-// char buf[100];
-// int  ret, remaining = req->content_len;
-
-// while (remaining > 0)
-// {
-//     /* Read the data for the request */
-//     if ((ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)))) <= 0)
-//     {
-//         if (ret == HTTPD_SOCK_ERR_TIMEOUT)
-//         {
-//             /* Retry receiving if timeout occurred */
-//             continue;
-//         }
-//         return ESP_FAIL;
-//     }
-
-//     /* Send back the same data */
-//     httpd_resp_send_chunk(req, buf, ret);
-//     remaining -= ret;
-
-//     /* Log data received */
-//     ESP_LOGI(TAG, "=========== RECEIVED DATA ==========");
-//     ESP_LOGI(TAG, "%.*s", ret, buf);
-//     ESP_LOGI(TAG, "====================================");
-// }
-
-// // End response
-// httpd_resp_send_chunk(req, NULL, 0);
 
 /* This handler allows the custom error handling functionality to be
  * tested from client side. For that, when a PUT request 0 is sent to
