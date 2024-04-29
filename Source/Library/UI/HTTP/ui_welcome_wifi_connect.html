@@ -59,7 +59,11 @@
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* Add shadow when input is focused */
           background-color: #e6e6e6; /* Change background color when input is focused */
         }
-      
+
+        .form__buttons {
+          justify-content: space-between;
+        }
+        
         .form__button {
           background-color: #0077b6;
           border: none;
@@ -69,8 +73,9 @@
           font-size: 16px;
           padding: 10px 10px;
           transition: background-color 0.3s;
-          width: 40%;
+          width: 100%;
           margin-bottom: 20px;
+          margin-right: 0;
           box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
           height: 50px;
         }
@@ -85,25 +90,13 @@
           font-weight: bold;
         }
       
-      .form__group label {
-        color: #525557; /* Change label text color */
-        font-weight: bold; /* Make label text bold */;
-      }
-      
-       
-        @media screen and (min-width: 600px) {
-          .form__buttons {
-            display: flex;
-            justify-content: space-between;
-          }
-          .form__button {
-            width: 100%;
-            margin-right: 10%;
-          }
-          .form__button:last-child {
-            margin-right: 0;
-          }
+        .form__group label {
+          color: #525557; /* Change label text color */
+          font-weight: bold; /* Make label text bold */;
         }
+      
+
+
 </style>
   </head>
   <body>
