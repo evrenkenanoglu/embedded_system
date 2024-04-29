@@ -10,85 +10,104 @@
     <link href=\"https://fonts.googleapis.com/css?family=Open+Sans\"\
       rel=\"stylesheet\">\
     <style>\
-      body {\
-        font-family: 'Open Sans', sans-serif;\
-        background-color: #f2f2f2;\
-        color: #333;\
-        margin: 0;\
-      }\
-      .center {\
-        display: flex; \
-        justify-content: center;\
-        align-items: center;\
-        height: 100vh;\
-      }\
-      .form {\
-        background-color: #fff;\
-        border-radius: 5px;\
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);\
-        padding: 20px;\
-        width: 100%;\
-        max-width: 500px;\
-      }\
-      .form__title {\
-        font-size: 24px;\
-        font-weight: bold;\
-        margin-bottom: 20px;\
-        text-align: center;\
-      }\
-      .form__input {\
-        border: none;\
-        border-radius: 5px;\
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);\
-        font-size: 16px;\
-        margin-bottom: 10px;\
-        padding: 10px;\
-        width: 100%;\
-        background-color: #f2f2f2;\
-        color: #333;\
-      }\
-      .form__button {\
-        background-color: #00a8ff;\
-        border: none;\
-        border-radius: 5px;\
-        color: #fff;\
-        cursor: pointer;\
-        font-size: 16px;\
-        padding: 10px;\
-        transition: background-color 0.3s;\
-        width: 100%;\
-        margin-bottom: 10px;\
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);\
-      }\
-      .form__button:hover {\
-        background-color: #0077b6;\
-      }\
-      .form__output {\
-        border: none;\
-        border-radius: 5px;\
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);\
-        font-size: 16px;\
-        margin-top: 20px;\
-        padding: 10px;\
-        resize: none;\
-        width: 100%;\
-        height: 200px;\
-        background-color: #f2f2f2;\
-        color: #333;\
-      }\
-      @media screen and (min-width: 600px) {\
-        .form__buttons {\
-          display: flex;\
+        body {\
+          font-family: 'Open Sans', sans-serif;\
+          background-color: #fafafa;\
+          color: #333;\
+          margin: 0;\
+          padding: 0;\
         }\
+        .center {\
+          display: flex; \
+          justify-content: center;\
+          align-items: center;\
+          height: 100vh;\
+        }\
+        .form {\
+          background-color: #fff;\
+          border-radius: 10px;\
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);\
+          padding: 20px;\
+          width: 100%;\
+          max-width: 500px;\
+        }\
+        \
+        .form__title {\
+          font-size: 28px;\
+          font-weight: 700;\
+          margin-bottom: 20px;\
+          text-align: center;\
+          text-transform: uppercase;\
+          letter-spacing: 1px;\
+          background: linear-gradient(90deg, #0077b6, #00a8ff);\
+          -webkit-background-clip: text;\
+          -webkit-text-fill-color: transparent;\
+        }\
+        \
+        .form__input {\
+          border: none;\
+          border-radius: 10px;\
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);\
+          font-size: 16px;\
+          margin-bottom: 20px;\
+          padding: 10px;\
+          width: 100%;\
+          background-color: #f2f2f2;\
+          color: #333;\
+          box-sizing: border-box;\
+          transition: all 0.3s ease;\
+        }\
+      \
+        .form__input:focus {  \
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* Add shadow when input is focused */\
+          background-color: #e6e6e6; /* Change background color when input is focused */\
+        }\
+      \
         .form__button {\
-          width: 45%;\
-          margin-right: 10%;\
+          background-color: #0077b6;\
+          border: none;\
+          border-radius: 10px;\
+          color: #fff;\
+          cursor: pointer;\
+          font-size: 16px;\
+          padding: 10px 10px;\
+          transition: background-color 0.3s;\
+          width: 40%;\
+          margin-bottom: 20px;\
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);\
+          height: 50px;\
         }\
-        .form__button:last-child {\
-          margin-right: 0;\
+        .form__button:hover {\
+          background: linear-gradient(90deg, #005999, #0077b6);\
+          text-shadow: 0px 0px 5px #fff;\
         }\
+      \
+        .form__buttonText {\
+          background-color: #0077b6;\
+          color: #fff;\
+          font-weight: bold;\
+        }\
+      \
+      .form__group label {\
+        color: #525557; /* Change label text color */\
+        font-weight: bold; /* Make label text bold */;\
       }\
-    </style>\
+      \
+       \
+        @media screen and (min-width: 600px) {\
+          .form__buttons {\
+            /* display: flex; */\
+            justify-content: space-between;\
+          }\
+          .form__button {\
+            width: 100%;\
+            margin-right: 10%;\
+          }\
+          .form__button:last-child {\
+            margin-right: 0;\
+          }\
+        }\
+</style>\
   </head>\
   <body>\
     <div class=\"center\">\
@@ -106,33 +125,43 @@
           </div>\
           <div class=\"form__buttons\">\
             <button type=\"submit\" class=\"form__button\">Connect</button>\
+            <span id=\"tick\" class=\"tick\"\
+              style=\"visibility: hidden;\">&#10004;</span>\
             <button type=\"button\" class=\"form__button\" onclick=\"scan()\">Scan\
               WiFi</button>\
           </div>\
+          <div class=\"form__group\">\
+            <label for=\"ssidList\">Available SSIDs</label>\
+            <select id=\"ssidList\" class=\"form__input\"></select>\
+          </div>\
         </form>\
-        <label for=\"output\">Output</label>\
-        <textarea id=\"output\" name=\"output\" readonly\
-          class=\"form__output\"></textarea>\
       </div>\
     </div>\
     <script>\
     document.querySelector('form').addEventListener('submit', function(event) {\
-      event.preventDefault();\
-      var ssid = document.getElementById('ssid').value;\
-      var password = document.getElementById('password').value;\
-      \
-      var xhr = new XMLHttpRequest();\
-      xhr.open('POST', '/connect', true);\
-      xhr.setRequestHeader('Content-Type', 'application/json');\
-      xhr.onreadystatechange = function() {\
-        if (xhr.readyState === 4 && xhr.status === 200) {\
-          var response = JSON.parse(xhr.responseText);\
-          document.getElementById('output').value = response.message;\
-        }\
-      };\
-      var data = JSON.stringify({ ssid: ssid, password: password });\
-      xhr.send(data);\
-    });\
+  event.preventDefault();\
+  var ssid = document.getElementById('ssid').value;\
+  var password = document.getElementById('password').value;\
+  \
+  document.getElementById('tick').style.visibility = 'visible';\
+\
+  var xhr = new XMLHttpRequest();\
+  xhr.open('POST', '/connect', true);\
+  xhr.setRequestHeader('Content-Type', 'application/json');\
+  xhr.onreadystatechange = function() {\
+    if (xhr.readyState === 4 && xhr.status === 200) {\
+      var response = JSON.parse(xhr.responseText);\
+      alert(response.message);\
+    }\
+  };\
+  var data = JSON.stringify({ ssid: ssid, password: password });\
+  xhr.send(data);\
+\
+  xhr.timeout = 10000;\
+  xhr.ontimeout = function() {\
+    alert('Timeout: No response received.');\
+  };\
+});\
     </script>\
   </body>\
 </html>\
