@@ -96,7 +96,7 @@
        \
         @media screen and (min-width: 600px) {\
           .form__buttons {\
-            /* display: flex; */\
+            display: flex;\
             justify-content: space-between;\
           }\
           .form__button {\
@@ -119,16 +119,14 @@
             <input type=\"text\" id=\"ssid\" name=\"ssid\" class=\"form__input\">\
           </div>\
           <div class=\"form__group\">\
-            <label for=\"password\">Password</label>\
+            <label for=\"password\">PASSWORD</label>\
             <input type=\"password\" id=\"password\" name=\"password\"\
               class=\"form__input\">\
           </div>\
           <div class=\"form__buttons\">\
-            <button type=\"submit\" class=\"form__button\">Connect</button>\
-            <span id=\"tick\" class=\"tick\"\
-              style=\"visibility: hidden;\">&#10004;</span>\
-            <button type=\"button\" class=\"form__button\" onclick=\"scan()\">Scan\
-              WiFi</button>\
+            <button type=\"submit\" class=\"form__button\">CONNECT</button>\
+            <button type=\"button\" class=\"form__button\"\
+              onclick=\"scan()\">SCAN WIFI</button>\
           </div>\
           <div class=\"form__group\">\
             <label for=\"ssidList\">Available SSIDs</label>\
@@ -143,7 +141,6 @@
   var ssid = document.getElementById('ssid').value;\
   var password = document.getElementById('password').value;\
   \
-  document.getElementById('tick').style.visibility = 'visible';\
 \
   var xhr = new XMLHttpRequest();\
   xhr.open('POST', '/connect', true);\
