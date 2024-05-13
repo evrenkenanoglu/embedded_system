@@ -6,13 +6,14 @@
  */
 
 #include "proc_httpServer.hpp"
+#include "HAL/Platform/ESP32/library/logImpl.h"
 #include "Library/UI/HTTP/ui_welcome_wifi_connect.h"
-// #include "Library/UI/HTTP/output_test1.h"
+#include "cJSON.h"
 #include "protocol_examples_utils.h"
+#include "string.h"
 #include <esp_log.h>
 #include <sstream>
 #include <stdlib.h>
-#include "cJSON.h"
 
 static const char* TAG = "example";
 #define MIN(x, y)                      ((x) < (y) ? (x) : (y))
@@ -21,6 +22,7 @@ static const char* TAG = "example";
 static esp_err_t welcome_get_handler(httpd_req_t* req);
 static esp_err_t connect_post_handler(httpd_req_t* req);
 static esp_err_t ctrl_put_handler(httpd_req_t* req);
+static esp_err_t scan_get_handler(httpd_req_t* req);
 
 static const httpd_uri_t welcome = {.uri     = "/welcome",
                                     .method  = HTTP_GET,
@@ -28,6 +30,8 @@ static const httpd_uri_t welcome = {.uri     = "/welcome",
                                     /* Let's pass response string in user
                                      * context to demonstrate it's usage */
                                     .user_ctx = (void*)(HTML_UI_WELCOME_WIFI_CONNECT_CONTENT)};
+
+static const httpd_uri_t scan = {.uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler, .user_ctx = NULL};
 
 static const httpd_uri_t connect = {.uri = "/connect", .method = HTTP_POST, .handler = connect_post_handler, .user_ctx = NULL};
 
@@ -37,8 +41,6 @@ proc_httpServer::proc_httpServer()
 {
     _server                  = NULL;
     _config                  = HTTPD_DEFAULT_CONFIG();
-    _config.max_uri_handlers = 64;  // Adjust as needed
-    _config.max_resp_headers = 256; // Adjust as needed
     _config.lru_purge_enable = true;
     setState(IProcess::State::INITIALIZED);
 }
@@ -59,6 +61,7 @@ sys_error_t proc_httpServer::start()
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(_server, &welcome);
+        httpd_register_uri_handler(_server, &scan);
         httpd_register_uri_handler(_server, &connect);
         httpd_register_uri_handler(_server, &ctrl);
         setState(IProcess::State::RUNNING);
@@ -189,8 +192,10 @@ static esp_err_t connect_post_handler(httpd_req_t* req)
     // Read the content of the POST request
     int ret = httpd_req_recv(req, content, sizeof(content));
 
-    if (ret <= 0) {  // 0 return value indicates connection closed
-        if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+    if (ret <= 0)
+    { // 0 return value indicates connection closed
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+        {
             httpd_resp_send_408(req);
         }
         return ESP_FAIL;
@@ -200,49 +205,70 @@ static esp_err_t connect_post_handler(httpd_req_t* req)
     content[ret] = '\0';
 
     // Parse the JSON data
-    cJSON *json = cJSON_Parse(content);
-    if (json == NULL) {
-        const char *error_ptr = cJSON_GetErrorPtr();
-        if (error_ptr != NULL) {
+    cJSON* json = cJSON_Parse(content);
+    if (json == NULL)
+    {
+        const char* error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL)
+        {
             ESP_LOGE(TAG, "Error before: %s", error_ptr);
         }
         return ESP_FAIL;
     }
 
     // Get the SSID and password from the JSON data
-    cJSON *json_ssid = cJSON_GetObjectItemCaseSensitive(json, "ssid");
-    cJSON *json_password = cJSON_GetObjectItemCaseSensitive(json, "password");
+    cJSON* json_ssid     = cJSON_GetObjectItemCaseSensitive(json, "ssid");
+    cJSON* json_password = cJSON_GetObjectItemCaseSensitive(json, "password");
 
-    if (cJSON_IsString(json_ssid) && (json_ssid->valuestring != NULL) &&
-        cJSON_IsString(json_password) && (json_password->valuestring != NULL)) {
+    if (cJSON_IsString(json_ssid) && (json_ssid->valuestring != NULL) && cJSON_IsString(json_password) && (json_password->valuestring != NULL))
+    {
         ESP_LOGI(TAG, "SSID: %s", json_ssid->valuestring);
         ESP_LOGI(TAG, "Password: %s", json_password->valuestring);
     }
 
-    cJSON_Delete(json);
-
     // Send back the SSID and password
-    cJSON *response = cJSON_CreateObject();
-    cJSON_AddStringToObject(response, "ssid", json_ssid->valuestring);
-    cJSON_AddStringToObject(response, "password", json_password->valuestring);
+    cJSON* response             = cJSON_CreateObject();
+    char   responseMessage[128] = "Received SSID and password. Connecting to ";
 
-    char *response_str = cJSON_PrintUnformatted(response);
+    strcat(responseMessage, json_ssid->valuestring);
+    strcat(responseMessage, "...");
+    printf("responseMessage: %s\n", responseMessage);
+    cJSON_AddStringToObject(response, "message", responseMessage);
+
+    char* response_str = cJSON_PrintUnformatted(response);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, response_str, strlen(response_str));
 
+    cJSON_Delete(json);
     cJSON_Delete(response);
     free(response_str);
 
     return ESP_OK;
 }
-// httpd_query_key_value(req->uri, "ssid", ssid, sizeof(ssid));
-// httpd_query_key_value(req->uri, "password", password, sizeof(password));
 
-// ESP_LOGI(TAG, "=========== RECEIVED DATA ENTER ==========");
-// ESP_LOGI(TAG, "SSID     : %s", ssid);
-// ESP_LOGI(TAG, "Password : %s", password);
-// ESP_LOGI(TAG, "====================================");
+static esp_err_t scan_get_handler(httpd_req_t* req)
+{
+    logger().log(ILog::LogLevel::INFO, "Scan request received!");
+    // Create a JSON array of APs
+    cJSON* ap_array = cJSON_CreateArray();
 
+    for(int i = 0; i < 10; i++)
+    {
+        cJSON* ap = cJSON_CreateObject();
+        cJSON_AddStringToObject(ap, "ssid", "TEST SSID");
+        cJSON_AddItemToArray(ap_array, ap);
+        // cJSON_Delete(ap); // Do not delete the object, it will be deleted when the array is deleted
+    }
+
+    // Send the JSON array
+    char* response_str = cJSON_PrintUnformatted(ap_array);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, response_str, strlen(response_str));
+    
+    cJSON_Delete(ap_array); 
+    
+    return ERROR_SUCCESS;
+}
 
 /* This handler allows the custom error handling functionality to be
  * tested from client side. For that, when a PUT request 0 is sent to
@@ -313,3 +339,5 @@ static esp_err_t ctrl_put_handler(httpd_req_t* req)
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
+
+// [{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"},{"ssid":"TEST SSID"}]

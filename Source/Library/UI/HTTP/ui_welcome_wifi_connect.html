@@ -39,6 +39,7 @@
           background: linear-gradient(90deg, #0077b6, #00a8ff);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
+          user-select: none;
         }
         
         .form__input {
@@ -159,6 +160,25 @@
     enableButtons();
   };
 });
+
+function scan() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/scan', true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      var response = JSON.parse(xhr.responseText);
+      var ssidList = document.getElementById('ssidList');
+      ssidList.innerHTML = '';
+      response.forEach(function(item) {
+        var option = document.createElement('option');
+        option.value = item.ssid;
+        option.text = item.ssid;
+        ssidList.appendChild(option);
+      });
+    }
+  };
+  xhr.send();
+}
 
 function disableButtons() {
   document.getElementById('connectButton').disabled = true;
