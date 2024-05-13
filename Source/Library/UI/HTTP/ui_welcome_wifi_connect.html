@@ -107,7 +107,10 @@
         <form method="POST">
           <div class="form__group">
             <label for="ssid">SSID</label>
-            <input type="text" id="ssid" name="ssid" class="form__input">
+            <input type="text" id="ssid" name="ssid" list="ssidList" class="form__input">
+            <datalist id="ssidList">
+              <!-- Options will be populated by the scan function -->
+            </datalist>
           </div>
           <div class="form__group">
             <label for="password">PASSWORD</label>
@@ -119,10 +122,6 @@
               CONNECT</button>
             <button type="button" class="form__button" id="scanButton"
               onclick="scan()">SCAN WIFI</button>
-          </div>
-          <div class="form__group">
-            <label for="ssidList">Available SSIDs</label>
-            <select id="ssidList" class="form__input"></select>
           </div>
         </form>
       </div>
