@@ -44,6 +44,16 @@ public:
      * @param mode
      */
     void setWifiMode(wifi_mode_t mode);
+
+    /**
+     * @brief Scan for available WiFi networks.
+     * 
+     * @param config wifi_scan_config_t 
+     * @param result wifi_ap_record_t
+     * @param scanCount Number of APs to scan for
+     * @return sys_error_t 
+     */
+    sys_error_t scan(void *config, void *result, uint16_t scanCount);
 };
 
 #endif /* CPX_WIFI_HPP */

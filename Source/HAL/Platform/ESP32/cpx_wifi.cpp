@@ -18,8 +18,9 @@
 #include "HAL/Platform/ESP32/Library/logImpl.h"
 #include "Library/Common/helperConversions.h"
 
-static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
-static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
+static void        wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
+static void        ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
+static std::string printAuthMode(int authmode);
 
 cpx_wifi::cpx_wifi(void* config) : _wifiMode(WIFI_MODE_NULL) {}
 
@@ -32,8 +33,9 @@ sys_error_t cpx_wifi::start()
 {
     switch (_wifiMode)
     {
-        case WIFI_MODE_STA: /**< WiFi station mode */
-        case WIFI_MODE_AP:  /**< WiFi soft-AP mode */
+        case WIFI_MODE_STA:   /**< WiFi station mode */
+        case WIFI_MODE_AP:    /**< WiFi soft-AP mode */
+        case WIFI_MODE_APSTA: /**< WiFi station + soft-AP mode */
         {
             ESP_ERROR_CHECK(wifiInit());
             ESP_ERROR_CHECK(wifiStart());
@@ -44,11 +46,17 @@ sys_error_t cpx_wifi::start()
         }
         break;
 
-        case WIFI_MODE_APSTA: /**< WiFi station + soft-AP mode */
-        {
-            return ERROR_NOT_IMPLEMENTED;
-        }
-        break;
+            {
+                ESP_ERROR_CHECK(wifiInit());
+                ESP_ERROR_CHECK(wifiStart());
+                std::stringstream ss;
+                ss << "WiFi Started!" << std::endl;
+                logger().log(ILog::LogLevel::WARNING, ss.str());
+                return ERROR_SUCCESS;
+
+                // return ERROR_NOT_IMPLEMENTED;
+            }
+            break;
 
         default:
             logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
@@ -106,6 +114,16 @@ sys_error_t cpx_wifi::wifiInit()
         }
         break;
 
+        case WIFI_MODE_APSTA:
+        {
+            std::stringstream ss;
+            ss << "WIFI SOFT APSTA Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
+            logger().log(ILog::LogLevel::INFO, ss.str());
+            esp_netif_create_default_wifi_ap();
+            esp_netif_create_default_wifi_sta();
+        }
+        break;
+
         default:
             logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
             return ERROR_INVALID_CONFIG;
@@ -136,11 +154,49 @@ sys_error_t cpx_wifi::wifiStart()
         ESP_ERROR_CHECK(esp_wifi_start());
         ESP_ERROR_CHECK(esp_wifi_connect());
     }
-    else // if (_wifiMode == WIFI_MODE_AP)
+    else if (_wifiMode == WIFI_MODE_AP)
     {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &_wifiConfig));
         ESP_ERROR_CHECK(esp_wifi_start());
     }
+    else if (_wifiMode == WIFI_MODE_APSTA)
+    {
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &_wifiConfig));
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &_wifiConfig));
+        ESP_ERROR_CHECK(esp_wifi_start());
+    }
+    else
+    {
+        return ERROR_NOT_IMPLEMENTED;
+    }
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_wifi::scan(void* config, void* result, uint16_t scanCount)
+{
+    ESP_ERROR_CHECK(esp_wifi_scan_start(static_cast<wifi_scan_config_t*>(config), true));
+
+    wifi_ap_record_t* ap_info  = static_cast<wifi_ap_record_t*>(result);
+    uint16_t          ap_count = 0;
+    memset(ap_info, 0, sizeof(wifi_ap_record_t) * scanCount);
+
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&scanCount, ap_info));
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+
+    std::stringstream ss;
+    ss << "Total APs scanned = " << ap_count << std::endl;
+    logger().log(ILog::LogLevel::INFO, ss.str());
+
+    for (int i = 0; (i < scanCount) && (i < ap_count); i++)
+    {
+        std::stringstream ss;
+        ss << "SSID: " << ap_info[i].ssid << std::endl
+           << "RSSI: " << static_cast<int>(ap_info[i].rssi) << std::endl
+           << "Auth Mode: " << printAuthMode(ap_info[i].authmode) << std::endl
+           << "Channel: " << static_cast<int>(ap_info[i].primary) << std::endl;
+        logger().log(ILog::LogLevel::INFO, ss.str());
+    }
+
     return ERROR_SUCCESS;
 }
 
@@ -285,4 +341,28 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
         default:
             break;
     }
+}
+
+static std::string printAuthMode(int authmode)
+{
+    switch (authmode)
+    {
+        case WIFI_AUTH_OPEN:
+            return "WIFI_AUTH_OPEN";
+        case WIFI_AUTH_WEP:
+            return "WIFI_AUTH_WEP";
+        case WIFI_AUTH_WPA_PSK:
+            return "WIFI_AUTH_WPA_PSK";
+        case WIFI_AUTH_WPA2_PSK:
+            return "WIFI_AUTH_WPA2_PSK";
+        case WIFI_AUTH_WPA_WPA2_PSK:
+            return "WIFI_AUTH_WPA_WPA2_PSK";
+        case WIFI_AUTH_WPA2_ENTERPRISE:
+            return "WIFI_AUTH_WPA2_ENTERPRISE";
+        case WIFI_AUTH_WPA3_PSK:
+            return "WIFI_AUTH_WPA3_PSK";
+        case WIFI_AUTH_WPA2_WPA3_PSK:
+            return "WIFI_AUTH_WPA2_WPA3_PSK";
+    }
+    return "";
 }
