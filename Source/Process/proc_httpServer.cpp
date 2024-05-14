@@ -25,7 +25,7 @@ constexpr uint16_t post_content_length = 256;
  * @brief HTTP GET handler for the welcome page
  *
  * @param req HTTP request
- * @return sys_error_t
+ * @return error_t
  */
 static error_t welcome_get_handler(httpd_req_t* req);
 
@@ -33,7 +33,7 @@ static error_t welcome_get_handler(httpd_req_t* req);
  * @brief HTTP POST handler for the connect wifi request
  *
  * @param req HTTP request
- * @return sys_error_t
+ * @return error_t
  */
 static error_t connect_post_handler(httpd_req_t* req);
 
@@ -41,7 +41,7 @@ static error_t connect_post_handler(httpd_req_t* req);
  * @brief HTTP GET handler for the scan wifi request
  *
  * @param req HTTP request
- * @return sys_error_t
+ * @return error_t
  */
 static error_t scan_get_handler(httpd_req_t* req);
 
