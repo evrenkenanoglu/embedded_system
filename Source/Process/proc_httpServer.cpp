@@ -15,6 +15,12 @@
 #include <sstream>
 #include <stdlib.h>
 
+namespace
+{
+constexpr uint16_t post_content_length = 256;
+
+}
+
 /**
  * @brief HTTP GET handler for the welcome page
  *
@@ -81,6 +87,7 @@ sys_error_t Proc_httpServer::start()
     else
     {
         logger().log(ILog::LogLevel::ERROR, "Starting HTTP server failed!");
+        return ERROR_FAIL;
     }
 
     return ERROR_SUCCESS;
@@ -114,7 +121,7 @@ static error_t welcome_get_handler(httpd_req_t* req)
 /* An HTTP POST handler */
 static error_t connect_post_handler(httpd_req_t* req)
 {
-    char content[256];
+    char content[post_content_length];
 
     // Read the content of the POST request
     int ret = httpd_req_recv(req, content, sizeof(content));
@@ -144,30 +151,51 @@ static error_t connect_post_handler(httpd_req_t* req)
     cJSON* json_ssid     = cJSON_GetObjectItemCaseSensitive(json, "ssid");
     cJSON* json_password = cJSON_GetObjectItemCaseSensitive(json, "password");
 
+    cJSON* response = cJSON_CreateObject();
+    char*  response_str;
+    httpd_resp_set_type(req, "application/json");
+
     if (cJSON_IsString(json_ssid) && (json_ssid->valuestring != NULL) && cJSON_IsString(json_password) && (json_password->valuestring != NULL))
     {
-        logger().log(ILog::LogLevel::INFO, "Received SSID and password!");
-        std::stringstream ss;
-        ss << "SSID: " << json_ssid->valuestring << std::endl;
-        ss << "Password: " << json_password->valuestring << std::endl;
-        logger().log(ILog::LogLevel::INFO, ss.str());
+        if ((json_ssid->valuestring[0] == '\0') || (json_password->valuestring[0] == '\0')) // Check if SSID and password are empty
+        {
+            logger().log(ILog::LogLevel::ERROR, "SSID or password can't be empty!");
+
+            cJSON_AddStringToObject(response, "message", "SSID or password can't be empty!");
+        }
+        else // SSID and password are not empty
+        {
+            logger().log(ILog::LogLevel::INFO, "Received SSID and password!");
+            std::stringstream ss;
+            ss << "SSID: " << json_ssid->valuestring << std::endl;
+            ss << "Password: " << json_password->valuestring << std::endl;
+            logger().log(ILog::LogLevel::INFO, ss.str());
+
+            // Send back the SSID and password
+            char responseMessage[128] = "Received SSID and password. Connecting to  ";
+
+            strcat(responseMessage, json_ssid->valuestring);
+            strcat(responseMessage, "...");
+
+            cJSON_AddStringToObject(response, "message", responseMessage);
+        }
+    }
+    else // Error parsing SSID and password
+    {
+        logger().log(ILog::LogLevel::ERROR, "Error parsing SSID and password!");
+
+        cJSON_AddStringToObject(response, "message", "Error parsing SSID and password!");
     }
 
-    // Send back the SSID and password
-    cJSON* response             = cJSON_CreateObject();
-    char   responseMessage[128] = "Received SSID and password. Connecting to ";
+    response_str = cJSON_PrintUnformatted(response);
 
-    strcat(responseMessage, json_ssid->valuestring);
-    strcat(responseMessage, "...");
-    cJSON_AddStringToObject(response, "message", responseMessage);
-
-    char* response_str = cJSON_PrintUnformatted(response);
-    httpd_resp_set_type(req, "application/json");
+    // Send the response
     httpd_resp_send(req, response_str, strlen(response_str));
 
+    // Clean up
+    free(response_str);
     cJSON_Delete(json);
     cJSON_Delete(response);
-    free(response_str);
 
     return ESP_OK;
 }
