@@ -53,8 +53,6 @@ sys_error_t cpx_wifi::start()
                 ss << "WiFi Started!" << std::endl;
                 logger().log(ILog::LogLevel::WARNING, ss.str());
                 return ERROR_SUCCESS;
-
-                // return ERROR_NOT_IMPLEMENTED;
             }
             break;
 
@@ -167,6 +165,7 @@ sys_error_t cpx_wifi::wifiStart()
     }
     else
     {
+        logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
         return ERROR_NOT_IMPLEMENTED;
     }
     return ERROR_SUCCESS;
@@ -194,7 +193,7 @@ sys_error_t cpx_wifi::scan(void* config, void* result, uint16_t scanCount)
            << "RSSI: " << static_cast<int>(ap_info[i].rssi) << std::endl
            << "Auth Mode: " << printAuthMode(ap_info[i].authmode) << std::endl
            << "Channel: " << static_cast<int>(ap_info[i].primary) << std::endl;
-        logger().log(ILog::LogLevel::INFO, ss.str());
+        std::cout << ss.str() << std::endl;
     }
 
     return ERROR_SUCCESS;
@@ -211,43 +210,43 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
         case WIFI_EVENT_WIFI_READY: /**< WiFi ready */
         {
-            std::cout << "WIFI_EVENT_WIFI_READY: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_WIFI_READY: ");
         }
         break;
 
         case WIFI_EVENT_SCAN_DONE: /**< Finished scanning AP */
         {
-            std::cout << "WIFI_EVENT_SCAN_DONE: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_SCAN_DONE: ");
         }
         break;
 
         case WIFI_EVENT_STA_START: /**< Station start */
         {
-            std::cout << "WIFI_EVENT_STA_START: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_START: ");
         }
         break;
 
         case WIFI_EVENT_STA_STOP: /**< Station stop */
         {
-            std::cout << "WIFI_EVENT_STA_STOP: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_STOP: ");
         }
         break;
 
         case WIFI_EVENT_STA_CONNECTED: /**< Station connected to AP */
         {
-            std::cout << "WIFI_EVENT_STA_CONNECTED: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_CONNECTED: ");
         }
         break;
 
         case WIFI_EVENT_STA_DISCONNECTED: /**< Station disconnected from AP */
         {
-            std::cout << "WIFI_EVENT_STA_DISCONNECTED: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_DISCONNECTED: ");
         }
         break;
 
         case WIFI_EVENT_STA_AUTHMODE_CHANGE: /**< the auth mode of AP connected by device's station changed */
         {
-            std::cout << "WIFI_EVENT_STA_AUTHMODE_CHANGE: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_AUTHMODE_CHANGE: ");
         }
         break;
             /***************************************************************
@@ -256,55 +255,45 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
         case WIFI_EVENT_AP_START: /**< Soft-AP start */
         {
-            std::cout << "WIFI_EVENT_AP_START: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_START: ");
         }
         break;
 
         case WIFI_EVENT_AP_STOP: /**< Soft-AP stop */
         {
-            std::cout << "WIFI_EVENT_AP_STOP: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_STOP: ");
         }
         break;
 
         case WIFI_EVENT_AP_STACONNECTED: /**< a station connected to Soft-AP */
         {
-            std::cout << "WIFI_EVENT_AP_STACONNECTED: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_STACONNECTED: ");
             wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*)event_data;
 
             std::stringstream ss;
             ss << "Station " << mac::convertToMac(event->mac) << std::uppercase << " join, AID= " << event->aid;
-            std::cout << ss.str() << std::endl;
+            logger().log(ILog::LogLevel::INFO, ss.str());
         }
         break;
 
         case WIFI_EVENT_AP_STADISCONNECTED: /**< a station disconnected from Soft-AP */
         {
-            std::cout << "WIFI_EVENT_AP_STADISCONNECTED: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_STADISCONNECTED: ");
             wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*)event_data;
 
             std::stringstream ss;
             ss << "Station " << mac::convertToMac(event->mac) << std::uppercase << " leave, AID= " << event->aid;
-            std::cout << ss.str() << std::endl;
+            logger().log(ILog::LogLevel::INFO, ss.str());
         }
         break;
 
         case WIFI_EVENT_AP_PROBEREQRECVED: /**< Receive probe request packet in soft-AP interface */
-            std::cout << "WIFI_EVENT_AP_PROBEREQRECVED:" << std::endl;
+            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_PROBEREQRECVED:");
             break;
 
         default:
             break;
     }
-    // if (event_id == WIFI_EVENT_AP_STACONNECTED)
-    // {
-    //     wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*)event_data;
-    //     ESP_LOGI(TAG, "station " MACSTR " join, AID=%d", MAC2STR(event->mac), event->aid);
-    // }
-    // else if (event_id == WIFI_EVENT_AP_STADISCONNECTED)
-    // {
-    //     wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*)event_data;
-    //     ESP_LOGI(TAG, "station " MACSTR " leave, AID=%d", MAC2STR(event->mac), event->aid);
-    // }
 }
 
 static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
@@ -316,25 +305,25 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
         {
             ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
 
-            std::cout << "IP_EVENT_STA_GOT_IP: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "IP_EVENT_STA_GOT_IP: ");
 
             char ipString[20];
             sprintf(ipString, IPSTR, IP2STR(&event->ip_info.ip));
             std::stringstream ss;
             ss << "IP: " << std::string(ipString);
-            std::cout << ss.str() << std::endl;
+            logger().log(ILog::LogLevel::INFO, ss.str());
         }
         break;
 
         case IP_EVENT_STA_LOST_IP: /*!< station lost IP and the IP is reset to 0 */
         {
-            std::cout << "IP_EVENT_STA_LOST_IP: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "IP_EVENT_STA_LOST_IP: ");
         }
         break;
 
         case IP_EVENT_AP_STAIPASSIGNED: /*!< soft-AP assign an IP to a connected station */
         {
-            std::cout << "IP_EVENT_AP_STAIPASSIGNED: " << std::endl;
+            logger().log(ILog::LogLevel::INFO, "IP_EVENT_AP_STAIPASSIGNED: ");
         }
         break;
 

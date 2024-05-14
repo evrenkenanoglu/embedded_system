@@ -1,8 +1,8 @@
 /**
- * @file proc_httpServer.hpp
- * @brief Header file for proc_httpServer
+ * @file Proc_httpServer.hpp
+ * @brief Header file for Proc_httpServer
  *
- * This file contains declarations for the proc_httpServer class and related data types and functions.
+ * This file contains declarations for the Proc_httpServer class and related data types and functions.
  */
 
 #ifndef PROC_HTTPSERVER_HPP
@@ -11,15 +11,15 @@
 #include "IProcess.hpp"
 #include <esp_http_server.h>
 
-class proc_httpServer : public IProcess
+class Proc_httpServer : public IProcess
 {
 private:
     httpd_handle_t _server;
     httpd_config_t _config;
 
 public:
-    proc_httpServer();
-    ~proc_httpServer();
+    Proc_httpServer();
+    ~Proc_httpServer();
 
     sys_error_t start() override;
 
