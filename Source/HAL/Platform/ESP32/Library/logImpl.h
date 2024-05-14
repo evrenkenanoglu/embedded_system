@@ -10,6 +10,12 @@ class logImpl : public ILog
 private:
     const char* _tag;
 
+private:
+    logImpl(const char* tag) : _tag(tag)
+    {
+        ESP_LOGI(_tag, "ESP logger wrapper implementation is initialized");
+    }
+
 public:
     // Delete copy constructor and assignment operator
     logImpl(const logImpl&)            = delete;
@@ -20,10 +26,12 @@ public:
         ESP_LOGI(_tag, "ESP logger wrapper implementation is deinitialized");
     };
 
-    logImpl(const char* tag) : _tag(tag)
+    static logImpl& getInstance()
     {
-        ESP_LOGI(_tag, "ESP logger wrapper implementation is initialized");
+        static logImpl logEsp("APP");
+        return logEsp;
     }
+
     /**
      * @brief Logs an informational message to the console.
      *
@@ -63,9 +71,7 @@ public:
 // Public method to get the Singleton instance
 static LogHandler& logger()
 {
-    static logImpl    logEsp("APP");
-    static LogHandler handler(&logEsp);
-    return handler;
+    return LogHandler::getInstance(&logImpl::getInstance());
 }
 
 #endif // LOGIMPL_H

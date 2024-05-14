@@ -60,19 +60,28 @@ class LogHandler
 private:
     ILog* _logImpl = nullptr;
 
-public:
+private:
     /**
      * @brief Constructs a new LogHandler object with the given ILog implementation.
      *
      * @param logImpl An implementation of the ILog interface.
      */
-    LogHandler(ILog* logImpl) : _logImpl(logImpl) {}
+    LogHandler(ILog* logImpl) : _logImpl(logImpl)
+    {
+        std::cout << "LogHandler is initialized" << std::endl;
+    }
 
+public:
     /**
      * @brief Destructor for the LogHandler class.
      */
     ~LogHandler() {}
 
+    static LogHandler& getInstance(ILog* logImpl)
+    {
+        static LogHandler logHandler(logImpl);
+        return logHandler;
+    }
     /**
      * @brief Logs a message with the given severity level.
      *
