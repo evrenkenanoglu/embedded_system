@@ -13,13 +13,19 @@
 #include "esp_wifi_types.h"
 #include <string>
 
+#define WIFI_CONNECTED    BIT0
+#define WIFI_DISCONNECTED BIT1
+#define WIFI_SCAN_DONE    BIT2
+
 class cpx_wifi : public IHAL_CPX
 {
 private:
-    std::string   _ssid;
-    std::string   _password;
-    wifi_mode_t   _wifiMode;
-    wifi_config_t _wifiConfig;
+    std::string        _ssid;
+    std::string        _password;
+    wifi_mode_t        _wifiMode;
+    wifi_config_t      _wifiConfig;
+    EventGroupHandle_t _wifiEventGroup;
+    bool               _wifiInitialized;
 
 private:
     sys_error_t wifiInit();
@@ -46,14 +52,42 @@ public:
     void setWifiMode(wifi_mode_t mode);
 
     /**
+     * @brief Get the Wifi Mode object
+     *
+     * @return wifi_mode_t
+     */
+    wifi_mode_t getWifiMode();
+
+    /**
      * @brief Scan for available WiFi networks.
-     * 
-     * @param config wifi_scan_config_t 
+     *
+     * @param config wifi_scan_config_t
      * @param result wifi_ap_record_t
      * @param scanCount Number of APs to scan for
-     * @return sys_error_t 
+     * @return sys_error_t
      */
-    sys_error_t scan(void *config, void *result, uint16_t scanCount);
+    sys_error_t scan(void* config, void* result, uint16_t scanCount);
+
+    /**
+     * @brief Connect to a WiFi network.
+     *
+     * @return sys_error_t
+     */
+    sys_error_t connect();
+
+    /**
+     * @brief Disconnect from the current WiFi network.
+     *
+     * @return sys_error_t
+     */
+    sys_error_t disconnect();
+
+    /**
+     * @brief Get Wifi Event Group object
+     *
+     * @return EventGroupHandle_t&
+     */
+    EventGroupHandle_t& getWifiEventGroup();
 };
 
 #endif /* CPX_WIFI_HPP */

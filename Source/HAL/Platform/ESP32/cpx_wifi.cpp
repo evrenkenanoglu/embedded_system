@@ -22,7 +22,11 @@ static void        wifi_event_handler(void* arg, esp_event_base_t event_base, in
 static void        ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static std::string printAuthMode(int authmode);
 
-cpx_wifi::cpx_wifi(void* config) : _wifiMode(WIFI_MODE_NULL) {}
+cpx_wifi::cpx_wifi(void* config) : _wifiMode(WIFI_MODE_NULL)
+{
+    _wifiEventGroup  = xEventGroupCreate();
+    _wifiInitialized = false;
+}
 
 cpx_wifi::~cpx_wifi()
 {
@@ -39,23 +43,10 @@ sys_error_t cpx_wifi::start()
         {
             ESP_ERROR_CHECK(wifiInit());
             ESP_ERROR_CHECK(wifiStart());
-            std::stringstream ss;
-            ss << "WiFi Started!" << std::endl;
-            logger().log(ILog::LogLevel::WARNING, ss.str());
+            logger().log(ILog::LogLevel::INFO, "WiFi Started!");
             return ERROR_SUCCESS;
         }
         break;
-
-            {
-                ESP_ERROR_CHECK(wifiInit());
-                ESP_ERROR_CHECK(wifiStart());
-                std::stringstream ss;
-                ss << "WiFi Started!" << std::endl;
-                logger().log(ILog::LogLevel::WARNING, ss.str());
-                return ERROR_SUCCESS;
-            }
-            break;
-
         default:
             logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
             return ERROR_INVALID_CONFIG;
@@ -75,13 +66,19 @@ void cpx_wifi::set(void* data)
 
 sys_error_t cpx_wifi::stop()
 {
-    ESP_ERROR_CHECK(esp_wifi_stop());
+    if (_wifiInitialized)
+        ESP_ERROR_CHECK(esp_wifi_stop());
     return ERROR_SUCCESS;
 }
 
 void cpx_wifi::setWifiMode(wifi_mode_t mode)
 {
     _wifiMode = mode;
+}
+
+wifi_mode_t cpx_wifi::getWifiMode()
+{
+    return _wifiMode;
 }
 
 sys_error_t cpx_wifi::wifiInit()
@@ -137,9 +134,10 @@ sys_error_t cpx_wifi::wifiInit()
     esp_event_handler_instance_t instance_any_id2;
 
     // Register Event Handlers For WIFI and IP
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, &instance_any_id1));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL, &instance_any_id2));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, this, &instance_any_id1));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, this, &instance_any_id2));
 
+    _wifiInitialized = true;
     return ERROR_SUCCESS;
 }
 
@@ -171,8 +169,26 @@ sys_error_t cpx_wifi::wifiStart()
     return ERROR_SUCCESS;
 }
 
+sys_error_t cpx_wifi::connect()
+{
+    ESP_ERROR_CHECK(esp_wifi_connect());
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_wifi::disconnect()
+{
+    ESP_ERROR_CHECK(esp_wifi_disconnect());
+    return ERROR_SUCCESS;
+}
+
+EventGroupHandle_t& cpx_wifi::getWifiEventGroup()
+{
+    return _wifiEventGroup;
+}
+
 sys_error_t cpx_wifi::scan(void* config, void* result, uint16_t scanCount)
 {
+    ESP_ERROR_CHECK(esp_wifi_clear_ap_list());
     ESP_ERROR_CHECK(esp_wifi_scan_start(static_cast<wifi_scan_config_t*>(config), true));
 
     wifi_ap_record_t* ap_info  = static_cast<wifi_ap_record_t*>(result);
@@ -196,11 +212,13 @@ sys_error_t cpx_wifi::scan(void* config, void* result, uint16_t scanCount)
         std::cout << ss.str() << std::endl;
     }
 
+    ESP_ERROR_CHECK(esp_wifi_clear_ap_list());
     return ERROR_SUCCESS;
 }
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+    EventGroupHandle_t& wifiEventGroup = ((cpx_wifi*)arg)->getWifiEventGroup();
 
     switch (event_id)
     {
@@ -217,6 +235,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         case WIFI_EVENT_SCAN_DONE: /**< Finished scanning AP */
         {
             logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_SCAN_DONE: ");
+            xEventGroupSetBits(wifiEventGroup, WIFI_SCAN_DONE);
         }
         break;
 
@@ -298,6 +317,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
 static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+    EventGroupHandle_t& wifiEventGroup = ((cpx_wifi*)arg)->getWifiEventGroup();
 
     switch (event_id)
     {
@@ -307,17 +327,21 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
 
             logger().log(ILog::LogLevel::INFO, "IP_EVENT_STA_GOT_IP: ");
 
-            char ipString[20];
-            sprintf(ipString, IPSTR, IP2STR(&event->ip_info.ip));
-            std::stringstream ss;
-            ss << "IP: " << std::string(ipString);
-            logger().log(ILog::LogLevel::INFO, ss.str());
+            char ipString[24] = "IP: ";
+            sprintf(&ipString[4], IPSTR, IP2STR(&event->ip_info.ip));
+            logger().log(ILog::LogLevel::INFO, std::string(ipString));
+
+            // Set Event Bit for Station Connected
+            xEventGroupSetBits(wifiEventGroup, WIFI_CONNECTED);
+            xEventGroupClearBits(wifiEventGroup, WIFI_DISCONNECTED);
         }
         break;
 
         case IP_EVENT_STA_LOST_IP: /*!< station lost IP and the IP is reset to 0 */
         {
             logger().log(ILog::LogLevel::INFO, "IP_EVENT_STA_LOST_IP: ");
+            xEventGroupSetBits(wifiEventGroup, WIFI_DISCONNECTED);
+            xEventGroupClearBits(wifiEventGroup, WIFI_CONNECTED);
         }
         break;
 
