@@ -28,6 +28,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
+#include "freertos/event_groups.h"
 
 ///** POSIX Includes **///
 // #include "esp_pthread.h"
