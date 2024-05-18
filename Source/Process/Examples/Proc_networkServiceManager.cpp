@@ -62,16 +62,6 @@ sys_error_t Proc_networkServiceManager::resume()
     return ERROR_NOT_IMPLEMENTED;
 }
 
-std::vector<IProcess*>& Proc_networkServiceManager::getNetworkServicesAP()
-{
-    return _networkServicesAP;
-}
-
-std::vector<IProcess*>& Proc_networkServiceManager::getNetworkServicesSTA()
-{
-    return _networkServicesSTA;
-}
-
 sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& networkService, NetworkServiceType type)
 {
     // mutex lock

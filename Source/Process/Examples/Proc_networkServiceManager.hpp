@@ -26,7 +26,7 @@ private:
     std::vector<IProcess*> _networkServicesSTA; // Station Dependent Network Services
 
     TaskHandle_t        _xHandle;
-    EventGroupHandle_t& _wifiEventGroup;    
+    EventGroupHandle_t& _wifiEventGroup;
 
 public:
     Proc_networkServiceManager(EventGroupHandle_t& wifiEventGroup);
@@ -41,20 +41,6 @@ public:
     sys_error_t resume() override;
 
 public:
-    /**
-     * @brief Get the Network Services Access Point vector
-     *
-     * @return std::vector<IProcess*>&
-     */
-    std::vector<IProcess*>& getNetworkServicesAP();
-
-    /**
-     * @brief Get the Network Services Station vector
-     *
-     * @return std::vector<IProcess*>&
-     */
-    std::vector<IProcess*>& getNetworkServicesSTA();
-
     /**
      * @brief Register a network service that is dependent on the Access Point
      *
@@ -85,7 +71,6 @@ public:
      * @param startServices Start or stop services
      */
     void executeNetworkServices(NetworkServiceType type, bool startServices);
-
 };
 
 #endif /* Proc_networkServiceManager_HPP */
