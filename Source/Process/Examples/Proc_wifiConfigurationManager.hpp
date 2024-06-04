@@ -33,12 +33,14 @@ enum class ProgramState
 class Proc_wifiConfigurationManager : public IProcess
 {
 private:
-    cpx_wifi&           _wifiCpx;
-    wifi_config_t&      _wifiConfig;
-    TaskHandle_t        _xHandle;
-    ProgramState        _programState;
-    EventGroupHandle_t _wifiEventGroup;
-    
+    cpx_wifi&          _wifiCpx;
+    wifi_config_t&     _wifiConfig;
+    TaskHandle_t       _xHandleProgram;
+    TaskHandle_t       _xHandleWifiEventHandler;
+    TaskHandle_t       _xHandleWifiConfigEventHandler;
+    ProgramState       _programState;
+    EventGroupHandle_t _wifiConfigEventGroup;
+    QueueHandle_t      _wifiConfigScanResults;
 
 public:
     Proc_wifiConfigurationManager(cpx_wifi& wifiCpx, wifi_config_t& wifiConfig);
@@ -79,8 +81,14 @@ public:
      *
      * @return EventGroupHandle_t
      */
-    EventGroupHandle_t& getWifiEventGroup();
+    EventGroupHandle_t& getWifiConfigEventGroup();
 
+    /**
+     * @brief Get the Wifi Config Scan Results object
+     *
+     * @return QueueHandle_t
+     */
+    QueueHandle_t getWifiConfigScanResults();
 };
 
 #endif /* Proc_wifiConfigurationManager_HPP */

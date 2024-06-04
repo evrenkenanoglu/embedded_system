@@ -10,17 +10,51 @@
 
 namespace
 {
-constexpr uint16_t taskDelay       = 1000; // milliseconds
-constexpr uint16_t taskStackSize   = 4096; // bytes
-constexpr uint8_t  taskPriority    = 5;
-constexpr char     taskName[]      = "wifiConfigMngrTask";
-constexpr uint8_t  tryConnectCount = 3;
-constexpr uint8_t  tryConnectDelay = 100; // milliseconds
+constexpr uint16_t programTaskDelay     = 1000; // milliseconds
+constexpr uint16_t programTaskStackSize = 4096; // bytes
+constexpr uint8_t  programTaskPriority  = 5;
+constexpr char     programTaskName[]    = "programTask";
+
+constexpr uint16_t wifiEventHandlerStackSize = 4096; // bytes
+constexpr uint8_t  wifiEventHandlerPriority  = 5;
+constexpr char     wifiEventHandlerName[]    = "wifiEventHandler";
+
+constexpr uint16_t wifiConfigEventHandlerStackSize = 4096; // bytes
+constexpr uint8_t  wifiConfigEventHandlerPriority  = 5;
+constexpr char     wifiConfigEventHandlerName[]    = "wifiConfigEventHandler";
+
+constexpr uint8_t tryConnectCount = 3;
+constexpr uint8_t tryConnectDelay = 100; // milliseconds
 } // namespace
 
+/**
+ * @brief Program task for the WiFi Configuration Manager
+ *
+ * @param pvParameters Proc_wifiConfigurationManager object
+ */
 static void programTask(void* pvParameters);
 
-Proc_wifiConfigurationManager::Proc_wifiConfigurationManager(cpx_wifi& wifiCpx, wifi_config_t& wifiConfig) : _wifiCpx(wifiCpx), _wifiConfig(wifiConfig), _xHandle(nullptr), _programState(ProgramState::UNINITIALIZED), _wifiEventGroup(xEventGroupCreate())
+/**
+ * @brief Wifi Event Handler
+ *
+ * This task handles the events related to the Wifi Cpx object
+ *
+ * @param pvParameters Proc_wifiConfigurationManager object
+ */
+static void wifiEventHandler(void* pvParameters);
+
+/**
+ * @brief Event manager task
+ *
+ * This task handles the events related to the Wifi Configuration Manager
+ *
+ * @param pvParameters Proc_wifiConfigurationManager object
+ */
+static void wifiConfigEventHandler(void* pvParameters);
+
+Proc_wifiConfigurationManager::Proc_wifiConfigurationManager(cpx_wifi& wifiCpx, wifi_config_t& wifiConfig)
+    : _wifiCpx(wifiCpx), _wifiConfig(wifiConfig), _xHandleProgram(nullptr), _xHandleWifiEventHandler(nullptr), _xHandleWifiConfigEventHandler(nullptr), _programState(ProgramState::UNINITIALIZED),
+      _wifiConfigEventGroup(xEventGroupCreate()), _wifiConfigScanResults(xQueueCreate(WIFI_SCAN_MAX_RECORDS, sizeof(wifiApRecord_t)))
 {
     wifiCpx.set(&_wifiConfig);
     setState(IProcess::State::INITIALIZED);
@@ -28,33 +62,83 @@ Proc_wifiConfigurationManager::Proc_wifiConfigurationManager(cpx_wifi& wifiCpx, 
 
 Proc_wifiConfigurationManager::~Proc_wifiConfigurationManager()
 {
-    // destructor implementation
+    if (_wifiConfigEventGroup != nullptr)
+    {
+        vEventGroupDelete(_wifiConfigEventGroup);
+        _wifiConfigEventGroup = nullptr;
+    }
+
+    if (_wifiConfigScanResults != nullptr)
+    {
+        vQueueDelete(_wifiConfigScanResults);
+        _wifiConfigScanResults = nullptr;
+    }
 }
 
 sys_error_t Proc_wifiConfigurationManager::start()
 {
-    xTaskCreate(programTask, taskName, taskStackSize, this, taskPriority, &_xHandle);
+    BaseType_t result = xTaskCreate(programTask,          // Task function
+                                    programTaskName,      // Task name
+                                    programTaskStackSize, // Stack size
+                                    this,                 // Task parameters
+                                    programTaskPriority,  // Task priority
+                                    &_xHandleProgram);    // Task handle
+    if (result != pdPASS)
+    {
+        return ERROR_FAIL;
+    }
+
+    result = xTaskCreate(wifiEventHandler,           // Task function
+                         wifiEventHandlerName,       // Task name
+                         wifiEventHandlerStackSize,  // Stack size
+                         this,                       // Task parameters
+                         wifiEventHandlerPriority,   // Task priority
+                         &_xHandleWifiEventHandler); // Task handle
+
+    if (result != pdPASS)
+    {
+        return ERROR_FAIL;
+    }
+
+    result = xTaskCreate(wifiConfigEventHandler,           // Task function
+                         wifiConfigEventHandlerName,       // Task name
+                         wifiConfigEventHandlerStackSize,  // Stack size
+                         this,                             // Task parameters
+                         wifiConfigEventHandlerPriority,   // Task priority
+                         &_xHandleWifiConfigEventHandler); // Task handle
+
+    if (result != pdPASS)
+    {
+        return ERROR_FAIL;
+    }
+
     setState(IProcess::State::RUNNING);
     return ERROR_SUCCESS;
 }
 
 sys_error_t Proc_wifiConfigurationManager::stop()
 {
-    vTaskDelete(_xHandle);
+    vTaskDelete(_xHandleProgram);
+    vTaskDelete(_xHandleWifiEventHandler);
+    vTaskDelete(_xHandleWifiConfigEventHandler);
     setState(IProcess::State::STOPPED);
     return ERROR_SUCCESS;
 }
 
 sys_error_t Proc_wifiConfigurationManager::pause()
 {
-    vTaskSuspend(_xHandle);
+    vTaskSuspend(_xHandleProgram);
+    vTaskSuspend(_xHandleWifiEventHandler);
+    vTaskSuspend(_xHandleWifiConfigEventHandler);
     setState(IProcess::State::PAUSED);
     return ERROR_SUCCESS;
 }
 
 sys_error_t Proc_wifiConfigurationManager::resume()
 {
-    vTaskResume(_xHandle);
+    vTaskResume(_xHandleProgram);
+    vTaskResume(_xHandleWifiEventHandler);
+    vTaskResume(_xHandleWifiConfigEventHandler);
     setState(IProcess::State::RUNNING);
     return ERROR_SUCCESS;
 }
@@ -74,9 +158,14 @@ cpx_wifi& Proc_wifiConfigurationManager::getWifiCpx() const
     return _wifiCpx;
 }
 
-EventGroupHandle_t& Proc_wifiConfigurationManager::getWifiEventGroup()
+EventGroupHandle_t& Proc_wifiConfigurationManager::getWifiConfigEventGroup()
 {
-    return _wifiEventGroup;
+    return _wifiConfigEventGroup;
+}
+
+QueueHandle_t Proc_wifiConfigurationManager::getWifiConfigScanResults()
+{
+    return _wifiConfigScanResults;
 }
 
 void programTask(void* pvParameters)
@@ -99,7 +188,7 @@ void programTask(void* pvParameters)
                 logger().log(ILog::LogLevel::INFO, "WiFi Configuration Manager Initialized");
                 // Check if ssid and password are stored in NVS
                 // if(proc->getWifiCpx().getSsid().empty() && proc->getWifiCpx().getPassword().empty())
-                if(true)
+                if (true)
                 {
                     // If not, change the state to CREDENTIALS_NOT_FOUND_OR_INVALID
                     proc->setProgramState(ProgramState::CREDENTIALS_NOT_FOUND_OR_INVALID);
@@ -152,10 +241,10 @@ void programTask(void* pvParameters)
                 // Notify the user that the credentials are not found or invalid
                 logger().log(ILog::LogLevel::WARNING, "Credentials not found or invalid");
                 // Stop WiFi
-                std::cout << "Stopping WiFi..."<< std::endl;
+                std::cout << "WIFI CONFIG PROGRAM: Stopping WiFi..." << std::endl;
                 proc->getWifiCpx().stop();
 
-                std::cout << "Changing state..."<< std::endl;
+                std::cout << "WIFI CONFIG PROGRAM: Changing state..." << std::endl;
                 // Start AP-STA mode
                 proc->setProgramState(ProgramState::AP_STA_MODE);
             }
@@ -164,12 +253,15 @@ void programTask(void* pvParameters)
             case ProgramState::AP_STA_MODE:
             {
                 logger().log(ILog::LogLevel::INFO, "Starting AP-STA mode...");
-                
+
                 // Set WiFi mode as AP-STA mode
                 proc->getWifiCpx().setWifiMode(WIFI_MODE_APSTA);
-                proc->getWifiCpx().start();
+                ON_ERROR_WITH_OUTPUT(proc->getWifiCpx().start(), logger());
 
-                std::cout << "Changing state to AWAITING_CREDENTIALS..." << std::endl;
+                // Notify other tasks that the AP is ready
+                xEventGroupSetBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_AP_SETUP_READY);
+
+                std::cout << "WIFI CONFIG PROGRAM: Changing state to AWAITING_CREDENTIALS..." << std::endl;
                 proc->setProgramState(ProgramState::AWAITING_CREDENTIALS);
             }
             break;
@@ -188,8 +280,12 @@ void programTask(void* pvParameters)
             {
                 logger().log(ILog::LogLevel::INFO, "Awaiting credentials...");
                 // Wait until user enters the SSID and password
-                xEventGroupWaitBits(proc->getWifiEventGroup(), WIFI_CONFIG_CREDENTIALS_STORED_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+                xEventGroupWaitBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_CREDENTIALS_STORED_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+
+                logger().log(ILog::LogLevel::INFO, "Credentials stored");
                 // If user enters, try to connect to the network
+
+                std::cout << "WIFI CONFIG PROGRAM: Changing state to TRY_CONNECT..." << std::endl;
                 proc->setProgramState(ProgramState::TRY_CONNECT);
             }
             break;
@@ -232,30 +328,79 @@ void programTask(void* pvParameters)
                 proc->setProgramState(ProgramState::AP_STA_MODE);
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(taskDelay));
+        std::this_thread::sleep_for(std::chrono::milliseconds(programTaskDelay));
     }
 }
 
-// todo wifi event manager task
+void wifiEventHandler(void* pvParameters)
+{
+    Proc_wifiConfigurationManager* proc = (Proc_wifiConfigurationManager*)pvParameters;
+    if (proc == nullptr)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
+        return;
+    }
 
-// void wifiEventManagerTask()
-// {
-//     for (;;)
-//     {
-//         // Wait for the event bits to be set
-//         EventBits_t uxBits = xEventGroupWaitBits(wifiEventGroup, WIFI_CONFIG_WAITING_FOR_CREDENTIALS | WIFI_CONFIG_TRY_CONNECT, pdTRUE, pdFALSE, portMAX_DELAY);
+    for (;;)
+    {
+        std::cout << "WIFI EVENT HANDLER: Event manager waiting for events..." << std::endl;
+        // Wait for the event bits to be set
+        EventBits_t uxBits = xEventGroupWaitBits(proc->getWifiCpx().getWifiEventGroup(), // Event Group Handle
+                                                                                         // Bits to wait for
+                                                 WIFI_SCAN_DONE,                         //
+                                                 pdTRUE,                                 // Clear bits on exit
+                                                 pdFALSE,                                // Wait for all bit
+                                                 portMAX_DELAY);                         // Wait indefinitely
 
-//         // Check if the event bits are set
-//         if (uxBits & WIFI_CONFIG_WAITING_FOR_CREDENTIALS)
-//         {
-//             // Set the bit to indicate that credentials are stored
-//             xEventGroupSetBits(wifiEventGroup, WIFI_CONFIG_CREDENTIALS_STORED_BIT);
-//         }
+        std::cout << "WIFI EVENT HANDLER: Event manager got event bits: " << (int)uxBits << std::endl;
+        // Check if the event bits are set
 
-//         if (uxBits & WIFI_CONFIG_TRY_CONNECT)
-//         {
-//             // Set the bit to indicate that the device is trying to connect to the network
-//             xEventGroupSetBits(wifiEventGroup, WIFI_CONFIG_TRY_CONNECT);
-//         }
-//     }
-// }
+        if (uxBits & WIFI_SCAN_DONE)
+        {
+            std::cout << "WIFI EVENT HANDLER: Getting wifi scan results..." << std::endl;
+            // Set the bit to indicate that the scan is done
+            proc->getWifiCpx().getScanResults(proc->getWifiConfigScanResults());
+
+            // Send the scan results to the queue
+            xEventGroupSetBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_SCAN_DONE);
+        }
+    }
+}
+
+void wifiConfigEventHandler(void* pvParameters)
+{
+    Proc_wifiConfigurationManager* proc = (Proc_wifiConfigurationManager*)pvParameters;
+    if (proc == nullptr)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
+        return;
+    }
+
+    for (;;)
+    {
+        std::cout << "WIFI CONFIG EVENT HANDLER: Event manager waiting for events..." << std::endl;
+        // Wait for the event bits to be set
+        EventBits_t uxBits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(),     // Event Group Handle
+                                                                                      // Bits to wait for
+                                                 WIFI_CONFIG_CREDENTIALS_STORED_BIT | //
+                                                     WIFI_CONFIG_SCAN_REQUESTED,      //
+                                                 pdTRUE,                              // Clear bits on exit
+                                                 pdFALSE,                             // Wait for all bit
+                                                 portMAX_DELAY);                      // Wait indefinitely
+
+        std::cout << "WIFI CONFIG EVENT HANDLER: Event manager got event bits: " << (int)uxBits << std::endl;
+        // Check if the event bits are set
+        if (uxBits & WIFI_CONFIG_SCAN_REQUESTED)
+        {
+            if (proc->getProgramState() == ProgramState::AWAITING_CREDENTIALS)
+            {
+                // Set the bit to indicate that credentials are stored
+                sys_error_t error = proc->getWifiCpx().scan(nullptr);
+                if (error != ERROR_SUCCESS)
+                {
+                    logger().log(ILog::LogLevel::ERROR, "Failed to scan for WiFi networks");
+                }
+            }
+        }
+    }
+}
