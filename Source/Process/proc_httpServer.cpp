@@ -8,6 +8,7 @@
 #include "Proc_httpServer.hpp"
 #include "HAL/Platform/ESP32/library/logImpl.h"
 #include "Library/UI/HTTP/ui_welcome_wifi_connect.h"
+#include "Process/Examples/wifiConfigEvents.hpp"
 #include "cJSON.h"
 #include "protocol_examples_utils.h"
 #include "string.h"
@@ -45,22 +46,16 @@ static error_t connect_post_handler(httpd_req_t* req);
  */
 static error_t scan_get_handler(httpd_req_t* req);
 
-static const httpd_uri_t welcome = {.uri     = "/welcome",
-                                    .method  = HTTP_GET,
-                                    .handler = welcome_get_handler,
-                                    /* Let's pass response string in user
-                                     * context to demonstrate it's usage */
-                                    .user_ctx = (void*)(HTML_UI_WELCOME_WIFI_CONNECT_CONTENT)};
-
-static const httpd_uri_t scan = {.uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler, .user_ctx = NULL};
-
-static const httpd_uri_t connect = {.uri = "/connect", .method = HTTP_POST, .handler = connect_post_handler, .user_ctx = NULL};
-
-Proc_httpServer::Proc_httpServer()
+Proc_httpServer::Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, QueueHandle_t wifiConfigScanResults)
+    : _server(NULL),                                                                                       // Initialize the server handle
+      _config(HTTPD_DEFAULT_CONFIG()),                                                                     // Initialize the server and configuration
+      _wifiConfigEventGroup(wifiConfigEventGroup),                                                         // Initialize the event group
+      _wifiConfigScanResults(wifiConfigScanResults),                                                       // Initialize the scan results queue
+      _welcomeWifiConnectHtml(HTML_UI_WELCOME_WIFI_CONNECT_CONTENT),                                       // Initialize the welcome page HTML content
+      welcome({.uri = "/welcome", .method = HTTP_GET, .handler = welcome_get_handler, .user_ctx = this}),  // Initialize the URI handler for the welcome page
+      scan({.uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler, .user_ctx = this}),           // Initialize the URI handler for the scan
+      connect({.uri = "/connect", .method = HTTP_POST, .handler = connect_post_handler, .user_ctx = this}) // Initialize the URI handler for the connect
 {
-    _server                  = NULL;
-    _config                  = HTTPD_DEFAULT_CONFIG();
-    _config.lru_purge_enable = true;
     setState(IProcess::State::INITIALIZED);
 }
 
@@ -110,11 +105,28 @@ sys_error_t Proc_httpServer::resume()
     return ERROR_NOT_IMPLEMENTED;
 }
 
+const char* Proc_httpServer::getWelcomeWifiConnectHtml() const
+{
+    return _welcomeWifiConnectHtml;
+}
+
+EventGroupHandle_t& Proc_httpServer::getWifiConfigEventGroup()
+{
+    return _wifiConfigEventGroup;
+}
+
+QueueHandle_t Proc_httpServer::getWifiConfigScanResults()
+{
+    return _wifiConfigScanResults;
+}
+
 /* An HTTP GET handler */
 static error_t welcome_get_handler(httpd_req_t* req)
 {
+    Proc_httpServer* proc = (Proc_httpServer*)req->user_ctx;
+
     /* Send response with custom headers and body set as the *string passed in user context*/
-    ESP_ERROR_CHECK(httpd_resp_send(req, (const char*)req->user_ctx, HTTPD_RESP_USE_STRLEN));
+    ESP_ERROR_CHECK(httpd_resp_send(req, proc->getWelcomeWifiConnectHtml(), HTTPD_RESP_USE_STRLEN));
     return ESP_OK;
 }
 
@@ -202,15 +214,37 @@ static error_t connect_post_handler(httpd_req_t* req)
 
 static error_t scan_get_handler(httpd_req_t* req)
 {
+    Proc_httpServer* proc = (Proc_httpServer*)req->user_ctx;
+
     std::cout << "Scan request received!" << std::endl;
     // Create a JSON array of APs
     cJSON* ap_array = cJSON_CreateArray();
 
-    for (int i = 0; i < 10; i++)
+    // Send SCAN REQUEST event
+    xEventGroupSetBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_SCAN_REQUESTED);
+
+    // Wait for SCAN DONE event
+    EventBits_t bits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_SCAN_DONE, pdTRUE, pdTRUE, WIFI_SCAN_TIMEOUT);
+
+    if (bits & WIFI_CONFIG_SCAN_DONE)
     {
-        cJSON* ap = cJSON_CreateObject();
-        cJSON_AddStringToObject(ap, "ssid", "TEST SSID");
-        cJSON_AddItemToArray(ap_array, ap);
+        // Get the scanned APs over Scan Results Queue
+        wifiApRecord_t ap_info[WIFI_SCAN_MAX_RECORDS];
+
+        // Get the results from the scan result Queue
+        int ap_count = uxQueueMessagesWaiting(proc->getWifiConfigScanResults());
+        for (int i = 0; i < ap_count; i++)
+        {
+            xQueueReceive(proc->getWifiConfigScanResults(), &ap_info[i], 0);
+        }
+
+        // Add the scanned APs to the JSON array
+        for (int i = 0; i < ap_count; i++)
+        {
+            cJSON* ap = cJSON_CreateObject();
+            cJSON_AddStringToObject(ap, "ssid", (const char*)ap_info[i].ssid);
+            cJSON_AddItemToArray(ap_array, ap);
+        }
     }
 
     // Send the JSON array
