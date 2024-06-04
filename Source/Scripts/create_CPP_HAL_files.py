@@ -91,7 +91,7 @@ source_template = """\
 """
 
 # Get the file name from the user
-filename = input("Enter the file name: ")
+filename = input("Enter the file name: ").strip()
 
 # Get the HAL type from the user
 hal_type = input("Enter the System Type (IO, COM, MEM, CPX, PROC): ").upper()
@@ -178,7 +178,7 @@ elif hal_type == "CPX":
     stop_definition     = "sys_error_t "    + classname + "::stop() override;\n"
 
 elif hal_type == "PROC":
-    iprocess_header_file        = "IProcess.h"
+    iprocess_header_file        = "Process/IProcess.hpp"
     iprocess_classname          = "IProcess"
     iprocess_start_definition   = "sys_error_t "    + classname + "::start() override;\n"
     iprocess_stop_definition    = "sys_error_t "    + classname + "::stop() override;\n"
