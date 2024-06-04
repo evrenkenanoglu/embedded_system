@@ -13,9 +13,18 @@
 #include "esp_wifi_types.h"
 #include <string>
 
-#define WIFI_CONNECTED    BIT0
-#define WIFI_DISCONNECTED BIT1
-#define WIFI_SCAN_DONE    BIT2
+#define WIFI_SCAN_MAX_RECORDS 16
+#define WIFI_SCAN_TIMEOUT     pdTICKS_TO_MS(1500) // 1.5 seconds in ticks
+
+#define WIFI_CONNECTED        BIT0
+#define WIFI_DISCONNECTED     BIT1
+#define WIFI_SCAN_DONE        BIT2
+
+typedef struct
+{
+    uint8_t ssid[33];
+    uint8_t authmode;
+} wifiApRecord_t;
 
 class cpx_wifi : public IHAL_CPX
 {
@@ -26,6 +35,7 @@ private:
     wifi_config_t      _wifiConfig;
     EventGroupHandle_t _wifiEventGroup;
     bool               _wifiInitialized;
+    QueueHandle_t     _apRecordsResult;
 
 private:
     sys_error_t wifiInit();
@@ -66,7 +76,18 @@ public:
      * @param scanCount Number of APs to scan for
      * @return sys_error_t
      */
-    sys_error_t scan(void* config, void* result, uint16_t scanCount);
+    sys_error_t scan(void* config);
+
+    /**
+     * @brief Get the Scan Results object
+     *
+     * @param apRecordsResult
+     * @return sys_error_t
+     */
+    sys_error_t getScanResults(QueueHandle_t apRecordsResult);
+
+
+    sys_error_t clearScanResults();
 
     /**
      * @brief Connect to a WiFi network.

@@ -12,6 +12,7 @@
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -22,10 +23,17 @@ static void        wifi_event_handler(void* arg, esp_event_base_t event_base, in
 static void        ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static std::string printAuthMode(int authmode);
 
+namespace
+{
+constexpr uint16_t wifi_scan_get_result_timeout = WIFI_SCAN_TIMEOUT; // 1.5 seconds
+
+} // namespace
+
 cpx_wifi::cpx_wifi(void* config) : _wifiMode(WIFI_MODE_NULL)
 {
     _wifiEventGroup  = xEventGroupCreate();
     _wifiInitialized = false;
+    _apRecordsResult = nullptr;
 }
 
 cpx_wifi::~cpx_wifi()
@@ -186,39 +194,52 @@ EventGroupHandle_t& cpx_wifi::getWifiEventGroup()
     return _wifiEventGroup;
 }
 
-sys_error_t cpx_wifi::scan(void* config, void* result, uint16_t scanCount)
+sys_error_t cpx_wifi::scan(void* config)
 {
-    ESP_ERROR_CHECK(esp_wifi_clear_ap_list());
-    ESP_ERROR_CHECK(esp_wifi_scan_start(static_cast<wifi_scan_config_t*>(config), true));
+    if (_wifiInitialized)
+    {
+        ESP_ERROR_CHECK(esp_wifi_clear_ap_list());
+        ESP_ERROR_CHECK(esp_wifi_scan_start(static_cast<wifi_scan_config_t*>(config), true));
+        return ERROR_SUCCESS;
+    }
+    else
+    {
+        logger().log(ILog::LogLevel::ERROR, "WiFi not initialized!");
+        return ERROR_FAIL;
+    }
+}
 
-    wifi_ap_record_t* ap_info  = static_cast<wifi_ap_record_t*>(result);
-    uint16_t          ap_count = 0;
-    memset(ap_info, 0, sizeof(wifi_ap_record_t) * scanCount);
+sys_error_t cpx_wifi::getScanResults(QueueHandle_t apRecordsResult)
+{
+    std::unique_ptr<wifi_ap_record_t[]> ap_info(new wifi_ap_record_t[WIFI_SCAN_MAX_RECORDS]);
+    memset(ap_info.get(), 0, sizeof(wifi_ap_record_t) * WIFI_SCAN_MAX_RECORDS);
 
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&scanCount, ap_info));
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+    uint16_t scanCountResult = WIFI_SCAN_MAX_RECORDS; //
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&scanCountResult, ap_info.get()));
 
     std::stringstream ss;
-    ss << "Total APs scanned = " << ap_count << std::endl;
+    ss << "Total APs scanned = " << static_cast<int>(scanCountResult) << std::endl;
     logger().log(ILog::LogLevel::INFO, ss.str());
 
-    for (int i = 0; (i < scanCount) && (i < ap_count); i++)
+    for (int i = 0; (i < WIFI_SCAN_MAX_RECORDS) && (i < scanCountResult); i++)
     {
-        std::stringstream ss;
-        ss << "SSID: " << ap_info[i].ssid << std::endl
-           << "RSSI: " << static_cast<int>(ap_info[i].rssi) << std::endl
-           << "Auth Mode: " << printAuthMode(ap_info[i].authmode) << std::endl
-           << "Channel: " << static_cast<int>(ap_info[i].primary) << std::endl;
+        wifiApRecord_t apRecord;
+        memcpy(&apRecord.ssid, ap_info[i].ssid, sizeof(ap_info[i].ssid));
+        apRecord.authmode = ap_info[i].authmode;
+
+        xQueueSendToBack(apRecordsResult, &apRecord, 0);
+
+        // Info message for each AP
+        ss << "SSID: " << ap_info[i].ssid << std::endl << "Auth Mode: " << printAuthMode(ap_info[i].authmode) << std::endl;
         std::cout << ss.str() << std::endl;
     }
 
-    ESP_ERROR_CHECK(esp_wifi_clear_ap_list());
     return ERROR_SUCCESS;
 }
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    EventGroupHandle_t& wifiEventGroup = ((cpx_wifi*)arg)->getWifiEventGroup();
+    const EventGroupHandle_t& wifiEventGroup = ((cpx_wifi*)arg)->getWifiEventGroup();
 
     switch (event_id)
     {
