@@ -26,7 +26,7 @@ private:
     std::vector<IProcess*> _networkServicesSTA; // Station Dependent Network Services
 
     TaskHandle_t        _xHandle;
-    EventGroupHandle_t& _wifiEventGroup;
+    EventGroupHandle_t& _wifiConfigEventGroup;
 
 public:
     Proc_networkServiceManager(EventGroupHandle_t& wifiEventGroup);
@@ -62,7 +62,7 @@ public:
      *
      * @return EventGroupHandle_t&
      */
-    EventGroupHandle_t& getWifiEventGroup();
+    EventGroupHandle_t& getWifiConfigEventGroup();
 
     /**
      * @brief Execute network services

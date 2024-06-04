@@ -20,7 +20,7 @@ SemaphoreHandle_t mutex;
 
 static void programTask(void* pvParameters);
 
-Proc_networkServiceManager::Proc_networkServiceManager(EventGroupHandle_t& wifiEventGroup) : _xHandle(nullptr), _wifiEventGroup(wifiEventGroup)
+Proc_networkServiceManager::Proc_networkServiceManager(EventGroupHandle_t& wifiConfigEventGroup) : _xHandle(nullptr), _wifiConfigEventGroup(wifiConfigEventGroup)
 {
     mutex = xSemaphoreCreateMutex();
 }
@@ -84,6 +84,11 @@ sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& network
     return ERROR_SUCCESS;
 }
 
+EventGroupHandle_t& Proc_networkServiceManager::getWifiConfigEventGroup()
+{
+    return _wifiConfigEventGroup;
+}
+
 sys_error_t Proc_networkServiceManager::unregisterNetworkService(IProcess& networkService, NetworkServiceType type)
 {
     // mutex lock
@@ -140,7 +145,7 @@ static void programTask(void* pvParameters)
     for (;;)
     {
         // Wait for any of the specified event bits to be set
-        EventBits_t eventBits = xEventGroupWaitBits(proc->getWifiEventGroup(),        // Event Group Handle
+        EventBits_t eventBits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(),  // Event Group Handle
                                                                                       // Bits to wait for
                                                     WIFI_CONFIG_AP_SETUP_READY |      //
                                                         WIFI_CONFIG_AP_SETUP_FINISH | //
