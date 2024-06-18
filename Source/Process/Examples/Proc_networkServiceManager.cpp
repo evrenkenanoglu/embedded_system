@@ -32,7 +32,7 @@ Proc_networkServiceManager::~Proc_networkServiceManager()
 
 sys_error_t Proc_networkServiceManager::start()
 {
-    setState(IProcess::State::RUNNING);
+    setState(Process::State::RUNNING);
     BaseType_t result = xTaskCreate(programTask, taskName, taskStackSize, this, taskPriority, &_xHandle);
     if (result != pdPASS)
     {
@@ -45,7 +45,7 @@ sys_error_t Proc_networkServiceManager::start()
 
 sys_error_t Proc_networkServiceManager::stop()
 {
-    setState(IProcess::State::STOPPED);
+    setState(Process::State::STOPPED);
     vTaskDelete(_xHandle);
     return ERROR_SUCCESS;
 }

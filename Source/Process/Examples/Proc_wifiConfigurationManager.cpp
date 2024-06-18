@@ -57,7 +57,7 @@ Proc_wifiConfigurationManager::Proc_wifiConfigurationManager(cpx_wifi& wifiCpx, 
       _wifiConfigEventGroup(xEventGroupCreate()), _wifiConfigScanResults(xQueueCreate(WIFI_SCAN_MAX_RECORDS, sizeof(wifiApRecord_t)))
 {
     wifiCpx.set(&_wifiConfig);
-    setState(IProcess::State::INITIALIZED);
+    setState(Process::State::INITIALIZED);
 }
 
 Proc_wifiConfigurationManager::~Proc_wifiConfigurationManager()
@@ -115,7 +115,7 @@ sys_error_t Proc_wifiConfigurationManager::start()
         return ERROR_FAIL;
     }
 
-    setState(IProcess::State::RUNNING);
+    setState(Process::State::RUNNING);
     return ERROR_SUCCESS;
 }
 
@@ -124,7 +124,7 @@ sys_error_t Proc_wifiConfigurationManager::stop()
     vTaskDelete(_xHandleProgram);
     vTaskDelete(_xHandleWifiEventHandler);
     vTaskDelete(_xHandleWifiConfigEventHandler);
-    setState(IProcess::State::STOPPED);
+    setState(Process::State::STOPPED);
     return ERROR_SUCCESS;
 }
 
@@ -133,7 +133,7 @@ sys_error_t Proc_wifiConfigurationManager::pause()
     vTaskSuspend(_xHandleProgram);
     vTaskSuspend(_xHandleWifiEventHandler);
     vTaskSuspend(_xHandleWifiConfigEventHandler);
-    setState(IProcess::State::PAUSED);
+    setState(Process::State::PAUSED);
     return ERROR_SUCCESS;
 }
 
@@ -142,7 +142,7 @@ sys_error_t Proc_wifiConfigurationManager::resume()
     vTaskResume(_xHandleProgram);
     vTaskResume(_xHandleWifiEventHandler);
     vTaskResume(_xHandleWifiConfigEventHandler);
-    setState(IProcess::State::RUNNING);
+    setState(Process::State::RUNNING);
     return ERROR_SUCCESS;
 }
 

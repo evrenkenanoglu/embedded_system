@@ -9,7 +9,7 @@
 #define Proc_wifiConfigurationManager_HPP
 
 #include "HAL/Platform/ESP32/cpx_wifi.h"
-#include "Process/IProcess.hpp"
+#include "Process/Process.hpp"
 #include "Process/Proc_httpServer.hpp"
 #include "System/system.h"
 // #include "wifiConfigEvents.hpp"
@@ -52,7 +52,7 @@ enum class ProgramState
 
 };
 
-class Proc_wifiConfigurationManager : public IProcess
+class Proc_wifiConfigurationManager : public Process
 {
 private:
     cpx_wifi&          _wifiCpx;

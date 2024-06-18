@@ -8,7 +8,7 @@
 #ifndef Proc_networkServiceManager_HPP
 #define Proc_networkServiceManager_HPP
 
-#include "Process/IProcess.hpp"
+#include "Process/Process.hpp"
 #include "System/system.h"
 #include "Proc_wifiConfigurationManager.hpp"
 #include <vector>
@@ -19,7 +19,7 @@ enum class NetworkServiceType
     STA
 };
 
-class Proc_networkServiceManager : public IProcess
+class Proc_networkServiceManager : public Process
 {
 private:
     std::vector<IProcess*> _networkServicesAP;  // Access Point Dependent Network Services

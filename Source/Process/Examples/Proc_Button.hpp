@@ -9,10 +9,10 @@
 #define PROC_BUTTON_HPP
 
 #include "HAL/Platform/ESP32/io_gpio.hpp"
-#include "Process/IProcess.hpp"
+#include "Process/Process.hpp"
 #include <vector>
 
-class Proc_Button : public IProcess
+class Proc_Button : public Process
 {
 public:
     typedef struct

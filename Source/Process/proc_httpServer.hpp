@@ -9,7 +9,7 @@
 #define PROC_HTTPSERVER_HPP
 
 #include "HAL/Platform/ESP32/cpx_wifi.h"
-#include "IProcess.hpp"
+#include "Process.hpp"
 #include <esp_http_server.h>
 
 typedef struct
@@ -18,7 +18,7 @@ typedef struct
     void*     htmlContext;
 } httpUriContext_t;
 
-class Proc_httpServer : public IProcess
+class Proc_httpServer : public Process
 {
 private:
     httpd_handle_t      _server;

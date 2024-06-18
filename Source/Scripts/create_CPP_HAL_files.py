@@ -178,7 +178,7 @@ elif hal_type == "CPX":
     stop_definition     = "sys_error_t "    + classname + "::stop() override;\n"
 
 elif hal_type == "PROC":
-    iprocess_header_file        = "Process/IProcess.hpp"
+    iprocess_header_file        = "Process/Process.hpp"
     iprocess_classname          = "IProcess"
     iprocess_start_definition   = "sys_error_t "    + classname + "::start() override;\n"
     iprocess_stop_definition    = "sys_error_t "    + classname + "::stop() override;\n"

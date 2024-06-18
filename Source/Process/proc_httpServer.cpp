@@ -8,7 +8,7 @@
 #include "Proc_httpServer.hpp"
 #include "HAL/Platform/ESP32/library/logImpl.h"
 #include "Library/UI/HTTP/ui_welcome_wifi_connect.h"
-#include "Process/Examples/wifiConfigEvents.hpp"
+#include "Process/Examples/Proc_wifiConfigurationManager.hpp"
 #include "cJSON.h"
 #include "protocol_examples_utils.h"
 #include "string.h"
@@ -56,7 +56,7 @@ Proc_httpServer::Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, Queue
       scan({.uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler, .user_ctx = this}),           // Initialize the URI handler for the scan
       connect({.uri = "/connect", .method = HTTP_POST, .handler = connect_post_handler, .user_ctx = this}) // Initialize the URI handler for the connect
 {
-    setState(IProcess::State::INITIALIZED);
+    setState(Process::State::INITIALIZED);
 }
 
 Proc_httpServer::~Proc_httpServer()
@@ -77,7 +77,7 @@ sys_error_t Proc_httpServer::start()
         httpd_register_uri_handler(_server, &welcome);
         httpd_register_uri_handler(_server, &scan);
         httpd_register_uri_handler(_server, &connect);
-        setState(IProcess::State::RUNNING);
+        setState(Process::State::RUNNING);
     }
     else
     {
@@ -91,7 +91,7 @@ sys_error_t Proc_httpServer::start()
 sys_error_t Proc_httpServer::stop()
 {
     httpd_stop(_server);
-    setState(IProcess::State::STOPPED);
+    setState(Process::State::STOPPED);
     return ERROR_SUCCESS;
 }
 
