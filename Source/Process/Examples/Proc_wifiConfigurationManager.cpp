@@ -10,10 +10,10 @@
 
 namespace
 {
-constexpr uint16_t programTaskDelay     = 1000; // milliseconds
-constexpr uint16_t programTaskStackSize = 4096; // bytes
-constexpr uint8_t  programTaskPriority  = 5;
-constexpr char     programTaskName[]    = "programTask";
+constexpr uint16_t programRoutineTaskDelay     = 1000; // milliseconds
+constexpr uint16_t programRoutineTaskStackSize = 4096; // bytes
+constexpr uint8_t  programRoutineTaskPriority  = 5;
+constexpr char     programRoutineTaskName[]    = "programRoutineTask";
 
 constexpr uint16_t wifiEventHandlerStackSize = 4096; // bytes
 constexpr uint8_t  wifiEventHandlerPriority  = 5;
@@ -32,7 +32,7 @@ constexpr uint8_t tryConnectDelay = 100; // milliseconds
  *
  * @param pvParameters Proc_wifiConfigurationManager object
  */
-static void programTask(void* pvParameters);
+static void programRoutineTask(void* pvParameters);
 
 /**
  * @brief Wifi Event Handler
@@ -77,14 +77,15 @@ Proc_wifiConfigurationManager::~Proc_wifiConfigurationManager()
 
 sys_error_t Proc_wifiConfigurationManager::start()
 {
-    BaseType_t result = xTaskCreate(programTask,          // Task function
-                                    programTaskName,      // Task name
-                                    programTaskStackSize, // Stack size
+    BaseType_t result = xTaskCreate(programRoutineTask,          // Task function
+                                    programRoutineTaskName,      // Task name
+                                    programRoutineTaskStackSize, // Stack size
                                     this,                 // Task parameters
-                                    programTaskPriority,  // Task priority
+                                    programRoutineTaskPriority,  // Task priority
                                     &_xHandleProgram);    // Task handle
     if (result != pdPASS)
     {
+        stop();
         return ERROR_FAIL;
     }
 
@@ -97,6 +98,7 @@ sys_error_t Proc_wifiConfigurationManager::start()
 
     if (result != pdPASS)
     {
+        stop();
         return ERROR_FAIL;
     }
 
@@ -109,6 +111,7 @@ sys_error_t Proc_wifiConfigurationManager::start()
 
     if (result != pdPASS)
     {
+        stop();
         return ERROR_FAIL;
     }
 
@@ -168,9 +171,15 @@ QueueHandle_t Proc_wifiConfigurationManager::getWifiConfigScanResults()
     return _wifiConfigScanResults;
 }
 
-void programTask(void* pvParameters)
+void programRoutineTask(void* pvParameters)
 {
-    Proc_wifiConfigurationManager* proc = (Proc_wifiConfigurationManager*)pvParameters;
+    Proc_wifiConfigurationManager* proc = static_cast<Proc_wifiConfigurationManager*>(pvParameters);
+
+    if (proc == nullptr)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
+        return;
+    }
 
     for (;;)
     {
@@ -328,13 +337,13 @@ void programTask(void* pvParameters)
                 proc->setProgramState(ProgramState::AP_STA_MODE);
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(programTaskDelay));
+        std::this_thread::sleep_for(std::chrono::milliseconds(programRoutineTaskDelay));
     }
 }
 
 void wifiEventHandler(void* pvParameters)
 {
-    Proc_wifiConfigurationManager* proc = (Proc_wifiConfigurationManager*)pvParameters;
+    Proc_wifiConfigurationManager* proc = static_cast<Proc_wifiConfigurationManager*>(pvParameters);
     if (proc == nullptr)
     {
         logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
@@ -345,17 +354,17 @@ void wifiEventHandler(void* pvParameters)
     {
         std::cout << "WIFI EVENT HANDLER: Event manager waiting for events..." << std::endl;
         // Wait for the event bits to be set
-        EventBits_t uxBits = xEventGroupWaitBits(proc->getWifiCpx().getWifiEventGroup(), // Event Group Handle
-                                                                                         // Bits to wait for
-                                                 WIFI_SCAN_DONE,                         //
-                                                 pdTRUE,                                 // Clear bits on exit
-                                                 pdFALSE,                                // Wait for all bit
-                                                 portMAX_DELAY);                         // Wait indefinitely
+        EventBits_t eventBits = xEventGroupWaitBits(proc->getWifiCpx().getWifiEventGroup(), // Event Group Handle
+                                                                                            // Bits to wait for
+                                                    WIFI_SCAN_DONE,                         //
+                                                    pdTRUE,                                 // Clear bits on exit
+                                                    pdFALSE,                                // Wait for all bit
+                                                    portMAX_DELAY);                         // Wait indefinitely
 
-        std::cout << "WIFI EVENT HANDLER: Event manager got event bits: " << (int)uxBits << std::endl;
+        std::cout << "WIFI EVENT HANDLER: Event manager got event bits: " << (int)eventBits << std::endl;
         // Check if the event bits are set
 
-        if (uxBits & WIFI_SCAN_DONE)
+        if (eventBits & WIFI_SCAN_DONE)
         {
             std::cout << "WIFI EVENT HANDLER: Getting wifi scan results..." << std::endl;
             // Set the bit to indicate that the scan is done
@@ -369,7 +378,7 @@ void wifiEventHandler(void* pvParameters)
 
 void wifiConfigEventHandler(void* pvParameters)
 {
-    Proc_wifiConfigurationManager* proc = (Proc_wifiConfigurationManager*)pvParameters;
+    Proc_wifiConfigurationManager* proc = static_cast<Proc_wifiConfigurationManager*>(pvParameters);
     if (proc == nullptr)
     {
         logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
@@ -380,17 +389,17 @@ void wifiConfigEventHandler(void* pvParameters)
     {
         std::cout << "WIFI CONFIG EVENT HANDLER: Event manager waiting for events..." << std::endl;
         // Wait for the event bits to be set
-        EventBits_t uxBits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(),     // Event Group Handle
-                                                                                      // Bits to wait for
-                                                 WIFI_CONFIG_CREDENTIALS_STORED_BIT | //
-                                                     WIFI_CONFIG_SCAN_REQUESTED,      //
-                                                 pdTRUE,                              // Clear bits on exit
-                                                 pdFALSE,                             // Wait for all bit
-                                                 portMAX_DELAY);                      // Wait indefinitely
+        EventBits_t eventBits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(),     // Event Group Handle
+                                                                                         // Bits to wait for
+                                                    WIFI_CONFIG_CREDENTIALS_STORED_BIT | //
+                                                        WIFI_CONFIG_SCAN_REQUESTED,      //
+                                                    pdTRUE,                              // Clear bits on exit
+                                                    pdFALSE,                             // Wait for all bit
+                                                    portMAX_DELAY);                      // Wait indefinitely
 
-        std::cout << "WIFI CONFIG EVENT HANDLER: Event manager got event bits: " << (int)uxBits << std::endl;
+        std::cout << "WIFI CONFIG EVENT HANDLER: Event manager got event bits: " << (int)eventBits << std::endl;
         // Check if the event bits are set
-        if (uxBits & WIFI_CONFIG_SCAN_REQUESTED)
+        if (eventBits & WIFI_CONFIG_SCAN_REQUESTED)
         {
             if (proc->getProgramState() == ProgramState::AWAITING_CREDENTIALS)
             {
