@@ -8,7 +8,7 @@
 #include "Proc_httpServer.hpp"
 #include "HAL/Platform/ESP32/library/logImpl.h"
 #include "Library/UI/HTTP/ui_welcome_wifi_connect.h"
-#include "Process/Examples/Proc_wifiConfigurationManager.hpp"
+#include "Process/Examples/Network/Proc_wifiConfigurationManager.hpp"
 #include "cJSON.h"
 #include "protocol_examples_utils.h"
 #include "string.h"

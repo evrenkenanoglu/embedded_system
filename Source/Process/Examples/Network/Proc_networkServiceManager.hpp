@@ -10,7 +10,7 @@
 
 #include "Process/Process.hpp"
 #include "System/system.h"
-#include "Proc_wifiConfigurationManager.hpp"
+#include "Process/Examples/Network/Proc_wifiConfigurationManager.hpp"
 #include <vector>
 
 enum class NetworkServiceType

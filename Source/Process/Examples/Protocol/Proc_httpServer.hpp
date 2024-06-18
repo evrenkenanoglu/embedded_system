@@ -9,7 +9,7 @@
 #define PROC_HTTPSERVER_HPP
 
 #include "HAL/Platform/ESP32/cpx_wifi.h"
-#include "Process.hpp"
+#include "Process/Process.hpp"
 #include <esp_http_server.h>
 
 typedef struct
