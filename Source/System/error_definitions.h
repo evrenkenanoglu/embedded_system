@@ -71,11 +71,12 @@ typedef enum
     ERROR_UNKNOWN         = -9, // Unknown or unspecified error
 
     // Error codes related to hardware and peripherals
-    ERROR_INIT_FAILED  = -100, // Hardware initialization failure
-    ERROR_READ_FAILED  = -101, // Data read from hardware failed
-    ERROR_WRITE_FAILED = -102, // Data write to hardware failed
-    ERROR_IRQ_HANDLER  = -103, // Error in interrupt handler
-    ERROR_DEVICE_BUSY  = -104, // Device or resource is busy
+    ERROR_NOT_INITIALIZED = -100, // Hardware or peripheral not initialized
+    ERROR_INIT_FAILED     = -101, // Hardware initialization failure
+    ERROR_READ_FAILED     = -102, // Data read from hardware failed
+    ERROR_WRITE_FAILED    = -103, // Data write to hardware failed
+    ERROR_IRQ_HANDLER     = -104, // Error in interrupt handler
+    ERROR_DEVICE_BUSY     = -105, // Device or resource is busy
 
     // Error codes related to memory
     ERROR_OUT_OF_MEMORY    = -201, // Memory allocation failed, out of available memory

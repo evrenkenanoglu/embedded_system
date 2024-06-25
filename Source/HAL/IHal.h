@@ -17,6 +17,9 @@
 
 /** CONSTANTS *****************************************************************/
 
+#define HAL_INITIALIZED   1
+#define HAL_UNINITIALIZED 0
+
 /** TYPEDEFS ******************************************************************/
 
 /**
@@ -134,12 +137,12 @@ public:
 
     /**
      * @brief Get the total size of the memory device.
-     * 
+     *
      * @param size Pointer to store the total size of the memory device in bytes.
      *
      * @return sys_error_t ERROR_SUCCESS if operation is successful, false otherwise.
      */
-    virtual sys_error_t getSize(uint32_t *size) = 0;
+    virtual sys_error_t getSize(uint32_t* size) = 0;
 
     /**
      * @brief Destructor for IHAL_MEM.
