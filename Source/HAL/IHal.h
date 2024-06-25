@@ -17,6 +17,9 @@
 
 /** CONSTANTS *****************************************************************/
 
+#define HAL_INITIALIZED   1
+#define HAL_UNINITIALIZED 0
+
 /** TYPEDEFS ******************************************************************/
 
 /**
@@ -101,43 +104,45 @@ public:
     /**
      * @brief Initialize the memory device.
      *
-     * @return bool True if initialization was successful, false otherwise.
+     * @return sys_error_t True if initialization was successful, false otherwise.
      */
-    virtual bool initialize() = 0;
+    virtual sys_error_t init() = 0;
 
     /**
      * @brief Read data from the memory device.
      *
-     * @param address The memory address to start reading from.
+     * @param addressOrKey The memory address or key to start reading from.
      * @param data Pointer to the buffer where the read data will be stored.
      * @param length The length of data to be read.
-     * @return bool True if data read was successful, false otherwise.
+     * @return sys_error_t True if data read was successful, false otherwise.
      */
-    virtual bool readData(uint32_t address, uint8_t* data, size_t length) = 0;
+    virtual sys_error_t readData(void* addressOrKey, uint8_t* data, size_t length) = 0;
 
     /**
      * @brief Write data to the memory device.
      *
-     * @param address The memory address to start writing to.
+     * @param addressOrKey The memory address or key to start writing to.
      * @param data Pointer to the data buffer to be written.
      * @param length The length of data to be written.
-     * @return bool True if data write was successful, false otherwise.
+     * @return sys_error_t True if data write was successful, false otherwise.
      */
-    virtual bool writeData(uint32_t address, const uint8_t* data, size_t length) = 0;
+    virtual sys_error_t writeData(void* addressOrKey, const uint8_t* data, size_t length) = 0;
 
     /**
      * @brief Erase the memory device (if applicable).
      *
-     * @return bool True if erase operation was successful, false otherwise.
+     * @return sys_error_t True if erase operation was successful, false otherwise.
      */
-    virtual bool erase() = 0;
+    virtual sys_error_t erase(void* addressOrKey) = 0;
 
     /**
      * @brief Get the total size of the memory device.
      *
-     * @return size_t The total size of the memory device in bytes.
+     * @param size Pointer to store the total size of the memory device in bytes.
+     *
+     * @return sys_error_t ERROR_SUCCESS if operation is successful, false otherwise.
      */
-    virtual size_t getSize() = 0;
+    virtual sys_error_t getSize(uint32_t* size) = 0;
 
     /**
      * @brief Destructor for IHAL_MEM.
