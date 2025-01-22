@@ -22,7 +22,6 @@
 static void        wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static void        ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static std::string printAuthMode(int authmode);
-
 namespace
 {
 constexpr uint16_t wifi_scan_get_result_timeout = WIFI_SCAN_TIMEOUT; // 1.5 seconds
@@ -34,6 +33,8 @@ cpx_wifi::cpx_wifi(void* config) : _wifiMode(WIFI_MODE_NULL)
     _wifiEventGroup  = xEventGroupCreate();
     _wifiInitialized = false;
     _apRecordsResult = nullptr;
+    _espNetifAp      = nullptr;
+    _espNetifSta     = nullptr;
 }
 
 cpx_wifi::~cpx_wifi()
@@ -75,7 +76,28 @@ void cpx_wifi::set(void* data)
 sys_error_t cpx_wifi::stop()
 {
     if (_wifiInitialized)
+    {
+        std::cout << "DEBUG: Stopping WIFI!" << std::endl;
         ESP_ERROR_CHECK(esp_wifi_stop());
+
+        std::cout << "DEBUG: Event Loop Deleting!" << std::endl;
+        esp_event_loop_delete_default();
+
+        if (_espNetifSta != nullptr) // Destroy Default WIFI STA
+        {
+            std::cout << "DEBUG: Deleting NETIFs STA!" << std::endl;
+            esp_netif_destroy_default_wifi(_espNetifSta);
+            _espNetifSta = nullptr;
+        }
+
+        if (_espNetifAp != nullptr) // Destroy Default WIFI AP
+        {
+            std::cout << "DEBUG: Deleting NETIFs AP!" << std::endl;
+            esp_netif_destroy_default_wifi(_espNetifAp);
+            _espNetifAp = nullptr;
+        }
+        std::cout << "DEBUG: WIFI STOPPED!" << std::endl;
+    }
     return ERROR_SUCCESS;
 }
 
@@ -93,18 +115,20 @@ sys_error_t cpx_wifi::wifiInit()
 {
     // Initialize TCP/IP Stack
     ESP_ERROR_CHECK(esp_netif_init());
+    std::cout << "DEBUG: TCP/IP Stack Initialized!" << std::endl;
 
-    //
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    std::cout << "DEBUG: Event Loop Created!" << std::endl;
 
     switch (_wifiMode)
     {
         case WIFI_MODE_STA:
         {
             std::stringstream ss;
-            ss << "WIFI SOFT STA Initializing...!" << std::endl << "SSID: " << _wifiConfig.sta.ssid << std::endl << "PASSWORD: " << _wifiConfig.sta.password << std::endl;
+            ss << "WIFI STA Initializing...!" << std::endl << "SSID: " << _wifiConfig.sta.ssid << std::endl << "PASSWORD: " << _wifiConfig.sta.password << std::endl;
             logger().log(ILog::LogLevel::INFO, ss.str());
-            esp_netif_create_default_wifi_sta();
+            _espNetifSta = esp_netif_create_default_wifi_sta();
+            std::cout << "DEBUG: Default WIFI STA Created!" << std::endl;
         }
         break;
 
@@ -113,7 +137,8 @@ sys_error_t cpx_wifi::wifiInit()
             std::stringstream ss;
             ss << "WIFI SOFT AP Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
             logger().log(ILog::LogLevel::INFO, ss.str());
-            esp_netif_create_default_wifi_ap();
+            _espNetifAp = esp_netif_create_default_wifi_ap();
+            std::cout << "DEBUG: Default AP Created!" << std::endl;
         }
         break;
 
@@ -122,8 +147,10 @@ sys_error_t cpx_wifi::wifiInit()
             std::stringstream ss;
             ss << "WIFI SOFT APSTA Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
             logger().log(ILog::LogLevel::INFO, ss.str());
-            esp_netif_create_default_wifi_ap();
-            esp_netif_create_default_wifi_sta();
+            _espNetifAp  = esp_netif_create_default_wifi_ap();
+            _espNetifSta = esp_netif_create_default_wifi_sta();
+
+            std::cout << "DEBUG: Default WIFI STA and AP Created!" << std::endl;
         }
         break;
 
@@ -135,7 +162,9 @@ sys_error_t cpx_wifi::wifiInit()
 
     // Wifi module init wit default config
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    std::cout << "DEBUG: WIFI Init Config Created!" << std::endl;
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    std::cout << "DEBUG: WIFI Initialized!" << std::endl;
 
     // Event Handler Instances Created for WIFI and IP Events
     esp_event_handler_instance_t instance_any_id1;
@@ -155,9 +184,12 @@ sys_error_t cpx_wifi::wifiStart()
     if (_wifiMode == WIFI_MODE_STA)
     {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &_wifiConfig));
+        // Print wifiConfig ssid and password
+        // std::cout << _wifiConfig.ssid << std::endl;
+        // std::cout << _wifiConfig.password << std::endl;
+
         ESP_ERROR_CHECK(esp_wifi_start());
-        ESP_ERROR_CHECK(esp_wifi_connect());
-    }
+        }
     else if (_wifiMode == WIFI_MODE_AP)
     {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &_wifiConfig));
@@ -263,6 +295,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         case WIFI_EVENT_STA_START: /**< Station start */
         {
             logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_START: ");
+            xEventGroupSetBits(wifiEventGroup, WIFI_STA_STARTED);
         }
         break;
 
@@ -275,12 +308,14 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         case WIFI_EVENT_STA_CONNECTED: /**< Station connected to AP */
         {
             logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_CONNECTED: ");
+            xEventGroupSetBits(wifiEventGroup, WIFI_CONNECTED);
         }
         break;
 
         case WIFI_EVENT_STA_DISCONNECTED: /**< Station disconnected from AP */
         {
             logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_DISCONNECTED: ");
+            xEventGroupSetBits(wifiEventGroup, WIFI_DISCONNECTED);
         }
         break;
 

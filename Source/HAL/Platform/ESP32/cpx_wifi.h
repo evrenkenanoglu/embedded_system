@@ -12,6 +12,7 @@
 #include "System/error_definitions.h"
 #include "esp_wifi_types.h"
 #include <string>
+#include "esp_netif_types.h"
 
 #define WIFI_SCAN_MAX_RECORDS 16
 #define WIFI_SCAN_TIMEOUT     pdTICKS_TO_MS(1500) // 1.5 seconds in ticks
@@ -19,6 +20,7 @@
 #define WIFI_CONNECTED        BIT0
 #define WIFI_DISCONNECTED     BIT1
 #define WIFI_SCAN_DONE        BIT2
+#define WIFI_STA_STARTED      BIT3
 
 typedef struct
 {
@@ -36,6 +38,8 @@ private:
     EventGroupHandle_t _wifiEventGroup;
     bool               _wifiInitialized;
     QueueHandle_t     _apRecordsResult;
+    esp_netif_t*      _espNetifAp;
+    esp_netif_t*      _espNetifSta;
 
 private:
     sys_error_t wifiInit();
