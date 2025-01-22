@@ -8,6 +8,7 @@
 #ifndef PROC_HTTPSERVER_HPP
 #define PROC_HTTPSERVER_HPP
 
+#include "HAL/IHal.h"
 #include "HAL/Platform/ESP32/cpx_wifi.h"
 #include "Process/Process.hpp"
 #include <esp_http_server.h>
@@ -26,13 +27,14 @@ private:
     EventGroupHandle_t& _wifiConfigEventGroup;
     QueueHandle_t       _wifiConfigScanResults;
     const char*         _welcomeWifiConnectHtml;
+    IHAL_MEM&           _memDevice;
 
     const httpd_uri_t welcome;
     const httpd_uri_t scan;
     const httpd_uri_t connect;
 
 public:
-    Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, QueueHandle_t wifiConfigScanResults);
+    Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, QueueHandle_t wifiConfigScanResults, IHAL_MEM& memDevice);
     ~Proc_httpServer();
 
     sys_error_t start() override;
@@ -59,6 +61,13 @@ public:
     EventGroupHandle_t& getWifiConfigEventGroup();
 
     QueueHandle_t getWifiConfigScanResults();
+
+    /**
+     * @brief Get the Mem Device object
+     *
+     * @return IHAL_MEM&
+     */
+    IHAL_MEM& getMemDevice() const;
 };
 
 #endif /* PROC_HTTPSERVER_HPP */

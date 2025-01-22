@@ -46,12 +46,13 @@ static error_t connect_post_handler(httpd_req_t* req);
  */
 static error_t scan_get_handler(httpd_req_t* req);
 
-Proc_httpServer::Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, QueueHandle_t wifiConfigScanResults)
+Proc_httpServer::Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, QueueHandle_t wifiConfigScanResults, IHAL_MEM& memDevice)
     : _server(NULL),                                                                                       // Initialize the server handle
       _config(HTTPD_DEFAULT_CONFIG()),                                                                     // Initialize the server and configuration
       _wifiConfigEventGroup(wifiConfigEventGroup),                                                         // Initialize the event group
       _wifiConfigScanResults(wifiConfigScanResults),                                                       // Initialize the scan results queue
       _welcomeWifiConnectHtml(HTML_UI_WELCOME_WIFI_CONNECT_CONTENT),                                       // Initialize the welcome page HTML content
+      _memDevice(memDevice),                                                                               // Initialize the memory device
       welcome({.uri = "/welcome", .method = HTTP_GET, .handler = welcome_get_handler, .user_ctx = this}),  // Initialize the URI handler for the welcome page
       scan({.uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler, .user_ctx = this}),           // Initialize the URI handler for the scan
       connect({.uri = "/connect", .method = HTTP_POST, .handler = connect_post_handler, .user_ctx = this}) // Initialize the URI handler for the connect
@@ -120,6 +121,11 @@ QueueHandle_t Proc_httpServer::getWifiConfigScanResults()
     return _wifiConfigScanResults;
 }
 
+IHAL_MEM& Proc_httpServer::getMemDevice() const
+{
+    return _memDevice;
+}
+
 /* An HTTP GET handler */
 static error_t welcome_get_handler(httpd_req_t* req)
 {
@@ -133,6 +139,8 @@ static error_t welcome_get_handler(httpd_req_t* req)
 /* An HTTP POST handler */
 static error_t connect_post_handler(httpd_req_t* req)
 {
+    Proc_httpServer* proc = (Proc_httpServer*)req->user_ctx;
+
     char content[post_content_length];
 
     // Read the content of the POST request
@@ -183,13 +191,29 @@ static error_t connect_post_handler(httpd_req_t* req)
             ss << "Password: " << json_password->valuestring << std::endl;
             logger().log(ILog::LogLevel::INFO, ss.str());
 
-            // Send back the SSID and password
-            char responseMessage[128] = "Received SSID and password. Connecting to  ";
+            std::cout << "WIFI_SSID: " << WIFI_SSID << std::endl;
+            std::cout << "WIFI_PASSWORD: " << WIFI_PASSWORD << std::endl;
 
-            strcat(responseMessage, json_ssid->valuestring);
-            strcat(responseMessage, "...");
+            // Write the SSID and password to the memory device
+            sys_error_t errorWifi = proc->getMemDevice().writeData(WIFI_SSID, (uint8_t*)json_ssid->valuestring, strlen(json_ssid->valuestring) + 1);
+            sys_error_t errorPass = proc->getMemDevice().writeData(WIFI_PASSWORD, (uint8_t*)json_password->valuestring, strlen(json_password->valuestring) + 1);
 
-            cJSON_AddStringToObject(response, "message", responseMessage);
+            std::string responseMessage;
+            if (errorWifi != ERROR_SUCCESS || errorPass != ERROR_SUCCESS)
+            {
+                logger().log(ILog::LogLevel::ERROR, "Storing WiFi and Password Failed!");
+                responseMessage = "Storing WiFi And Password Failed!";
+            }
+            else // if writing to memory device operation Success
+            {
+                xEventGroupSetBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_CREDENTIALS_STORED);
+                // Send back the SSID and password
+                responseMessage = "Received SSID and password. Connecting to  ";
+                responseMessage.append(json_ssid->valuestring);
+                responseMessage.append("...");
+            }
+
+            cJSON_AddStringToObject(response, "message", responseMessage.c_str());
         }
     }
     else // Error parsing SSID and password
