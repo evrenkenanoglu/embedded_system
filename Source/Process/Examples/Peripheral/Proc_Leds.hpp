@@ -9,7 +9,7 @@
 #define PROC_LEDS_HPP
 
 #include "HAL/Platform/ESP32/io_gpio.hpp"
-#include "Process/IProcess.hpp"
+#include "Process/Process.hpp"
 #include <stdbool.h>
 #include <vector>
 
@@ -28,7 +28,7 @@ typedef enum : uint8_t
     LED_BLINK_THRICE = 7, // LED is blinking thrice
 } ledStateMachine;
 
-class Proc_Leds : public IProcess
+class Proc_Leds : public Process
 {
 public:
     // private members

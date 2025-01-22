@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Socket Control</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <style>
+        form {
+            border: 1px dotted gray;
+            padding: 10px;
+            box-shadow: 10px 20px 10px rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            width: 60%;
+            margin: 10px auto;
+        }
+
+        h1,
+        h2 {
+            text-align: center;
+            font-size: 4em;
+            font-family: 'Arial', sans-serif, bold;
+            background: -webkit-linear-gradient(left, #007BFF, #00C6FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h1 {
+            margin-bottom: 0;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        .socket-button {
+            width: 120;
+            height: 120px;
+            border-radius: 50%;
+            box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .socket-container {
+            width: 200px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px auto;
+            border-radius: 25px;
+            border: 2px solid #ccc;
+            background-color: #E9ECEF;
+            box-shadow: 10px 20px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        #toggle-all {
+            width: 80%;
+            height: 80%;
+            font-size: 1.5em;
+        }
+
+        #controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            justify-items: center;
+            align-items: center;
+            gap: 10px;
+            padding: 0 100px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <form>
+            <h1 class="mt-4">UNIVERSE HOME</h1>
+            <h2 class="mb-4">Socket Control</h2>
+            <div class="socket-container" style="margin: 0 auto 20px auto;">
+                <button id="toggle-all" class="btn btn-danger socket-button">ALL <br> On/Off</button>
+            </div>
+            <div id="controls">
+                <script>
+                    document.addEventListener('DOMContentLoaded', (event) => {
+                        document.querySelector('form').addEventListener('submit', function (event) {
+                            event.preventDefault();
+                        });
+
+                        const sockets = [];
+                        for (let i = 0; i < 10; i++) {
+                            const container = document.createElement('div');
+                            container.className = 'socket-container';
+
+                            const button = document.createElement('button');
+                            button.textContent = `Socket ${i + 1}`;
+                            button.className = 'btn btn-danger socket-button';
+                            button.ondblclick = function (event) {
+                                event.preventDefault();
+                                const isOn = button.className.includes('btn-success');
+                                const newState = isOn ? 'Off' : 'On';
+                                button.className = isOn ? 'btn btn-danger socket-button' : 'btn btn-success socket-button';
+                                fetch(`/socket/${i}?state=${newState.toLowerCase()}`)
+                                    .catch(error => console.error('Error:', error));
+                            };
+
+                            sockets.push(button);
+
+                            container.append(button);
+                            document.getElementById('controls').append(container);
+                        }
+
+                        document.getElementById('toggle-all').ondblclick = function (event) {
+                            event.preventDefault();
+                            const allOn = sockets.every(button => button.className.includes('btn-success'));
+                            const newState = allOn ? 'Off' : 'On';
+                            sockets.forEach((button, i) => {
+                                button.className = allOn ? 'btn btn-danger socket-button' : 'btn btn-success socket-button';
+                                fetch(`/socket/${i}?state=${newState.toLowerCase()}`)
+                                    .catch(error => console.error('Error:', error));
+                            });
+                        };
+                    });
+                </script>
+            </div>
+        </form>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+</body>
+
+</html>

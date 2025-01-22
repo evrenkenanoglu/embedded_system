@@ -15,6 +15,7 @@
 #ifndef ERROR_DEFINITIONS_H
 #define ERROR_DEFINITIONS_H
 
+#include "System/ILog.h"
 #include <cstdio>
 
 // Macro for handling errors and returning on error
@@ -25,9 +26,22 @@
         if (err != ERROR_SUCCESS)                                                                                                                                                                      \
         {                                                                                                                                                                                              \
             char errMsg[256];                                                                                                                                                                          \
-            std::sprintf(errMsg, "Error in %s at line %d: Error Code: &d\n", __FILE__, __LINE__, err);                                                                                                 \
-            logWrapper.log(LogWrapper::LogLevel::ERROR, errMsg);                                                                                                                                       \
+            std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d\n", __FILE__, __LINE__, err);                                                                                                 \
+            logWrapper.log(ILog::LogLevel::ERROR, errMsg);                                                                                                                                             \
             return err;                                                                                                                                                                                \
+        }                                                                                                                                                                                              \
+    } while (0)
+
+// Macro for handling errors and logging the error
+#define ON_ERROR_WITH_OUTPUT(expr, logWrapper)                                                                                                                                                         \
+    do                                                                                                                                                                                                 \
+    {                                                                                                                                                                                                  \
+        sys_error_t err = (expr);                                                                                                                                                                      \
+        if (err != ERROR_SUCCESS)                                                                                                                                                                      \
+        {                                                                                                                                                                                              \
+            char errMsg[256];                                                                                                                                                                          \
+            std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d\n", __FILE__, __LINE__, err);                                                                                                 \
+            logWrapper.log(ILog::LogLevel::ERROR, errMsg);                                                                                                                                             \
         }                                                                                                                                                                                              \
     } while (0)
 
@@ -57,11 +71,12 @@ typedef enum
     ERROR_UNKNOWN         = -9, // Unknown or unspecified error
 
     // Error codes related to hardware and peripherals
-    ERROR_INIT_FAILED  = -100, // Hardware initialization failure
-    ERROR_READ_FAILED  = -101, // Data read from hardware failed
-    ERROR_WRITE_FAILED = -102, // Data write to hardware failed
-    ERROR_IRQ_HANDLER  = -103, // Error in interrupt handler
-    ERROR_DEVICE_BUSY  = -104, // Device or resource is busy
+    ERROR_NOT_INITIALIZED = -100, // Hardware or peripheral not initialized
+    ERROR_INIT_FAILED     = -101, // Hardware initialization failure
+    ERROR_READ_FAILED     = -102, // Data read from hardware failed
+    ERROR_WRITE_FAILED    = -103, // Data write to hardware failed
+    ERROR_IRQ_HANDLER     = -104, // Error in interrupt handler
+    ERROR_DEVICE_BUSY     = -105, // Device or resource is busy
 
     // Error codes related to memory
     ERROR_OUT_OF_MEMORY    = -201, // Memory allocation failed, out of available memory

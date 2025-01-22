@@ -12,14 +12,34 @@
 #include "System/error_definitions.h"
 #include "esp_wifi_types.h"
 #include <string>
+#include "esp_netif_types.h"
+
+#define WIFI_SCAN_MAX_RECORDS 16
+#define WIFI_SCAN_TIMEOUT     pdTICKS_TO_MS(1500) // 1.5 seconds in ticks
+
+#define WIFI_CONNECTED        BIT0
+#define WIFI_DISCONNECTED     BIT1
+#define WIFI_SCAN_DONE        BIT2
+#define WIFI_STA_STARTED      BIT3
+
+typedef struct
+{
+    uint8_t ssid[33];
+    uint8_t authmode;
+} wifiApRecord_t;
 
 class cpx_wifi : public IHAL_CPX
 {
 private:
-    std::string   _ssid;
-    std::string   _password;
-    wifi_mode_t   _wifiMode;
-    wifi_config_t _wifiConfig;
+    std::string        _ssid;
+    std::string        _password;
+    wifi_mode_t        _wifiMode;
+    wifi_config_t      _wifiConfig;
+    EventGroupHandle_t _wifiEventGroup;
+    bool               _wifiInitialized;
+    QueueHandle_t     _apRecordsResult;
+    esp_netif_t*      _espNetifAp;
+    esp_netif_t*      _espNetifSta;
 
 private:
     sys_error_t wifiInit();
@@ -44,6 +64,55 @@ public:
      * @param mode
      */
     void setWifiMode(wifi_mode_t mode);
+
+    /**
+     * @brief Get the Wifi Mode object
+     *
+     * @return wifi_mode_t
+     */
+    wifi_mode_t getWifiMode();
+
+    /**
+     * @brief Scan for available WiFi networks.
+     *
+     * @param config wifi_scan_config_t
+     * @param result wifi_ap_record_t
+     * @param scanCount Number of APs to scan for
+     * @return sys_error_t
+     */
+    sys_error_t scan(void* config);
+
+    /**
+     * @brief Get the Scan Results object
+     *
+     * @param apRecordsResult
+     * @return sys_error_t
+     */
+    sys_error_t getScanResults(QueueHandle_t apRecordsResult);
+
+
+    sys_error_t clearScanResults();
+
+    /**
+     * @brief Connect to a WiFi network.
+     *
+     * @return sys_error_t
+     */
+    sys_error_t connect();
+
+    /**
+     * @brief Disconnect from the current WiFi network.
+     *
+     * @return sys_error_t
+     */
+    sys_error_t disconnect();
+
+    /**
+     * @brief Get Wifi Event Group object
+     *
+     * @return EventGroupHandle_t&
+     */
+    EventGroupHandle_t& getWifiEventGroup();
 };
 
 #endif /* CPX_WIFI_HPP */
