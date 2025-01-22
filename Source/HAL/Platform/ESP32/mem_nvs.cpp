@@ -40,7 +40,7 @@ sys_error_t mem_nvs::init()
     return ERROR_SUCCESS;
 }
 
-sys_error_t mem_nvs::readData(void* addressOrKey, uint8_t* data, size_t length)
+sys_error_t mem_nvs::readData(const void *addressOrKey, uint8_t* data, size_t length)
 {
 
     if (_initialized == HAL_UNINITIALIZED)
@@ -80,7 +80,7 @@ sys_error_t mem_nvs::readData(void* addressOrKey, uint8_t* data, size_t length)
     return ERROR_SUCCESS;
 }
 
-sys_error_t mem_nvs::writeData(void* addressOrKey, const uint8_t* data, size_t length)
+sys_error_t mem_nvs::writeData(const void* addressOrKey, const uint8_t* data, size_t length)
 {
 
     if (_initialized == HAL_UNINITIALIZED)

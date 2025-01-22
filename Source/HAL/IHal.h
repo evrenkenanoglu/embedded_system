@@ -116,7 +116,7 @@ public:
      * @param length The length of data to be read.
      * @return sys_error_t True if data read was successful, false otherwise.
      */
-    virtual sys_error_t readData(void* addressOrKey, uint8_t* data, size_t length) = 0;
+    virtual sys_error_t readData(const void *addressOrKey, uint8_t* data, size_t length) = 0;
 
     /**
      * @brief Write data to the memory device.
@@ -126,7 +126,7 @@ public:
      * @param length The length of data to be written.
      * @return sys_error_t True if data write was successful, false otherwise.
      */
-    virtual sys_error_t writeData(void* addressOrKey, const uint8_t* data, size_t length) = 0;
+    virtual sys_error_t writeData(const void* addressOrKey, const uint8_t* data, size_t length) = 0;
 
     /**
      * @brief Erase the memory device (if applicable).
