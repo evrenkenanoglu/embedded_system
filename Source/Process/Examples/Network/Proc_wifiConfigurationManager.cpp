@@ -65,8 +65,15 @@ static void wifiConfigEventHandler(void* pvParameters);
 static sys_error_t getWifiCredentialsfromMem(IHAL_MEM& memDevice, uint8_t* ssid, uint8_t* password);
 
 Proc_wifiConfigurationManager::Proc_wifiConfigurationManager(cpx_wifi& wifiCpx, wifi_config_t& wifiConfig, IHAL_MEM& memDevice)
-    : _wifiCpx(wifiCpx), _wifiConfig(wifiConfig), _xHandleProgram(nullptr), _xHandleWifiEventHandler(nullptr), _xHandleWifiConfigEventHandler(nullptr), _programState(ProgramState::UNINITIALIZED),
-      _wifiConfigEventGroup(xEventGroupCreate()), _wifiConfigScanResults(xQueueCreate(WIFI_SCAN_MAX_RECORDS, sizeof(wifiApRecord_t))), _memDevice(memDevice)
+    : _wifiCpx(wifiCpx)
+    , _wifiConfig(wifiConfig)
+    , _xHandleProgram(nullptr)
+    , _xHandleWifiEventHandler(nullptr)
+    , _xHandleWifiConfigEventHandler(nullptr)
+    , _programState(ProgramState::UNINITIALIZED)
+    , _wifiConfigEventGroup(xEventGroupCreate())
+    , _wifiConfigScanResults(xQueueCreate(WIFI_SCAN_MAX_RECORDS, sizeof(wifiApRecord_t)))
+    , _memDevice(memDevice)
 {
     wifiCpx.set(&_wifiConfig);
     setState(Process::State::INITIALIZED);

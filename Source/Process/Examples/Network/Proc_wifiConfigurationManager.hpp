@@ -8,11 +8,11 @@
 #ifndef Proc_wifiConfigurationManager_HPP
 #define Proc_wifiConfigurationManager_HPP
 
+#include "HAL/IHal.h"
 #include "HAL/Platform/ESP32/cpx_wifi.h"
 #include "Process/Examples/Protocol/Proc_httpServer.hpp"
 #include "Process/Process.hpp"
 #include "System/system.h"
-#include "HAL/IHal.h"
 // #include "wifiConfigEvents.hpp"
 
 #include "esp_bit_defs.h"
@@ -24,8 +24,8 @@
 #define WIFI_CONFIG_STA_SETUP_READY         BIT2 // Station Setup Ready
 #define WIFI_CONFIG_STA_SETUP_FINISH        BIT3 // Station Setup Shutdown
 
-#define WIFI_CONFIG_SCAN_REQUESTED          BIT4 //
-#define WIFI_CONFIG_SCAN_DONE               BIT5
+#define WIFI_CONFIG_SCAN_REQUESTED          BIT5 //
+#define WIFI_CONFIG_SCAN_DONE               BIT6
 
 #define WIFI_CONFIG_CREDENTIALS_STORED      BIT7
 
@@ -33,12 +33,6 @@
 #define WIFI_CONFIG_DISCONNECTED_FROM_AP    BIT9
 
 #define WIFI_CONFIG_BITMAX                  BIT15
-
-#define WIFI_CONFIG_TRY_CONNECT             BIT2
-#define WIFI_CONFIG_CONNECTED               BIT3
-#define WIFI_CONFIG_DISCONNECTED            BIT4
-#define WIFI_CONFIG_CONNECTION_FAILED       BIT5
-#define WIFI_CONFIG_WAITING_FOR_CREDENTIALS BIT0
 
 #define WIFI_SSID                           "wifiSsid"
 #define WIFI_SSID_LENGTH                    32
@@ -109,7 +103,6 @@ public:
      */
     cpx_wifi& getWifiCpx() const;
 
-
     /**
      * @brief Get the Wifi Config object
      *
@@ -130,7 +123,6 @@ public:
      * @return QueueHandle_t
      */
     QueueHandle_t getWifiConfigScanResults();
-
 
     /**
      * @brief Get the Mem Device object
