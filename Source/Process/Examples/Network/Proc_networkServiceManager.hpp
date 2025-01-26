@@ -8,9 +8,9 @@
 #ifndef Proc_networkServiceManager_HPP
 #define Proc_networkServiceManager_HPP
 
+#include "Process/Examples/Network/Proc_wifiConfigurationManager.hpp"
 #include "Process/Process.hpp"
 #include "System/system.h"
-#include "Process/Examples/Network/Proc_wifiConfigurationManager.hpp"
 #include <vector>
 
 enum class NetworkServiceType
@@ -19,11 +19,21 @@ enum class NetworkServiceType
     STA
 };
 
+enum class NetworkServiceState
+{
+    INITIALIZED,
+    RUNNING,
+    STOPPED
+};
+
 class Proc_networkServiceManager : public Process
 {
 private:
     std::vector<IProcess*> _networkServicesAP;  // Access Point Dependent Network Services
     std::vector<IProcess*> _networkServicesSTA; // Station Dependent Network Services
+
+    NetworkServiceState _stateAP;
+    NetworkServiceState _stateSTA;
 
     TaskHandle_t        _xHandle;
     EventGroupHandle_t& _wifiConfigEventGroup;
@@ -71,6 +81,22 @@ public:
      * @param startServices Start or stop services
      */
     void executeNetworkServices(NetworkServiceType type, bool startServices);
+
+    /**
+     * @brief Get the Network Service State object
+     *
+     * @param type Network Service Type
+     * @return NetworkServiceState
+     */
+    NetworkServiceState getNetworkServiceState(NetworkServiceType type) const;
+
+    /**
+     * @brief Set the Network Service State object
+     *
+     * @param type Network Service Type
+     * @param state Network Service State
+     */
+    void setNetworkServiceState(NetworkServiceType type, NetworkServiceState state);
 };
 
 #endif /* Proc_networkServiceManager_HPP */

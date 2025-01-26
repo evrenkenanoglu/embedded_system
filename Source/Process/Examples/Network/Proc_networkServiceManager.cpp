@@ -20,7 +20,11 @@ SemaphoreHandle_t mutex;
 
 static void programTask(void* pvParameters);
 
-Proc_networkServiceManager::Proc_networkServiceManager(EventGroupHandle_t& wifiConfigEventGroup) : _xHandle(nullptr), _wifiConfigEventGroup(wifiConfigEventGroup)
+Proc_networkServiceManager::Proc_networkServiceManager(EventGroupHandle_t& wifiConfigEventGroup)
+    : _stateAP(NetworkServiceState::INITIALIZED)
+    , _stateSTA(NetworkServiceState::INITIALIZED)
+    , _xHandle(nullptr)
+    , _wifiConfigEventGroup(wifiConfigEventGroup)
 {
     mutex = xSemaphoreCreateMutex();
 }
@@ -58,7 +62,7 @@ sys_error_t Proc_networkServiceManager::pause()
 
 sys_error_t Proc_networkServiceManager::resume()
 {
-    logger().log(ILog::LogLevel::ERROR, "Pause not implemented");
+    logger().log(ILog::LogLevel::ERROR, "Resume not implemented");
     return ERROR_NOT_IMPLEMENTED;
 }
 
@@ -67,6 +71,7 @@ sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& network
     // mutex lock
     xSemaphoreTake(mutex, portMAX_DELAY);
 
+    logger().log(ILog::LogLevel::WARNING, "Registering...");
     std::vector<IProcess*>& networkServices = (type == NetworkServiceType::AP) ? _networkServicesAP : _networkServicesSTA;
 
     // Check if the network service is already registered
@@ -79,6 +84,7 @@ sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& network
     }
     networkServices.emplace_back(&networkService);
 
+    logger().log(ILog::LogLevel::WARNING, "Registering Completed!");
     // mutex unlock
     xSemaphoreGive(mutex);
     return ERROR_SUCCESS;
@@ -137,6 +143,23 @@ void Proc_networkServiceManager::executeNetworkServices(NetworkServiceType type,
     xSemaphoreGive(mutex);
 }
 
+NetworkServiceState Proc_networkServiceManager::getNetworkServiceState(NetworkServiceType type) const
+{
+    return (type == NetworkServiceType::AP) ? _stateAP : _stateSTA;
+}
+
+void Proc_networkServiceManager::setNetworkServiceState(NetworkServiceType type, NetworkServiceState state)
+{
+    if (type == NetworkServiceType::AP)
+    {
+        _stateAP = state;
+    }
+    else
+    {
+        _stateSTA = state;
+    }
+}
+
 static void programTask(void* pvParameters)
 {
     // Cast the provided parameter to Proc_networkServiceManager
@@ -145,36 +168,74 @@ static void programTask(void* pvParameters)
     for (;;)
     {
         // Wait for any of the specified event bits to be set
-        EventBits_t eventBits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(),  // Event Group Handle
-                                                                                      // Bits to wait for
-                                                    WIFI_CONFIG_AP_SETUP_READY |      //
-                                                        WIFI_CONFIG_AP_SETUP_FINISH | //
-                                                        WIFI_CONFIG_STA_SETUP_READY | //
-                                                        WIFI_CONFIG_STA_SETUP_FINISH, //
-                                                    pdTRUE,                           // Clear bits on exit
-                                                    pdFALSE,                          // Wait for any bit
-                                                    portMAX_DELAY);                   // Wait indefinitely
+        EventBits_t eventBits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(),   // Event Group Handle
+                                                                                       // Bits to wait for
+                                                    WIFI_CONFIG_AP_SETUP_READY |       //
+                                                        WIFI_CONFIG_AP_SETUP_FINISH |  //
+                                                        WIFI_CONFIG_STA_SETUP_READY |  //
+                                                        WIFI_CONFIG_STA_SETUP_FINISH | //
+                                                        WIFI_CONFIG_CONNECTED_TO_AP    //
+                                                    ,
+                                                    pdTRUE,         // Clear bits on exit
+                                                    pdFALSE,        // Wait for any bit
+                                                    portMAX_DELAY); // Wait indefinitely
 
         // If the AP setup ready bit is set, start the AP network services
         if (eventBits & WIFI_CONFIG_AP_SETUP_READY)
         {
-            proc->executeNetworkServices(NetworkServiceType::AP, true);
+            if (proc->getNetworkServiceState(NetworkServiceType::AP) == NetworkServiceState::RUNNING)
+            {
+                logger().log(ILog::LogLevel::INFO, "AP network services are already running");
+            }
+            else
+            {
+                logger().log(ILog::LogLevel::INFO, "Start the AP network services");
+                proc->setNetworkServiceState(NetworkServiceType::AP, NetworkServiceState::RUNNING);
+                proc->executeNetworkServices(NetworkServiceType::AP, true);
+            }
         }
         // If the AP setup finish bit is set, stop the STA network services
         else if (eventBits & WIFI_CONFIG_AP_SETUP_FINISH)
         {
-            proc->executeNetworkServices(NetworkServiceType::AP, false);
+            if (proc->getNetworkServiceState(NetworkServiceType::AP) == NetworkServiceState::STOPPED)
+            {
+                logger().log(ILog::LogLevel::INFO, "AP network services are already stopped");
+            }
+            else
+            {
+                logger().log(ILog::LogLevel::INFO, "Stop the AP network services");
+                proc->setNetworkServiceState(NetworkServiceType::AP, NetworkServiceState::STOPPED);
+                proc->executeNetworkServices(NetworkServiceType::AP, false);
+            }
         }
 
         // If the STA setup ready bit is set, start the STA network services
-        if (eventBits & WIFI_CONFIG_STA_SETUP_READY)
+        if (eventBits & WIFI_CONFIG_CONNECTED_TO_AP)
         {
-            proc->executeNetworkServices(NetworkServiceType::STA, true);
+            if (proc->getNetworkServiceState(NetworkServiceType::STA) == NetworkServiceState::RUNNING)
+            {
+                logger().log(ILog::LogLevel::INFO, "STA network services are already running");
+            }
+            else
+            {
+                logger().log(ILog::LogLevel::INFO, "Start the STA network services");
+                proc->setNetworkServiceState(NetworkServiceType::STA, NetworkServiceState::RUNNING);
+                proc->executeNetworkServices(NetworkServiceType::STA, true);
+            }
         }
         // If the STA setup finish bit is set, stop the STA network services
-        else if (eventBits & WIFI_CONFIG_STA_SETUP_FINISH)
+        else if (eventBits & WIFI_CONFIG_DISCONNECTED_FROM_AP)
         {
-            proc->executeNetworkServices(NetworkServiceType::STA, false);
+            if (proc->getNetworkServiceState(NetworkServiceType::STA) == NetworkServiceState::STOPPED)
+            {
+                logger().log(ILog::LogLevel::INFO, "STA network services are already stopped");
+            }
+            else
+            {
+                logger().log(ILog::LogLevel::INFO, "Stop the STA network services");
+                proc->setNetworkServiceState(NetworkServiceType::STA, NetworkServiceState::STOPPED);
+                proc->executeNetworkServices(NetworkServiceType::STA, false);
+            }
         }
     }
 }
