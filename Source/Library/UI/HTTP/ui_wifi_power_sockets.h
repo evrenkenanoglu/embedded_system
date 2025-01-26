@@ -1,0 +1,189 @@
+#ifndef UI_WIFI_POWER_SOCKETS_H
+#define UI_WIFI_POWER_SOCKETS_H
+
+#define HTML_UI_WIFI_POWER_SOCKETS_CONTENT "<!DOCTYPE html>\
+<html>\
+\
+<head>\
+    <title>Socket Control</title>\
+    <link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css\">\
+    <style>\
+        form {\
+            border: 1px dotted gray;\
+            padding: 10px;\
+            box-shadow: 10px 20px 10px rgba(0, 0, 0, 0.2);\
+            border-radius: 15px;\
+            width: 60%;\
+            margin: 10px auto;\
+        }\
+\
+        h1,\
+        h2 {\
+            text-align: center;\
+            font-size: 4em;\
+            font-family: 'Arial', sans-serif, bold;\
+            background: -webkit-linear-gradient(left, #007BFF, #00C6FF);\
+            -webkit-background-clip: text;\
+            -webkit-text-fill-color: transparent;\
+        }\
+\
+        h1 {\
+            margin-bottom: 0;\
+        }\
+\
+        h2 {\
+            margin-top: 0;\
+        }\
+\
+        .socket-button {\
+            width: 120px;\
+            height: 120px;\
+            border-radius: 50%;\
+            box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);\
+            font-size: 20px;\
+            font-weight: bold;\
+            text-transform: uppercase;\
+            background: linear-gradient(145deg, #ffffff, #e6e6e6);\
+            box-shadow: 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff;\
+            border: none;\
+            outline: none;\
+            transition: all 0.3s ease;\
+        }\
+\
+        .socket-button.on {\
+            background: linear-gradient(145deg, #28a745, #218838);\
+            color: white;\
+        }\
+\
+        .socket-button.off {\
+            background: linear-gradient(145deg, #dc3545, #c82333);\
+            color: white;\
+        }\
+\
+        .socket-button:active {\
+            box-shadow: inset 20px 20px 60px #d9d9d9, inset -20px -20px 60px #ffffff;\
+        }\
+\
+        .socket-container {\
+            width: 200px;\
+            height: 200px;\
+            display: flex;\
+            align-items: center;\
+            justify-content: center;\
+            margin: 10px auto;\
+            border-radius: 25px;\
+            border: 2px solid #ccc;\
+            background-color: #E9ECEF;\
+            box-shadow: 10px 20px 10px rgba(0, 0, 0, 0.2);\
+            background: linear-gradient(145deg, #5d5a5a, #c7c6d4);\
+            box-shadow: 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff;\
+        }\
+\
+        #toggle-all {\
+            width: 80%;\
+            height: 80%;\
+            font-size: 1.5em;\
+            background: linear-gradient(145deg, #ff4d4d, #ff6666);\
+            box-shadow: 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff;\
+            border: none;\
+            outline: none;\
+            transition: all 0.3s ease;\
+        }\
+\
+        #toggle-all:active {\
+            box-shadow: inset 20px 20px 60px #d9d9d9, inset -20px -20px 60px #ffffff;\
+        }\
+\
+        #controls {\
+            display: grid;\
+            grid-template-columns: repeat(2, 1fr);\
+            justify-items: center;\
+            align-items: center;\
+            gap: 10px;\
+            padding: 0 100px;\
+        }\
+    </style>\
+</head>\
+\
+<body>\
+    <div class=\"container\">\
+        <form>\
+            <h1 class=\"mt-4\">UNIVERSE HOME</h1>\
+            <h2 class=\"mb-4\">Socket Control</h2>\
+            <div class=\"socket-container\" style=\"margin: 0 auto 20px auto;\">\
+                <button id=\"toggle-all\" class=\"btn socket-button off\">ALL <br> On/Off</button>\
+            </div>\
+            <div id=\"controls\">\
+                <script>\
+                    document.addEventListener('DOMContentLoaded', (event) => {\
+                        document.querySelector('form').addEventListener('submit', function (event) {\
+                            event.preventDefault();\
+                        });\
+\
+                        const sockets = [];\
+                        let clickTimeout = null;\
+\
+                        function handleDoubleClick(button, index) {\
+                            const isOn = button.classList.contains('on');\
+                            const newState = isOn ? 'Off' : 'On';\
+                            button.className = isOn ? 'btn socket-button off' : 'btn socket-button on';\
+                            fetch(`/socket/${index}?state=${newState.toLowerCase()}`)\
+                                .catch(error => console.error('Error:', error));\
+                        }\
+\
+                        for (let i = 0; i < 10; i++) {\
+                            const container = document.createElement('div');\
+                            container.className = 'socket-container';\
+\
+                            const button = document.createElement('button');\
+                            button.textContent = `Socket ${i + 1}`;\
+                            button.className = 'btn socket-button off';\
+                            button.addEventListener('click', function (event) {\
+                                event.preventDefault();\
+                                if (clickTimeout !== null) {\
+                                    clearTimeout(clickTimeout);\
+                                    clickTimeout = null;\
+                                    handleDoubleClick(button, i);\
+                                } else {\
+                                    clickTimeout = setTimeout(() => {\
+                                        clickTimeout = null;\
+                                    }, 300);\
+                                }\
+                            });\
+\
+                            sockets.push(button);\
+\
+                            container.append(button);\
+                            document.getElementById('controls').append(container);\
+                        }\
+\
+                        document.getElementById('toggle-all').addEventListener('click', function (event) {\
+                            event.preventDefault();\
+                            if (clickTimeout !== null) {\
+                                clearTimeout(clickTimeout);\
+                                clickTimeout = null;\
+                                const allOn = sockets.every(button => button.classList.contains('on'));\
+                                const newState = allOn ? 'Off' : 'On';\
+                                sockets.forEach((button, i) => {\
+                                    button.className = allOn ? 'btn socket-button off' : 'btn socket-button on';\
+                                    fetch(`/socket/${i}?state=${newState.toLowerCase()}`)\
+                                        .catch(error => console.error('Error:', error));\
+                                });\
+                            } else {\
+                                clickTimeout = setTimeout(() => {\
+                                    clickTimeout = null;\
+                                }, 300);\
+                            }\
+                        });\
+                    });\
+                </script>\
+            </div>\
+        </form>\
+    </div>\
+    <script src=\"https://code.jquery.com/jquery-3.3.1.slim.min.js\"></script>\
+    <script src=\"https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js\"></script>\
+</body>\
+\
+</html>"
+
+#endif

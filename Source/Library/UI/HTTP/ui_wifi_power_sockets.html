@@ -33,13 +33,32 @@
         }
 
         .socket-button {
-            width: 120;
+            width: 120px;
             height: 120px;
             border-radius: 50%;
             box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
             font-size: 20px;
             font-weight: bold;
             text-transform: uppercase;
+            background: linear-gradient(145deg, #ffffff, #e6e6e6);
+            box-shadow: 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff;
+            border: none;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .socket-button.on {
+            background: linear-gradient(145deg, #28a745, #218838);
+            color: white;
+        }
+
+        .socket-button.off {
+            background: linear-gradient(145deg, #dc3545, #c82333);
+            color: white;
+        }
+
+        .socket-button:active {
+            box-shadow: inset 20px 20px 60px #d9d9d9, inset -20px -20px 60px #ffffff;
         }
 
         .socket-container {
@@ -53,12 +72,23 @@
             border: 2px solid #ccc;
             background-color: #E9ECEF;
             box-shadow: 10px 20px 10px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(145deg, #5d5a5a, #c7c6d4);
+            box-shadow: 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff;
         }
 
         #toggle-all {
             width: 80%;
             height: 80%;
             font-size: 1.5em;
+            background: linear-gradient(145deg, #ff4d4d, #ff6666);
+            box-shadow: 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff;
+            border: none;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #toggle-all:active {
+            box-shadow: inset 20px 20px 60px #d9d9d9, inset -20px -20px 60px #ffffff;
         }
 
         #controls {
@@ -78,7 +108,7 @@
             <h1 class="mt-4">UNIVERSE HOME</h1>
             <h2 class="mb-4">Socket Control</h2>
             <div class="socket-container" style="margin: 0 auto 20px auto;">
-                <button id="toggle-all" class="btn btn-danger socket-button">ALL <br> On/Off</button>
+                <button id="toggle-all" class="btn socket-button off">ALL <br> On/Off</button>
             </div>
             <div id="controls">
                 <script>
@@ -88,21 +118,35 @@
                         });
 
                         const sockets = [];
+                        let clickTimeout = null;
+
+                        function handleDoubleClick(button, index) {
+                            const isOn = button.classList.contains('on');
+                            const newState = isOn ? 'Off' : 'On';
+                            button.className = isOn ? 'btn socket-button off' : 'btn socket-button on';
+                            fetch(`/socket/${index}?state=${newState.toLowerCase()}`)
+                                .catch(error => console.error('Error:', error));
+                        }
+
                         for (let i = 0; i < 10; i++) {
                             const container = document.createElement('div');
                             container.className = 'socket-container';
 
                             const button = document.createElement('button');
                             button.textContent = `Socket ${i + 1}`;
-                            button.className = 'btn btn-danger socket-button';
-                            button.ondblclick = function (event) {
+                            button.className = 'btn socket-button off';
+                            button.addEventListener('click', function (event) {
                                 event.preventDefault();
-                                const isOn = button.className.includes('btn-success');
-                                const newState = isOn ? 'Off' : 'On';
-                                button.className = isOn ? 'btn btn-danger socket-button' : 'btn btn-success socket-button';
-                                fetch(`/socket/${i}?state=${newState.toLowerCase()}`)
-                                    .catch(error => console.error('Error:', error));
-                            };
+                                if (clickTimeout !== null) {
+                                    clearTimeout(clickTimeout);
+                                    clickTimeout = null;
+                                    handleDoubleClick(button, i);
+                                } else {
+                                    clickTimeout = setTimeout(() => {
+                                        clickTimeout = null;
+                                    }, 300);
+                                }
+                            });
 
                             sockets.push(button);
 
@@ -110,16 +154,24 @@
                             document.getElementById('controls').append(container);
                         }
 
-                        document.getElementById('toggle-all').ondblclick = function (event) {
+                        document.getElementById('toggle-all').addEventListener('click', function (event) {
                             event.preventDefault();
-                            const allOn = sockets.every(button => button.className.includes('btn-success'));
-                            const newState = allOn ? 'Off' : 'On';
-                            sockets.forEach((button, i) => {
-                                button.className = allOn ? 'btn btn-danger socket-button' : 'btn btn-success socket-button';
-                                fetch(`/socket/${i}?state=${newState.toLowerCase()}`)
-                                    .catch(error => console.error('Error:', error));
-                            });
-                        };
+                            if (clickTimeout !== null) {
+                                clearTimeout(clickTimeout);
+                                clickTimeout = null;
+                                const allOn = sockets.every(button => button.classList.contains('on'));
+                                const newState = allOn ? 'Off' : 'On';
+                                sockets.forEach((button, i) => {
+                                    button.className = allOn ? 'btn socket-button off' : 'btn socket-button on';
+                                    fetch(`/socket/${i}?state=${newState.toLowerCase()}`)
+                                        .catch(error => console.error('Error:', error));
+                                });
+                            } else {
+                                clickTimeout = setTimeout(() => {
+                                    clickTimeout = null;
+                                }, 300);
+                            }
+                        });
                     });
                 </script>
             </div>
