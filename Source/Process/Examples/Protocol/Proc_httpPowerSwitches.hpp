@@ -8,21 +8,24 @@
 #ifndef PROC_HTTPPOWERSWITCHES_HPP
 #define PROC_HTTPPOWERSWITCHES_HPP
 
+#include "Process/Examples/Peripheral/Proc_Switches.hpp"
 #include "Process/Process.hpp"
 #include <esp_http_server.h>
 
 class Proc_httpPowerSwitches : public Process
 {
 private:
+    QueueHandle_t  _switchesQueue;
+
     httpd_handle_t _server;
     httpd_config_t _config;
     const char*    _powerSwitchesHtml;
 
     const httpd_uri_t appInterface;
-    const httpd_uri_t write;
+    const httpd_uri_t control;
 
 public:
-    Proc_httpPowerSwitches();
+    Proc_httpPowerSwitches(QueueHandle_t switchesQueue);
     ~Proc_httpPowerSwitches();
 
     sys_error_t start() override;
@@ -34,6 +37,8 @@ public:
     sys_error_t resume() override;
 
     const char* getPowerSwitchesHtml() const;
+
+    QueueHandle_t getSwitchesQueue();
 };
 
 #endif /* PROC_HTTPPOWERSWITCHES_HPP */
