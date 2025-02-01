@@ -120,12 +120,34 @@
                         const sockets = [];
                         let clickTimeout = null;
 
-                        function handleDoubleClick(button, index) {
+                        const buttonResponsetimeout = 500;
+
+                        async function handleDoubleClick(button, index) {
                             const isOn = button.classList.contains('on');
-                            const newState = isOn ? 'Off' : 'On';
+                            const newState = isOn ? 'off' : 'on';
+                            const newStateBool = isOn ? 0 : 1 ;
                             button.className = isOn ? 'btn socket-button off' : 'btn socket-button on';
-                            fetch(`/socket/${index}?state=${newState.toLowerCase()}`)
-                                .catch(error => console.error('Error:', error));
+
+                            try {
+                                const response = await fetch('/power-switches-control', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ socketId: index, state: newStateBool }),
+                                    timeout: buttonResponsetimeout
+                                });
+
+                                if (response.ok) {
+                                    button.classList.toggle('on', !isOn);
+                                    button.classList.toggle('off', isOn);
+                                    button.textContent = `Socket ${index + 1} ${newState.toUpperCase()}`;
+                                } else {
+                                    alert('Error: ' + response.status);
+                                }
+                            } catch (error) {
+                                alert('Error: ' + error.message);
+                            }
                         }
 
                         for (let i = 0; i < 10; i++) {
@@ -160,7 +182,7 @@
                                 clearTimeout(clickTimeout);
                                 clickTimeout = null;
                                 const allOn = sockets.every(button => button.classList.contains('on'));
-                                const newState = allOn ? 'Off' : 'On';
+                                const newState = allOn ? 'off' : 'on';
                                 sockets.forEach((button, i) => {
                                     button.className = allOn ? 'btn socket-button off' : 'btn socket-button on';
                                     fetch(`/socket/${i}?state=${newState.toLowerCase()}`)
