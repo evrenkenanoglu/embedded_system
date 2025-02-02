@@ -50,7 +50,6 @@ public:
     virtual ~IPAL_NetworkService() {}
 };
 
-#endif // FILE_IPAL_H
 
 /**
  * @class IPAL_IO
@@ -80,6 +79,13 @@ public:
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t write(const void* data) = 0;
+
+    /**
+     * @brief Get the status of the I/O device.
+     *
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    virtual sys_error_t getStatus() = 0;
 
     /**
      * @brief Destructor for IPAL_IO.
