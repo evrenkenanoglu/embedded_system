@@ -8,33 +8,13 @@
 #ifndef PROC_HTTPSERVER_HPP
 #define PROC_HTTPSERVER_HPP
 
-#include "HAL/IHal.h"
-#include "HAL/Platform/ESP32/cpx_wifi.h"
+#include "PAL/PAL.h"
 #include "Process/Process.hpp"
-#include <esp_http_server.h>
-
-typedef struct
-{
-    IProcess* process;
-    void*     htmlContext;
-} httpUriContext_t;
 
 class Proc_httpServer : public Process
 {
-private:
-    httpd_handle_t      _server;
-    httpd_config_t      _config;
-    EventGroupHandle_t& _wifiConfigEventGroup;
-    QueueHandle_t       _wifiConfigScanResults;
-    const char*         _welcomeWifiConnectHtml;
-    IHAL_MEM&           _memDevice;
-
-    const httpd_uri_t welcome;
-    const httpd_uri_t scan;
-    const httpd_uri_t connect;
-
 public:
-    Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, QueueHandle_t wifiConfigScanResults, IHAL_MEM& memDevice);
+    Proc_httpServer(IPAL_NetworkService& networkService);
     ~Proc_httpServer();
 
     sys_error_t start() override;
@@ -45,29 +25,8 @@ public:
 
     sys_error_t resume() override;
 
-public:
-    /**
-     * @brief Get the welcome wifi connect html content
-     *
-     * @return const char*
-     */
-    const char* getWelcomeWifiConnectHtml() const;
-
-    /**
-     * @brief Get the Wifi Config Event Group Handle
-     *
-     * @return EventGroupHandle_t&
-     */
-    EventGroupHandle_t& getWifiConfigEventGroup();
-
-    QueueHandle_t getWifiConfigScanResults();
-
-    /**
-     * @brief Get the Mem Device object
-     *
-     * @return IHAL_MEM&
-     */
-    IHAL_MEM& getMemDevice() const;
+private:
+    IPAL_NetworkService& _networkService;
 };
 
 #endif /* PROC_HTTPSERVER_HPP */
