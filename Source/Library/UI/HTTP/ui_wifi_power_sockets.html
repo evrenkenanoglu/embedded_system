@@ -117,25 +117,36 @@
                             event.preventDefault();
                         });
 
+
+                        ButtonIndexAll = 0xFF;
                         const sockets = [];
                         let clickTimeout = null;
+                        let longPressTimeout = null;
+                        const longPressDuration = 500;
+                        const responseFromHardwareTimeout = 500;
 
-                        const buttonResponsetimeout = 500;
-
-                        async function handleDoubleClick(button, index) {
+                        async function handleSwitchState(button, index) {
                             const isOn = button.classList.contains('on');
                             const newState = isOn ? 'off' : 'on';
-                            const newStateBool = isOn ? 0 : 1 ;
-                            button.className = isOn ? 'btn socket-button off' : 'btn socket-button on';
+                            const newStateBool = isOn ? 0 : 1;
+
+                            if (index === ButtonIndexAll) {
+                                const allOn = sockets.every(button => button.classList.contains('on'));
+                                sockets.forEach((button, i) => {
+                                    button.className = allOn ? 'btn socket-button off' : 'btn socket-button on';
+                                });
+                            } else {
+                                button.className = isOn ? 'btn socket-button off' : 'btn socket-button on';
+                            }
 
                             try {
                                 const response = await fetch('/power-switches-control', {
-                                    method: 'POST',
+                                    method: 'PUT',
                                     headers: {
                                         'Content-Type': 'application/json'
                                     },
                                     body: JSON.stringify({ socketId: index, state: newStateBool }),
-                                    timeout: buttonResponsetimeout
+                                    timeout: responseFromHardwareTimeout
                                 });
 
                                 if (response.ok) {
@@ -150,6 +161,19 @@
                             }
                         }
 
+                        function startLongPress(button, index) {
+                            longPressTimeout = setTimeout(() => {
+                                handleSwitchState(button, index);
+                            }, longPressDuration);
+                        }
+
+                        function cancelLongPress() {
+                            if (longPressTimeout !== null) {
+                                clearTimeout(longPressTimeout);
+                                longPressTimeout = null;
+                            }
+                        }
+
                         for (let i = 0; i < 10; i++) {
                             const container = document.createElement('div');
                             container.className = 'socket-container';
@@ -157,12 +181,13 @@
                             const button = document.createElement('button');
                             button.textContent = `Socket ${i + 1}`;
                             button.className = 'btn socket-button off';
+
                             button.addEventListener('click', function (event) {
                                 event.preventDefault();
                                 if (clickTimeout !== null) {
                                     clearTimeout(clickTimeout);
                                     clickTimeout = null;
-                                    handleDoubleClick(button, i);
+                                    handleSwitchState(button, i);
                                 } else {
                                     clickTimeout = setTimeout(() => {
                                         clickTimeout = null;
@@ -170,24 +195,84 @@
                                 }
                             });
 
+                            button.addEventListener('mousedown', function (event) {
+                                event.preventDefault();
+                                startLongPress(button, i);
+                            });
+
+                            button.addEventListener('mouseup', function (event) {
+                                event.preventDefault();
+                                cancelLongPress();
+                            });
+
+                            button.addEventListener('mouseleave', function (event) {
+                                event.preventDefault();
+                                cancelLongPress();
+                            });
+
+                            button.addEventListener('touchstart', function (event) {
+                                event.preventDefault();
+                                startLongPress(button, i);
+                            });
+
+                            button.addEventListener('touchend', function (event) {
+                                event.preventDefault();
+                                cancelLongPress();
+                            });
+
+                            button.addEventListener('touchcancel', function (event) {
+                                event.preventDefault();
+                                cancelLongPress();
+                            });
+
+
+
+
+
                             sockets.push(button);
 
                             container.append(button);
                             document.getElementById('controls').append(container);
                         }
 
+                        const toggleAllButton = document.getElementById('toggle-all');
+
+                        toggleAllButton.addEventListener('touchstart', function (event) {
+                            event.preventDefault();
+                            startLongPress(this, ButtonIndexAll);
+                        });
+
+                        toggleAllButton.addEventListener('touchend', function (event) {
+                            event.preventDefault();
+                            cancelLongPress();
+                        });
+
+                        toggleAllButton.addEventListener('touchcancel', function (event) {
+                            event.preventDefault();
+                            cancelLongPress();
+                        });
+
+                        toggleAllButton.addEventListener('mousedown', function (event) {
+                            event.preventDefault();
+                            startLongPress(this, ButtonIndexAll);
+                        });
+
+                        toggleAllButton.addEventListener('mouseup', function (event) {
+                            event.preventDefault();
+                            cancelLongPress();
+                        });
+
+                        toggleAllButton.addEventListener('mouseleave', function (event) {
+                            event.preventDefault();
+                            cancelLongPress();
+                        });
+
                         document.getElementById('toggle-all').addEventListener('click', function (event) {
                             event.preventDefault();
                             if (clickTimeout !== null) {
                                 clearTimeout(clickTimeout);
                                 clickTimeout = null;
-                                const allOn = sockets.every(button => button.classList.contains('on'));
-                                const newState = allOn ? 'off' : 'on';
-                                sockets.forEach((button, i) => {
-                                    button.className = allOn ? 'btn socket-button off' : 'btn socket-button on';
-                                    fetch(`/socket/${i}?state=${newState.toLowerCase()}`)
-                                        .catch(error => console.error('Error:', error));
-                                });
+                                handleSwitchState(this, ButtonIndexAll);
                             } else {
                                 clickTimeout = setTimeout(() => {
                                     clickTimeout = null;
