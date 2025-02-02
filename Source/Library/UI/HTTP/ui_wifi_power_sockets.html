@@ -118,7 +118,7 @@
                         });
 
 
-                        ButtonIndexAll = 0xFF;
+                        const ButtonIndexAll = 0xFF;
                         const sockets = [];
                         let clickTimeout = null;
                         let longPressTimeout = null;
@@ -150,9 +150,19 @@
                                 });
 
                                 if (response.ok) {
-                                    button.classList.toggle('on', !isOn);
-                                    button.classList.toggle('off', isOn);
-                                    button.textContent = `Socket ${index + 1} ${newState.toUpperCase()}`;
+                                    if (index === ButtonIndexAll) {
+                                        sockets.forEach((button, i) => {
+                                            button.classList.toggle('on', !isOn);
+                                            button.classList.toggle('off', isOn);
+                                            button.textContent = `Socket ${i + 1} ${newState.toUpperCase()}`;
+                                        });
+                                    }
+                                    else {
+                                        button.classList.toggle('on', !isOn);
+                                        button.classList.toggle('off', isOn);
+                                        button.textContent = `Socket ${index + 1} ${newState.toUpperCase()}`;
+                                    }
+
                                 } else {
                                     alert('Error: ' + response.status);
                                 }
