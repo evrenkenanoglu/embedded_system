@@ -170,7 +170,7 @@
       connectButton.textContent = 'CONNECTING...';\
 \
       try {\
-        const response = await fetch('/connect', {\
+        const response = await fetch('/wifiConnect', {\
           method: 'POST',\
           headers: {\
             'Content-Type': 'application/json'\
@@ -200,7 +200,7 @@
       scanButton.textContent = 'SCANNING...';\
       ssidInput.value = '';\
       try {\
-        const response = await fetch('/scan', { timeout });\
+        const response = await fetch('/wifiScan', { timeout });\
 \
         if (response.ok) {\
           const data = await response.json();\
