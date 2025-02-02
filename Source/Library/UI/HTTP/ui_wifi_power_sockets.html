@@ -118,17 +118,25 @@
                         });
 
 
-                        const ButtonIndexAll = 0xFF;
+                        ButtonIndexAll = 0xFF;
                         const sockets = [];
                         let clickTimeout = null;
                         let longPressTimeout = null;
                         const longPressDuration = 500;
                         const responseFromHardwareTimeout = 500;
 
+                        const socketStateMap = new Map();
+
+                        for (let i = 0; i < 10; i++) {
+                            socketStateMap.set(i, 'off');
+                        }
+                        socketStateMap.set(ButtonIndexAll, 'off');
+
                         async function handleSwitchState(button, index) {
-                            const isOn = button.classList.contains('on');
+                            const isOn = socketStateMap.get(index) === 'on';
                             const newState = isOn ? 'off' : 'on';
                             const newStateBool = isOn ? 0 : 1;
+
 
                             if (index === ButtonIndexAll) {
                                 const allOn = sockets.every(button => button.classList.contains('on'));
@@ -155,14 +163,16 @@
                                             button.classList.toggle('on', !isOn);
                                             button.classList.toggle('off', isOn);
                                             button.textContent = `Socket ${i + 1} ${newState.toUpperCase()}`;
+                                            socketStateMap.set(i, newState);
                                         });
                                     }
                                     else {
+
                                         button.classList.toggle('on', !isOn);
                                         button.classList.toggle('off', isOn);
                                         button.textContent = `Socket ${index + 1} ${newState.toUpperCase()}`;
                                     }
-
+                                    socketStateMap.set(index, newState);
                                 } else {
                                     alert('Error: ' + response.status);
                                 }
