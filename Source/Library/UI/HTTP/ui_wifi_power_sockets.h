@@ -222,25 +222,24 @@
                         document.querySelector('form').addEventListener('submit', function (event) {\
                             event.preventDefault();\
                         });\
-\
-\
-                        ButtonIndexAll = 0xFF;\
+                \
+                        const ButtonIndexAll = 0xFF;\
                         const sockets = [];\
                         let clickTimeout = null;\
                         let longPressTimeout = null;\
                         const longPressDuration = 500;\
                         const responseFromHardwareTimeout = 500;\
-\
+                \
                         const colorStateOff = '#ff0000';\
                         const colorStateOn = '#00ff00';\
-\
+                \
                         const socketStateMap = new Map();\
-\
+                \
                         for (let i = 0; i < 10; i++) {\
                             socketStateMap.set(i, false);\
                         }\
                         socketStateMap.set(ButtonIndexAll, true);\
-\
+                \
                         async function handleSwitchState(button, index) {\
                             try {\
                                 const getToggledState = !socketStateMap.get(index) ? 1 : 0;\
@@ -252,12 +251,10 @@
                                     body: JSON.stringify({ socketId: index, state: getToggledState }),\
                                     timeout: responseFromHardwareTimeout\
                                 });\
-\
+                \
                                 if (response.ok) {\
-\
                                     toggleButtonState(index);\
                                     updateSocketMap(index);\
-\
                                 } else {\
                                     alert('Error: ' + response.status);\
                                 }\
@@ -265,185 +262,135 @@
                                 alert('Error: ' + error.message);\
                             }\
                         }\
-\
+                \
                         function updateSocketMap(index) {\
+                            const newState = !socketStateMap.get(index);\
                             if (index === ButtonIndexAll) {\
-                                sockets.forEach((button, i) => {\
-                                    socketStateMap.set(i, !socketStateMap.get(index));\
+                                sockets.forEach((_, i) => {\
+                                    socketStateMap.set(i, newState);\
                                 });\
                             }\
-\
-                            socketStateMap.set(index, !socketStateMap.get(index));\
+                            socketStateMap.set(index, newState);\
                         }\
-\
+                \
                         function toggleButtonState(index) {\
-\
+                            const newState = !socketStateMap.get(index);\
                             if (index === ButtonIndexAll) {\
-                                sockets.forEach((button, i) => {\
-                                    setButtonState(i, !socketStateMap.get(index));\
+                                sockets.forEach((_, i) => {\
+                                    setButtonState(i, newState);\
                                 });\
                             } else {\
-                                setButtonState(index, !socketStateMap.get(index));\
+                                setButtonState(index, newState);\
                             }\
                         }\
-\
+                \
                         function setButtonState(index, state) {\
                             const button = sockets[index];\
                             const stateCircle = button.querySelector('.button-state-circle');\
                             const powerIcon = button.querySelector('.fa-power-off');\
                             const isOn = state === true;\
-\
-                            if (isOn) {\
-                                stateCircle.style.borderColor = colorStateOn;\
-                                powerIcon.style.color = colorStateOn;\
-                            } else {\
-                                stateCircle.style.borderColor = colorStateOff;\
-                                powerIcon.style.color = colorStateOff;\
-                            }\
+                \
+                            stateCircle.style.borderColor = isOn ? colorStateOn : colorStateOff;\
+                            powerIcon.style.color = isOn ? colorStateOn : colorStateOff;\
                         }\
-\
+                \
                         function startLongPress(button, index) {\
                             longPressTimeout = setTimeout(() => {\
                                 handleSwitchState(button, index);\
                             }, longPressDuration);\
                         }\
-\
+                \
                         function cancelLongPress() {\
                             if (longPressTimeout !== null) {\
                                 clearTimeout(longPressTimeout);\
                                 longPressTimeout = null;\
                             }\
                         }\
-\
-                        for (let i = 0; i < 10; i++) {\
-                            const container = document.createElement('div');\
-                            container.className = 'socket-container';\
-\
-                            const button = document.createElement('button');\
-                            button.className = 'btn button-container off';\
-\
-\
-                            const buttonStateCircle = document.createElement('div');\
-                            buttonStateCircle.className = 'button-state-circle';\
-\
-                            const buttonOuterCircle = document.createElement('div');\
-                            buttonOuterCircle.className = 'button-outer-circle';\
-\
-                            const buttonInnerCircle = document.createElement('div');\
-                            buttonInnerCircle.className = 'button-inner-circle';\
-\
-                            const icon = document.createElement('div');\
-                            icon.className = 'icon';\
-\
-                            const iconPower = document.createElement('i');\
-                            iconPower.className = 'fas fa-power-off';\
-\
-                            icon.append(iconPower);\
-                            buttonInnerCircle.append(icon);\
-                            button.append(buttonStateCircle);\
-                            button.append(buttonOuterCircle);\
-                            button.append(buttonInnerCircle);\
-\
-\
-\
+                \
+                        function addEventListeners(button, index) {\
                             button.addEventListener('click', function (event) {\
                                 event.preventDefault();\
                                 if (clickTimeout !== null) {\
                                     clearTimeout(clickTimeout);\
                                     clickTimeout = null;\
-                                    handleSwitchState(button, i);\
+                                    handleSwitchState(button, index);\
                                 } else {\
                                     clickTimeout = setTimeout(() => {\
                                         clickTimeout = null;\
                                     }, 300);\
                                 }\
                             });\
-\
+                \
                             button.addEventListener('mousedown', function (event) {\
                                 event.preventDefault();\
-                                startLongPress(button, i);\
+                                startLongPress(button, index);\
                             });\
-\
+                \
                             button.addEventListener('mouseup', function (event) {\
                                 event.preventDefault();\
                                 cancelLongPress();\
                             });\
-\
+                \
                             button.addEventListener('mouseleave', function (event) {\
                                 event.preventDefault();\
                                 cancelLongPress();\
                             });\
-\
+                \
                             button.addEventListener('touchstart', function (event) {\
                                 event.preventDefault();\
-                                startLongPress(button, i);\
+                                startLongPress(button, index);\
                             });\
-\
+                \
                             button.addEventListener('touchend', function (event) {\
                                 event.preventDefault();\
                                 cancelLongPress();\
                             });\
-\
+                \
                             button.addEventListener('touchcancel', function (event) {\
                                 event.preventDefault();\
                                 cancelLongPress();\
                             });\
-\
-\
-\
-\
-\
+                        }\
+                \
+                        for (let i = 0; i < 10; i++) {\
+                            const container = document.createElement('div');\
+                            container.className = 'socket-container';\
+                \
+                            const button = document.createElement('button');\
+                            button.className = 'btn button-container off';\
+                \
+                            const buttonStateCircle = document.createElement('div');\
+                            buttonStateCircle.className = 'button-state-circle';\
+                \
+                            const buttonOuterCircle = document.createElement('div');\
+                            buttonOuterCircle.className = 'button-outer-circle';\
+                \
+                            const buttonInnerCircle = document.createElement('div');\
+                            buttonInnerCircle.className = 'button-inner-circle';\
+                \
+                            const icon = document.createElement('div');\
+                            icon.className = 'icon';\
+                \
+                            const iconPower = document.createElement('i');\
+                            iconPower.className = 'fas fa-power-off';\
+                \
+                            icon.append(iconPower);\
+                            buttonInnerCircle.append(icon);\
+                            button.append(buttonStateCircle);\
+                            button.append(buttonOuterCircle);\
+                            button.append(buttonInnerCircle);\
+                \
+                            addEventListeners(button, i);\
+                \
                             sockets.push(button);\
-\
+                \
                             container.append(button);\
                             document.getElementById('controls').append(container);\
                         }\
-\
+                \
                         const toggleAllButton = document.getElementById('buttonToggleAll');\
-\
-                        toggleAllButton.addEventListener('touchstart', function (event) {\
-                            event.preventDefault();\
-                            startLongPress(this, ButtonIndexAll);\
-                        });\
-\
-                        toggleAllButton.addEventListener('touchend', function (event) {\
-                            event.preventDefault();\
-                            cancelLongPress();\
-                        });\
-\
-\
-                        toggleAllButton.addEventListener('touchcancel', function (event) {\
-                            event.preventDefault();\
-                            cancelLongPress();\
-                        });\
-\
-                        toggleAllButton.addEventListener('mousedown', function (event) {\
-                            event.preventDefault();\
-                            startLongPress(this, ButtonIndexAll);\
-                        });\
-\
-                        toggleAllButton.addEventListener('mouseup', function (event) {\
-                            event.preventDefault();\
-                            cancelLongPress();\
-                        });\
-\
-                        toggleAllButton.addEventListener('mouseleave', function (event) {\
-                            event.preventDefault();\
-                            cancelLongPress();\
-                        });\
-\
-                        document.getElementById('buttonToggleAll').addEventListener('click', function (event) {\
-                            event.preventDefault();\
-                            if (clickTimeout !== null) {\
-                                clearTimeout(clickTimeout);\
-                                clickTimeout = null;\
-                                handleSwitchState(this, ButtonIndexAll);\
-                            } else {\
-                                clickTimeout = setTimeout(() => {\
-                                    clickTimeout = null;\
-                                }, 300);\
-                            }\
-                        });\
+                \
+                        addEventListeners(toggleAllButton, ButtonIndexAll);\
                     });\
                 </script>\
             </div>\
