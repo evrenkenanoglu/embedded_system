@@ -21,21 +21,21 @@
             height: var(--button-height);
             position: relative;
             border: none;
-            /* Remove default button border */
-            background: none;
-            /* Remove default button background */
+            background: linear-gradient(145deg, #e0e0e0, #ffffff);
             padding: 0;
-            /* Remove default button padding */
             outline: none;
-            /* Remove default button outline */
             cursor: pointer;
-            /* Ensure the cursor is a pointer */
             display: flex;
-            /* Center the content */
             justify-content: center;
-            /* Center the content */
             align-items: center;
-            /* Center the content */
+            border-radius: 50%;
+            box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2), 0px 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .button-container:hover {
+            background: linear-gradient(145deg, #d0d0d0, #f0f0f0);
+            box-shadow: 0px 12px 20px rgba(0, 0, 0, 0.3), 0px 6px 10px rgba(0, 0, 0, 0.15);
         }
 
         .button-outer-circle {
@@ -47,14 +47,12 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            border: 4px solid #7e7d7d;
+            border: px solid #B4B3B3;
             box-sizing: border-box;
-            cursor: pointer;
-            justify-content: center;
-            align-items: center;
             z-index: 2;
             box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2), 0px 4px 6px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
+            animation: glowRed 1.5s infinite alternate;
         }
 
         .button-state-circle {
@@ -66,35 +64,27 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            border: 13px solid #ff0000;
+            border: 0px solid #ff0000;
             box-sizing: border-box;
-            cursor: pointer;
-            justify-content: center;
-            align-items: center;
             z-index: 2;
             box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2), 0px 4px 6px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }
 
         .button-inner-circle {
-            background: linear-gradient(135deg, #ffffff, #7e7d7d);
+            background: radial-gradient(circle, #ffffff 90%, #7e7d7d );
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 100%;
-            height: 100%;
+            width: 50%;
+            height: 50%;
             border-radius: 50%;
             box-sizing: border-box;
-            cursor: pointer;
-            justify-content: center;
-            align-items: center;
             z-index: 1;
             transition: all 0.3s ease;
             box-shadow: inset 0px 4px 8px rgba(0, 0, 0, 0.2), inset 0px -4px 8px rgba(255, 255, 255, 0.1),
-                /* Enhanced shadow for 3D effect */
                 0px 4px 8px rgba(0, 0, 0, 0.2), 0px -4px 8px rgba(255, 255, 255, 0.1);
-            /* Outer shadow for 3D effect */
         }
 
         .icon {
@@ -119,39 +109,32 @@
         .button-container:hover .button-state-circle,
         .button-container:hover .button-outer-circle,
         .button-container:hover .button-inner-circle {
-            filter: brightness(95%);
+            filter: brightness(90%);
             box-shadow: 0px 12px 20px rgba(0, 0, 0, 0.3), 0px 6px 10px rgba(0, 0, 0, 0.15);
         }
 
         .button-container:hover .fa-power-off {
-            filter: brightness(90%);
+            filter: brightness(85%);
         }
 
-        form {
-            border: 1px dotted gray;
-            padding: 10px;
-            box-shadow: 10px 20px 10px rgba(0, 0, 0, 0.2);
-            border-radius: 15px;
-            width: 60%;
-            margin: 10px auto;
+        @keyframes glowRed {
+            from {
+                box-shadow: 0 0 2px #ff0000, 0 0 4px #ff0000, 0 0 6px #ff0000, 0 0 8px #ff0000, 0 0 10px #ff0000;
+            }
+
+            to {
+                box-shadow: 0 0 4px #ff0000, 0 0 8px #ff0000, 0 0 12px #ff0000, 0 0 16px #ff0000, 0 0 20px #ff0000;
+            }
         }
 
-        h1,
-        h2 {
-            text-align: center;
-            font-size: 4em;
-            font-family: 'Arial', sans-serif, bold;
-            background: -webkit-linear-gradient(left, #007BFF, #00C6FF);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+        @keyframes glowGreen {
+            from {
+                box-shadow: 0 0 2px #00ff00, 0 0 4px #00ff00, 0 0 6px #00ff00, 0 0 8px #00ff00, 0 0 10px #00ff00;
+            }
 
-        h1 {
-            margin-bottom: 0;
-        }
-
-        h2 {
-            margin-top: 0;
+            to {
+                box-shadow: 0 0 4px #00ff00, 0 0 8px #00ff00, 0 0 12px #00ff00, 0 0 16px #00ff00, 0 0 20px #00ff00;
+            }
         }
 
         .socket-container {
@@ -176,6 +159,33 @@
             align-items: center;
             gap: 10px;
             padding: 0 100px;
+        }
+
+        form {
+            border: 1px dotted gray;
+            padding: 10px;
+            box-shadow: 10px 20px 10px rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            width: 60%;
+            margin: 10px auto;
+        }
+
+        h1,
+        h2 {
+            text-align: center;
+            font-size: 4em;
+            font-family: 'Arial', sans-serif, bold;
+            background: -webkit-linear-gradient(left, #060606, #ff1500, #000000); /* Gradient with white, soft red, and grey */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h1 {
+            margin-bottom: 0;
+        }
+
+        h2 {
+            margin-top: 0;
         }
     </style>
 </head>
@@ -202,24 +212,24 @@
                         document.querySelector('form').addEventListener('submit', function (event) {
                             event.preventDefault();
                         });
-                
+
                         const ButtonIndexAll = 0xFF;
                         const sockets = [];
                         let clickTimeout = null;
                         let longPressTimeout = null;
                         const longPressDuration = 500;
                         const responseFromHardwareTimeout = 500;
-                
-                        const colorStateOff = '#ff0000';
+
+                        const colorStateOff = '#FD0101';
                         const colorStateOn = '#00ff00';
-                
+
                         const socketStateMap = new Map();
-                
+
                         for (let i = 0; i < 10; i++) {
                             socketStateMap.set(i, false);
                         }
                         socketStateMap.set(ButtonIndexAll, false);
-                
+
                         async function handleSwitchState(button, index) {
                             try {
                                 const getToggledState = !socketStateMap.get(index) ? 1 : 0;
@@ -231,10 +241,10 @@
                                     body: JSON.stringify({ socketId: index, state: getToggledState }),
                                     timeout: responseFromHardwareTimeout
                                 });
-                
+
+                                toggleButtonState(index);
+                                updateSocketMap(index);
                                 if (response.ok) {
-                                    toggleButtonState(index);
-                                    updateSocketMap(index);
                                 } else {
                                     alert('Error: ' + response.status);
                                 }
@@ -242,7 +252,7 @@
                                 alert('Error: ' + error.message);
                             }
                         }
-                
+
                         function updateSocketMap(index) {
                             const newState = !socketStateMap.get(index);
                             if (index === ButtonIndexAll) {
@@ -252,7 +262,7 @@
                             }
                             socketStateMap.set(index, newState);
                         }
-                
+
                         function toggleButtonState(index) {
                             const newState = !socketStateMap.get(index);
                             if (index === ButtonIndexAll) {
@@ -263,30 +273,45 @@
                                 setButtonState(index, newState);
                             }
                         }
-                
+
                         function setButtonState(index, state) {
                             const button = sockets[index];
                             const stateCircle = button.querySelector('.button-state-circle');
+                            const outerCircle = button.querySelector('.button-outer-circle');
                             const powerIcon = button.querySelector('.fa-power-off');
                             const isOn = state === true;
-                
+
                             stateCircle.style.borderColor = isOn ? colorStateOn : colorStateOff;
                             powerIcon.style.color = isOn ? colorStateOn : colorStateOff;
+
+                            if (isOn) {
+
+                                outerCircle.style.animation = 'glowGreen 1.5s infinite alternate';
+                                powerIcon.style.color = colorStateOn;
+                                stateCircle.style.borderColor = colorStateOn;
+
+                            }
+                            else {
+                                outerCircle.style.animation = 'glowRed 1.5s infinite alternate';
+                                stateCircle.style.borderColor = colorStateOff;
+                                powerIcon.style.color = colorStateOff;
+                            }
+
                         }
-                
+
                         function startLongPress(button, index) {
                             longPressTimeout = setTimeout(() => {
                                 handleSwitchState(button, index);
                             }, longPressDuration);
                         }
-                
+
                         function cancelLongPress() {
                             if (longPressTimeout !== null) {
                                 clearTimeout(longPressTimeout);
                                 longPressTimeout = null;
                             }
                         }
-                
+
                         function addEventListeners(button, index) {
                             button.addEventListener('click', function (event) {
                                 event.preventDefault();
@@ -300,76 +325,76 @@
                                     }, 300);
                                 }
                             });
-                
+
                             button.addEventListener('mousedown', function (event) {
                                 event.preventDefault();
                                 startLongPress(button, index);
                             });
-                
+
                             button.addEventListener('mouseup', function (event) {
                                 event.preventDefault();
                                 cancelLongPress();
                             });
-                
+
                             button.addEventListener('mouseleave', function (event) {
                                 event.preventDefault();
                                 cancelLongPress();
                             });
-                
+
                             button.addEventListener('touchstart', function (event) {
                                 event.preventDefault();
                                 startLongPress(button, index);
                             });
-                
+
                             button.addEventListener('touchend', function (event) {
                                 event.preventDefault();
                                 cancelLongPress();
                             });
-                
+
                             button.addEventListener('touchcancel', function (event) {
                                 event.preventDefault();
                                 cancelLongPress();
                             });
                         }
-                
+
                         for (let i = 0; i < 10; i++) {
                             const container = document.createElement('div');
                             container.className = 'socket-container';
-                
+
                             const button = document.createElement('button');
                             button.className = 'btn button-container off';
-                
+
                             const buttonStateCircle = document.createElement('div');
                             buttonStateCircle.className = 'button-state-circle';
-                
+
                             const buttonOuterCircle = document.createElement('div');
                             buttonOuterCircle.className = 'button-outer-circle';
-                
+
                             const buttonInnerCircle = document.createElement('div');
                             buttonInnerCircle.className = 'button-inner-circle';
-                
+
                             const icon = document.createElement('div');
                             icon.className = 'icon';
-                
+
                             const iconPower = document.createElement('i');
                             iconPower.className = 'fas fa-power-off';
-                
+
                             icon.append(iconPower);
                             buttonInnerCircle.append(icon);
                             button.append(buttonStateCircle);
                             button.append(buttonOuterCircle);
                             button.append(buttonInnerCircle);
-                
+
                             addEventListeners(button, i);
-                
+
                             sockets.push(button);
-                
+
                             container.append(button);
                             document.getElementById('controls').append(container);
                         }
-                
+
                         const toggleAllButton = document.getElementById('buttonToggleAll');
-                
+
                         addEventListeners(toggleAllButton, ButtonIndexAll);
                     });
                 </script>
