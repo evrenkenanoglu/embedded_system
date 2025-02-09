@@ -245,9 +245,9 @@
                                     timeout: responseFromHardwareTimeout\
                                 });\
 \
-                                toggleButtonState(index);\
-                                updateSocketMap(index);\
                                 if (response.ok) {\
+                                    toggleButtonState(index);\
+                                    updateSocketMap(index);\
                                 } else {\
                                     alert('Error: ' + response.status);\
                                 }\
