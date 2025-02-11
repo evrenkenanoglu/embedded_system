@@ -13,12 +13,15 @@
 #include "PAL/Pal.h"
 #include "Process/Process.hpp"
 #include <esp_http_server.h>
+#include <vector>
 
 class Pal_httpServer : public PAL_NetworkService
 {
 private:
     httpd_handle_t _server;
     httpd_config_t _config;
+    std::vector<httpd_uri_t*> _uriList;
+    // sys_error_t (*registerUri)(void* params);
 
 public:
     Pal_httpServer();
@@ -33,8 +36,8 @@ public:
     sys_error_t restart() override;
 
 public:
-    sys_error_t registerUri(const httpd_uri_t uri);
-    sys_error_t unregisterUri(const httpd_uri_t uri);
+    sys_error_t registerUri(const httpd_uri_t *uri);
+    sys_error_t unregisterUri(const httpd_uri_t *uri);
 };
 
 #endif /* PAL_HTTPSERVER_HPP */

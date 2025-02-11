@@ -14,6 +14,7 @@
 Pal_httpServer::Pal_httpServer()
     : _server(NULL)                   // Initialize the server handle
     , _config(HTTPD_DEFAULT_CONFIG()) // Initialize the server and configuration
+    , _uriList()                      // Initialize the URI list
 {
     setStatus(Status::INITIALIZED);
 }
@@ -38,6 +39,15 @@ sys_error_t Pal_httpServer::start()
     {
         logger().log(ILog::LogLevel::INFO, "HTTP server started successfully");
         setStatus(Status::STARTED);
+
+        for (auto uri : _uriList)
+        {
+            if (httpd_register_uri_handler(_server, uri) != ESP_OK)
+            {
+                logger().log(ILog::LogLevel::ERROR, "Failed to register URI handler");
+                return ERROR_FAIL;
+            }
+        }
     }
     else
     {
@@ -62,9 +72,9 @@ sys_error_t Pal_httpServer::restart()
     return ERROR_SUCCESS;
 }
 
-sys_error_t Pal_httpServer::registerUri(const httpd_uri_t uri)
+sys_error_t Pal_httpServer::registerUri(const httpd_uri_t *uri)
 {
-    if (httpd_register_uri_handler(_server, &uri) != ESP_OK)
+    if (httpd_register_uri_handler(_server, uri) != ESP_OK)
     {
         logger().log(ILog::LogLevel::ERROR, "Failed to register URI handler");
         return ERROR_FAIL;
@@ -75,11 +85,10 @@ sys_error_t Pal_httpServer::registerUri(const httpd_uri_t uri)
     return ERROR_SUCCESS;
 }
 
-sys_error_t Pal_httpServer::unregisterUri(const httpd_uri_t uri)
+sys_error_t Pal_httpServer::unregisterUri(const httpd_uri_t *uri)
 {
-    if (httpd_unregister_uri_handler(_server, uri.uri, uri.method) != ESP_OK)
+    if (httpd_unregister_uri_handler(_server, uri->uri, uri->method) != ESP_OK)
     {
-
         logger().log(ILog::LogLevel::ERROR, "Failed to unregister URI handler");
         return ERROR_FAIL;
     }
