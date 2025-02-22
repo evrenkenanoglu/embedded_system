@@ -1,8 +1,8 @@
 /**
- * @file Pal_httpServer.hpp
- * @brief Header file for Pal_httpServer
+ * @file Serv_httpServer.hpp
+ * @brief Header file for Serv_httpServer
  *
- * This file contains declarations for the Pal_httpServer class and related data types and functions.
+ * This file contains declarations for the Serv_httpServer class and related data types and functions.
  */
 
 #ifndef PAL_HTTPSERVER_HPP
@@ -15,7 +15,7 @@
 #include <esp_http_server.h>
 #include <vector>
 
-class Pal_httpServer : public PAL_NetworkService
+class Serv_httpServer : public PAL_Service
 {
 private:
     httpd_handle_t _server;
@@ -24,8 +24,8 @@ private:
     // sys_error_t (*registerUri)(void* params);
 
 public:
-    Pal_httpServer();
-    ~Pal_httpServer();
+    Serv_httpServer();
+    ~Serv_httpServer();
 
     sys_error_t init() override;
 

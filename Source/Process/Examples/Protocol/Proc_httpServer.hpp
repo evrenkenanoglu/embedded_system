@@ -14,7 +14,7 @@
 class Proc_httpServer : public Process
 {
 public:
-    Proc_httpServer(IPAL_NetworkService& networkService);
+    Proc_httpServer(IPAL_Service& networkService);
     ~Proc_httpServer();
 
     sys_error_t start() override;
@@ -26,7 +26,7 @@ public:
     sys_error_t resume() override;
 
 private:
-    IPAL_NetworkService& _networkService;
+    IPAL_Service& _networkService;
 };
 
 #endif /* PROC_HTTPSERVER_HPP */

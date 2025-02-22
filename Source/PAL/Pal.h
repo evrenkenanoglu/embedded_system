@@ -4,10 +4,10 @@
 #include "IPal.h"
 
 /**
- * @class PAL_NetworkService
+ * @class PAL_Service
  * @brief Abstract class for Platform Abstraction Layer (PAL) network service operations.
  */
-class PAL_NetworkService : public IPAL_NetworkService {
+class PAL_Service : public IPAL_Service {
 public:
     /**
      * @enum Status
@@ -69,9 +69,9 @@ public:
     }
 
     /**
-     * @brief Destructor for PAL_NetworkService.
+     * @brief Destructor for PAL_Service.
      */
-    virtual ~PAL_NetworkService() {}
+    virtual ~PAL_Service() {}
 
 protected:
     Status status = Status::UNINITIALIZED;

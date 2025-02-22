@@ -8,7 +8,7 @@
 #include "Proc_httpServer.hpp"
 #include "HAL/Platform/ESP32/library/logImpl.h"
 
-Proc_httpServer::Proc_httpServer(IPAL_NetworkService& networkService)
+Proc_httpServer::Proc_httpServer(IPAL_Service& networkService)
     : _networkService(networkService)
 {
     setState(Process::State::INITIALIZED);

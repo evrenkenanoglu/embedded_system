@@ -1,17 +1,17 @@
 /**
- * @file Pal_httpServer.cpp
- * @brief Source file for Pal_httpServer
+ * @file Serv_httpServer.cpp
+ * @brief Source file for Serv_httpServer
  *
- * This file contains definitions for the Pal_httpServer class and related data types and functions.
+ * This file contains definitions for the Serv_httpServer class and related data types and functions.
  */
 
-#include "Pal_httpServer.hpp"
+#include "Serv_httpServer.hpp"
 #include "HAL/Platform/ESP32/library/logImpl.h"
 #include "string.h"
 #include <esp_log.h>
 #include <sstream>
 
-Pal_httpServer::Pal_httpServer()
+Serv_httpServer::Serv_httpServer()
     : _server(NULL)                   // Initialize the server handle
     , _config(HTTPD_DEFAULT_CONFIG()) // Initialize the server and configuration
     , _uriList()                      // Initialize the URI list
@@ -19,17 +19,17 @@ Pal_httpServer::Pal_httpServer()
     setStatus(Status::INITIALIZED);
 }
 
-Pal_httpServer::~Pal_httpServer()
+Serv_httpServer::~Serv_httpServer()
 {
     // destructor implementation
 }
 
-sys_error_t Pal_httpServer::init()
+sys_error_t Serv_httpServer::init()
 {
     return ERROR_SUCCESS;
 }
 
-sys_error_t Pal_httpServer::start()
+sys_error_t Serv_httpServer::start()
 {
     std::stringstream ss;
     ss << "Starting server on port: " << _config.server_port;
@@ -58,21 +58,21 @@ sys_error_t Pal_httpServer::start()
     return ERROR_SUCCESS;
 }
 
-sys_error_t Pal_httpServer::stop()
+sys_error_t Serv_httpServer::stop()
 {
     httpd_stop(_server);
     setStatus(Status::STOPPED);
     return ERROR_SUCCESS;
 }
 
-sys_error_t Pal_httpServer::restart()
+sys_error_t Serv_httpServer::restart()
 {
     stop();
     start();
     return ERROR_SUCCESS;
 }
 
-sys_error_t Pal_httpServer::registerUri(const httpd_uri_t *uri)
+sys_error_t Serv_httpServer::registerUri(const httpd_uri_t *uri)
 {
     if (httpd_register_uri_handler(_server, uri) != ESP_OK)
     {
@@ -85,7 +85,7 @@ sys_error_t Pal_httpServer::registerUri(const httpd_uri_t *uri)
     return ERROR_SUCCESS;
 }
 
-sys_error_t Pal_httpServer::unregisterUri(const httpd_uri_t *uri)
+sys_error_t Serv_httpServer::unregisterUri(const httpd_uri_t *uri)
 {
     if (httpd_unregister_uri_handler(_server, uri->uri, uri->method) != ESP_OK)
     {

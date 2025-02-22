@@ -4,50 +4,50 @@
 #include "System/system.h"
 
 /**
- * @class IPAL_NetworkService
- * @brief Interface for Platform Abstraction Layer (PAL) network service operations.
+ * @class IPAL_Service
+ * @brief Interface for Platform Abstraction Layer (PAL) service operations.
  */
-class IPAL_NetworkService {
+class IPAL_Service {
 public:
     /**
-     * @brief Initialize the network service.
+     * @brief Initialize the service.
      *
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t init() = 0;
 
     /**
-     * @brief Start the network service.
+     * @brief Start the service.
      *
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t start() = 0;
 
     /**
-     * @brief Stop the network service.
+     * @brief Stop the service.
      *
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t stop() = 0;
 
     /**
-     * @brief Restart the network service.
+     * @brief Restart the service.
      *
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t restart() = 0;
 
     /**
-     * @brief Get the status of the network service.
+     * @brief Get the status of the service.
      *
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t getStatus() = 0;
 
     /**
-     * @brief Destructor for IPAL_NetworkService.
+     * @brief Destructor for IPAL_Service.
      */
-    virtual ~IPAL_NetworkService() {}
+    virtual ~IPAL_Service() {}
 };
 
 
