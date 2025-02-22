@@ -3,3 +3,4 @@ build/
 Scripts/*.c*
 Scripts/*.h*
 _deps/
+**.pyc
