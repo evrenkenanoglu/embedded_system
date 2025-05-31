@@ -219,12 +219,6 @@
                             event.preventDefault();
                         });
 
-                        const ButtonState = {
-                            OFF: 0,
-                            ON: 1,
-                            DISABLED: 2
-                        };
-
                         console.log('Trying to open a WebSocket connection...');
                         let websocket = null;
                         let reconnectInterval = 2000;
@@ -232,24 +226,103 @@
                         let reconnectAttempts = 0;
                         let maxReconnectAttempts = 5;
 
-                        let ws = new WebSocket('ws://' + location.host + '/powerSwitchesWs');
-                        ws.onopen = () => {
-                            ws.send('Hello from browser!');
-                        };
-
-                        ws.onmessage = (e) => {
-                            const message = JSON.parse(e.data);
-                            console.log('Received message:', message);
-                            if (message.socketId !== undefined && message.state !== undefined) {
-                                setButtonState(message.socketId, message.state);
-                            } else {
-                                console.warn('Invalid message format:', message);
+                        function connectWebSocket() {
+                            if (websocket !== null && websocket.readyState !== WebSocket.CLOSED) {
+                                console.log('WebSocket is already connected or connecting');
+                                return;
                             }
-                        };
+
+                            const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+                            const wsUrl = wsProtocol + window.location.hostname + '/powerSwitchesWs';
+                            console.log('Connecting to WebSocket at:', wsUrl);
+
+                            websocket = new WebSocket(wsUrl);
+
+                            websocket.onopen = function (event) {
+                                console.log('WebSocket is connected!', event);
+                                reconnectInterval = 2000;
+                                reconnectAttempts = 0;
+                                document.getElementById('connectionStatus').style.backgroundColor = '#00ff00';
+                                document.getElementById('connectionText').textContent = 'WebSocket connected';
+                            };
+
+                            websocket.onclose = function (event) {
+                                console.log('WebSocket is closed. Reconnecting...', event);
+                                document.getElementById('connectionStatus').style.backgroundColor = '#ff0000';
+                                document.getElementById('connectionText').textContent = 'WebSocket disconnected';
+
+                                if (reconnectAttempts < maxReconnectAttempts) {
+                                    setTimeout(function () {
+                                        reconnectAttempts++;
+                                        console.log(`Reconnecting attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+                                        connectWebSocket(); reconnectInterval = Math.min(reconnectInterval * 1.5, maxReconnectInterval);
+                                    }, reconnectInterval);
+                                } else {
+                                    console.error('Max reconnect attempts reached. Giving up.');
+                                }
+                            };
+
+                            websocket.onmessage = function (event) {
+                                console.log('WebSocket message received:', event);
+                                console.log('Message data:', event.data);
+                                console.log('Data type:', typeof event.data);
+
+                                try {
+                                    const data = JSON.parse(event.data);
+                                    console.log('Parsed data:', data);
+                                    if (data && typeof data.socketId !== 'undefined' && typeof data.state !== 'undefined') {
+                                        console.log(`Valid socket state message: socketId=${data.socketId}, state=${data.state}`);
+                                        updateSwitchState(data.socketId, data.state);
+                                    } else if (data && data.type === 'ping') {
+                                        console.log('Ping received');
+                                    } else {
+                                        console.warn('Received message with unexpected format:', data); if (data && typeof data === 'object') {
+                                            console.log('Message keys:', Object.keys(data));
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Error parsing WebSocket message:', error);
+                                    console.error('Raw message data:', event.data);
+                                    const rawData = event.data;
+                                    if (typeof rawData === 'string') {
+                                        if (rawData.includes('on') || rawData.includes('off')) {
+                                            console.log('Detected simple on/off command');
+                                            const state = rawData.includes('on');
+                                            updateSwitchState(ButtonIndexAll, state);
+                                        }
+                                    }
+                                }
+                            };
+
+                            websocket.onerror = function (event) {
+                                console.error('WebSocket error observed:', event);
+                            };
+                        }
+
+
+                        connectWebSocket();
+
+
+                        setInterval(function () {
+                            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                                console.log('Sending ping to keep connection alive');
+                                websocket.send(JSON.stringify({ type: 'ping' }));
+                            }
+                        }, 30000);
+
+                        document.getElementById('reconnectButton').addEventListener('click', function () {
+                            console.log('Manual reconnect button clicked');
+                            if (websocket) {
+                                websocket.close();
+                            }
+                            reconnectAttempts = 0;
+                            connectWebSocket();
+                        });
 
                         function updateSwitchState(socketId, state) {
                             console.log(`Updating switch ${socketId} to state: ${state}`);
                             if (socketId >= 0 && socketId < sockets.length) {
+                                const button = sockets[socketId];
                                 setButtonState(socketId, state);
                             } else if (socketId === ButtonIndexAll) {
                                 setButtonState(ButtonIndexAll, state);
@@ -267,19 +340,16 @@
 
                         const colorStateOff = '#FD0101';
                         const colorStateOn = '#00ff00';
-                        const colorStateDisabled = '#808080'; // Grey color for disabled state
 
                         const socketStateMap = new Map();
 
-
+                        for (let i = 0; i < 10; i++) {
+                            socketStateMap.set(i, false);
+                        }
+                        socketStateMap.set(ButtonIndexAll, false);
 
                         async function handleSwitchState(button, index) {
-                            if (socketStateMap.get(index) === ButtonState.DISABLED) {
-                                alert('Button is disabled');
-                                return;
-                            }
                             try {
-                                setButtonState(index, ButtonState.DISABLED);
                                 const getToggledState = !socketStateMap.get(index) ? 1 : 0;
                                 const response = await fetch('/power-switches-control', {
                                     method: 'PUT',
@@ -289,8 +359,10 @@
                                     body: JSON.stringify({ socketId: index, state: getToggledState }),
                                     timeout: responseFromHardwareTimeout
                                 });
-                                // No re-enable here; wait for WebSocket update
-                                if (!response.ok) {
+
+                                if (response.ok) {
+                                    toggleButtonState(index);
+                                } else {
                                     alert('Error: ' + response.status);
                                 }
                             } catch (error) {
@@ -320,55 +392,44 @@
                         }
 
                         function setButtonState(index, state) {
-                            socketStateMap.set(index, state);
+                            const isOn = state === true || state === 1;
+                            socketStateMap.set(index, isOn);
 
                             if (index === ButtonIndexAll) {
+                                console.log(`Setting ALL buttons to state: ${isOn}`);
                                 const toggleAllButton = document.getElementById('buttonToggleAll');
-                                toggleAllButton.disabled = (state === ButtonState.DISABLED);
-                                updateButtonVisuals(toggleAllButton);
+                                updateButtonVisuals(toggleAllButton, isOn);
+
+
                                 sockets.forEach((button, i) => {
-                                    socketStateMap.set(i, state);
-                                    updateButtonVisuals(button, state);
+                                    socketStateMap.set(i, isOn);
+                                    updateButtonVisuals(button, isOn);
                                 });
                             } else if (index >= 0 && index < sockets.length) {
+                                console.log(`Setting button ${index} to state: ${isOn}`);
                                 const button = sockets[index];
-                                updateButtonVisuals(button, state);
+                                updateButtonVisuals(button, isOn);
                             } else {
                                 console.error(`Invalid button index: ${index}`);
                             }
                         }
 
-                        function updateButtonVisuals(button, state) {
+                        function updateButtonVisuals(button, isOn) {
                             const stateCircle = button.querySelector('.button-state-circle');
                             const outerCircle = button.querySelector('.button-outer-circle');
                             const powerIcon = button.querySelector('.fa-power-off');
 
-                            switch (state) {
-                                case ButtonState.DISABLED:
-                                    button.classList.add('disabled');
-                                    button.classList.remove('on', 'off');
-                                    stateCircle.style.borderColor = colorStateDisabled;
-                                    powerIcon.style.color = colorStateDisabled;
-                                    outerCircle.style.animation = 'none';
-                                    button.style.opacity = 0.5;
-                                    break;
-                                case ButtonState.ON:
-                                    button.classList.remove('disabled', 'off');
-                                    button.classList.add('on');
-                                    button.style.opacity = 1;
-                                    stateCircle.style.borderColor = colorStateOn;
-                                    powerIcon.style.color = colorStateOn;
-                                    outerCircle.style.animation = 'glowGreen 1.5s infinite alternate';
-                                    break;
-                                case ButtonState.OFF:
-                                default:
-                                    button.classList.remove('disabled', 'on');
-                                    button.classList.add('off');
-                                    button.style.opacity = 1;
-                                    stateCircle.style.borderColor = colorStateOff;
-                                    powerIcon.style.color = colorStateOff;
-                                    outerCircle.style.animation = 'glowRed 1.5s infinite alternate';
-                                    break;
+                            stateCircle.style.borderColor = isOn ? colorStateOn : colorStateOff;
+                            powerIcon.style.color = isOn ? colorStateOn : colorStateOff;
+
+                            if (isOn) {
+                                outerCircle.style.animation = 'glowGreen 1.5s infinite alternate';
+                                powerIcon.style.color = colorStateOn;
+                                stateCircle.style.borderColor = colorStateOn;
+                            } else {
+                                outerCircle.style.animation = 'glowRed 1.5s infinite alternate';
+                                stateCircle.style.borderColor = colorStateOff;
+                                powerIcon.style.color = colorStateOff;
                             }
                         }
 
@@ -469,16 +530,6 @@
                         const toggleAllButton = document.getElementById('buttonToggleAll');
 
                         addEventListeners(toggleAllButton, ButtonIndexAll);
-
-                        // Update the button visuals based on the initial state
-                        function updateInitialButtonStates() {
-                            sockets.forEach((button, index) => {
-                                const state = socketStateMap.get(index);
-                                updateButtonVisuals(button, state);
-                            });
-                        }
-
-                        updateInitialButtonStates();
                     });
                 </script>
             </div>

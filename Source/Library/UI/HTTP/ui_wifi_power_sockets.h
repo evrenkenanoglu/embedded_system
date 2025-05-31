@@ -75,7 +75,7 @@
         }\
 \
         .button-inner-circle {\
-            background: radial-gradient(circle, #ffffff 90%, #7e7d7d );\
+            background: radial-gradient(circle, #ffffff 90%, #7e7d7d);\
             position: absolute;\
             top: 50%;\
             left: 50%;\
@@ -178,7 +178,7 @@
             text-align: center;\
             font-size: 4em;\
             font-family: 'Arial', sans-serif, bold;\
-            background: -webkit-linear-gradient(left, #060606, #ff1500, #000000); /* Gradient with white, soft red, and grey */\
+            background: -webkit-linear-gradient(left, #060606, #ff1500, #000000);\
             -webkit-background-clip: text;\
             -webkit-text-fill-color: transparent;\
         }\
@@ -209,12 +209,49 @@
                     </div>\
                 </button>\
             </div>\
+            <div style=\"text-align: center; margin-bottom: 15px;\">\
+                <span id=\"connectionStatus\"\
+                    style=\"display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #ff0000; margin-right: 10px;\"></span>\
+                <span id=\"connectionText\">WebSocket disconnected</span>\
+                <button id=\"reconnectButton\" class=\"btn btn-sm btn-primary ml-2\">Reconnect</button>\
+            </div>\
             <div id=\"controls\">\
                 <script>\
                     document.addEventListener('DOMContentLoaded', (event) => {\
                         document.querySelector('form').addEventListener('submit', function (event) {\
                             event.preventDefault();\
                         });\
+\
+                        console.log('Trying to open a WebSocket connection...');\
+                        let websocket = null;\
+                        let reconnectInterval = 2000;\
+                        let maxReconnectInterval = 30000;\
+                        let reconnectAttempts = 0;\
+                        let maxReconnectAttempts = 5;\
+\
+                        let ws = new WebSocket('ws://' + location.host + '/powerSwitchesWs');\
+                        ws.onopen = () => {\
+                            ws.send('Hello from browser!');\
+                        }\
+                            ;\
+\
+                        ws.onmessage = (e) => {\
+                            console.log(e.data);\
+                        }\
+                            ;\
+\
+\
+                        function updateSwitchState(socketId, state) {\
+                            console.log(`Updating switch ${socketId} to state: ${state}`);\
+                            if (socketId >= 0 && socketId < sockets.length) {\
+                                const button = sockets[socketId];\
+                                setButtonState(socketId, state);\
+                            } else if (socketId === ButtonIndexAll) {\
+                                setButtonState(ButtonIndexAll, state);\
+                            } else {\
+                                console.warn('Invalid socketId received:', socketId);\
+                            }\
+                        }\
 \
                         const ButtonIndexAll = 0xFF;\
                         const sockets = [];\
@@ -278,28 +315,45 @@
                         }\
 \
                         function setButtonState(index, state) {\
-                            const button = sockets[index];\
+                            const isOn = state === true || state === 1;\
+                            socketStateMap.set(index, isOn);\
+\
+                            if (index === ButtonIndexAll) {\
+                                console.log(`Setting ALL buttons to state: ${isOn}`);\
+                                const toggleAllButton = document.getElementById('buttonToggleAll');\
+                                updateButtonVisuals(toggleAllButton, isOn);\
+\
+\
+                                sockets.forEach((button, i) => {\
+                                    socketStateMap.set(i, isOn);\
+                                    updateButtonVisuals(button, isOn);\
+                                });\
+                            } else if (index >= 0 && index < sockets.length) {\
+                                console.log(`Setting button ${index} to state: ${isOn}`);\
+                                const button = sockets[index];\
+                                updateButtonVisuals(button, isOn);\
+                            } else {\
+                                console.error(`Invalid button index: ${index}`);\
+                            }\
+                        }\
+\
+                        function updateButtonVisuals(button, isOn) {\
                             const stateCircle = button.querySelector('.button-state-circle');\
                             const outerCircle = button.querySelector('.button-outer-circle');\
                             const powerIcon = button.querySelector('.fa-power-off');\
-                            const isOn = state === true;\
 \
                             stateCircle.style.borderColor = isOn ? colorStateOn : colorStateOff;\
                             powerIcon.style.color = isOn ? colorStateOn : colorStateOff;\
 \
                             if (isOn) {\
-\
                                 outerCircle.style.animation = 'glowGreen 1.5s infinite alternate';\
                                 powerIcon.style.color = colorStateOn;\
                                 stateCircle.style.borderColor = colorStateOn;\
-\
-                            }\
-                            else {\
+                            } else {\
                                 outerCircle.style.animation = 'glowRed 1.5s infinite alternate';\
                                 stateCircle.style.borderColor = colorStateOff;\
                                 powerIcon.style.color = colorStateOff;\
                             }\
-\
                         }\
 \
                         function startLongPress(button, index) {\

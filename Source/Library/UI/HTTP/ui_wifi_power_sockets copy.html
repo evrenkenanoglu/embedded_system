@@ -47,12 +47,11 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            border: px solid #B4B3B3;
+            border: 0px solid #B4B3B3;
             box-sizing: border-box;
             z-index: 2;
             box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2), 0px 4px 6px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
-            animation: glowRed 1.5s infinite alternate;
         }
 
         .button-state-circle {
@@ -69,10 +68,11 @@
             z-index: 2;
             box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2), 0px 4px 6px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
+            animation: glowRed 1.5s infinite alternate;
         }
 
         .button-inner-circle {
-            background: radial-gradient(circle, #ffffff 90%, #7e7d7d);
+            background: radial-gradient(circle, #ffffff, #7e7d7d);
             position: absolute;
             top: 50%;
             left: 50%;
@@ -104,6 +104,7 @@
             justify-content: center;
             align-items: center;
             transition: all 0.3s ease;
+            animation: rotate 5s infinite;
         }
 
         .button-container:hover .button-state-circle,
@@ -175,7 +176,7 @@
             text-align: center;
             font-size: 4em;
             font-family: 'Arial', sans-serif, bold;
-            background: -webkit-linear-gradient(left, #060606, #ff1500, #000000);
+            background: -webkit-linear-gradient(left, #007BFF, #00C6FF);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -206,57 +207,12 @@
                     </div>
                 </button>
             </div>
-            <div style="text-align: center; margin-bottom: 15px;">
-                <span id="connectionStatus"
-                    style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #ff0000; margin-right: 10px;"></span>
-                <span id="connectionText">WebSocket disconnected</span>
-                <button id="reconnectButton" class="btn btn-sm btn-primary ml-2">Reconnect</button>
-            </div>
             <div id="controls">
                 <script>
                     document.addEventListener('DOMContentLoaded', (event) => {
                         document.querySelector('form').addEventListener('submit', function (event) {
                             event.preventDefault();
                         });
-
-                        const ButtonState = {
-                            OFF: 0,
-                            ON: 1,
-                            DISABLED: 2
-                        };
-
-                        console.log('Trying to open a WebSocket connection...');
-                        let websocket = null;
-                        let reconnectInterval = 2000;
-                        let maxReconnectInterval = 30000;
-                        let reconnectAttempts = 0;
-                        let maxReconnectAttempts = 5;
-
-                        let ws = new WebSocket('ws://' + location.host + '/powerSwitchesWs');
-                        ws.onopen = () => {
-                            ws.send('Hello from browser!');
-                        };
-
-                        ws.onmessage = (e) => {
-                            const message = JSON.parse(e.data);
-                            console.log('Received message:', message);
-                            if (message.socketId !== undefined && message.state !== undefined) {
-                                setButtonState(message.socketId, message.state);
-                            } else {
-                                console.warn('Invalid message format:', message);
-                            }
-                        };
-
-                        function updateSwitchState(socketId, state) {
-                            console.log(`Updating switch ${socketId} to state: ${state}`);
-                            if (socketId >= 0 && socketId < sockets.length) {
-                                setButtonState(socketId, state);
-                            } else if (socketId === ButtonIndexAll) {
-                                setButtonState(ButtonIndexAll, state);
-                            } else {
-                                console.warn('Invalid socketId received:', socketId);
-                            }
-                        }
 
                         const ButtonIndexAll = 0xFF;
                         const sockets = [];
@@ -267,19 +223,16 @@
 
                         const colorStateOff = '#FD0101';
                         const colorStateOn = '#00ff00';
-                        const colorStateDisabled = '#808080'; // Grey color for disabled state
 
                         const socketStateMap = new Map();
 
-
+                        for (let i = 0; i < 10; i++) {
+                            socketStateMap.set(i, false);
+                        }
+                        socketStateMap.set(ButtonIndexAll, false);
 
                         async function handleSwitchState(button, index) {
-                            if (socketStateMap.get(index) === ButtonState.DISABLED) {
-                                alert('Button is disabled');
-                                return;
-                            }
                             try {
-                                setButtonState(index, ButtonState.DISABLED);
                                 const getToggledState = !socketStateMap.get(index) ? 1 : 0;
                                 const response = await fetch('/power-switches-control', {
                                     method: 'PUT',
@@ -289,8 +242,11 @@
                                     body: JSON.stringify({ socketId: index, state: getToggledState }),
                                     timeout: responseFromHardwareTimeout
                                 });
-                                // No re-enable here; wait for WebSocket update
-                                if (!response.ok) {
+
+                                toggleButtonState(index);
+                                updateSocketMap(index);
+                                if (response.ok) {
+                                } else {
                                     alert('Error: ' + response.status);
                                 }
                             } catch (error) {
@@ -320,56 +276,34 @@
                         }
 
                         function setButtonState(index, state) {
-                            socketStateMap.set(index, state);
-
-                            if (index === ButtonIndexAll) {
-                                const toggleAllButton = document.getElementById('buttonToggleAll');
-                                toggleAllButton.disabled = (state === ButtonState.DISABLED);
-                                updateButtonVisuals(toggleAllButton);
-                                sockets.forEach((button, i) => {
-                                    socketStateMap.set(i, state);
-                                    updateButtonVisuals(button, state);
-                                });
-                            } else if (index >= 0 && index < sockets.length) {
-                                const button = sockets[index];
-                                updateButtonVisuals(button, state);
-                            } else {
-                                console.error(`Invalid button index: ${index}`);
-                            }
-                        }
-
-                        function updateButtonVisuals(button, state) {
+                            const button = sockets[index];
                             const stateCircle = button.querySelector('.button-state-circle');
                             const outerCircle = button.querySelector('.button-outer-circle');
                             const powerIcon = button.querySelector('.fa-power-off');
+                            const isOn = state === true;
 
-                            switch (state) {
-                                case ButtonState.DISABLED:
-                                    button.classList.add('disabled');
-                                    button.classList.remove('on', 'off');
-                                    stateCircle.style.borderColor = colorStateDisabled;
-                                    powerIcon.style.color = colorStateDisabled;
-                                    outerCircle.style.animation = 'none';
-                                    button.style.opacity = 0.5;
-                                    break;
-                                case ButtonState.ON:
-                                    button.classList.remove('disabled', 'off');
-                                    button.classList.add('on');
-                                    button.style.opacity = 1;
-                                    stateCircle.style.borderColor = colorStateOn;
-                                    powerIcon.style.color = colorStateOn;
-                                    outerCircle.style.animation = 'glowGreen 1.5s infinite alternate';
-                                    break;
-                                case ButtonState.OFF:
-                                default:
-                                    button.classList.remove('disabled', 'on');
-                                    button.classList.add('off');
-                                    button.style.opacity = 1;
-                                    stateCircle.style.borderColor = colorStateOff;
-                                    powerIcon.style.color = colorStateOff;
-                                    outerCircle.style.animation = 'glowRed 1.5s infinite alternate';
-                                    break;
+                            stateCircle.style.borderColor = isOn ? colorStateOn : colorStateOff;
+                            powerIcon.style.color = isOn ? colorStateOn : colorStateOff;
+
+                            if (isOn) {
+                                outerCircle.style.animation = 'glowGreen 1.5s infinite alternate';
+                                powerIcon.style.color = colorStateOn;
+                                stateCircle.style.borderColor = colorStateOn;
+
                             }
+                            else {
+                                outerCircle.style.animation = 'glowRed 1.5s infinite alternate';
+                                stateCircle.style.borderColor = colorStateOff;
+                                powerIcon.style.color = colorStateOff;
+                            }
+
+
+                            // stateCircle.style.boxShadow = isOn
+                            //     ? '0 0 10px ' + color + ', 0 0 20px ' + color + ', 0 0 30px ' + color + ', 0 0 40px ' + color + ', 0 0 50px ' + color
+                            //     : '0px 8px 15px rgba(0, 0, 0, 0.2), 0px 4px 6px rgba(0, 0, 0, 0.1)';
+                            // powerIcon.style.boxShadow = isOn
+                            //     ? '0 0 10px ' + color + ', 0 0 20px ' + color + ', 0 0 30px ' + color + ', 0 0 40px ' + color + ', 0 0 50px ' + color
+                            //     : 'none';
                         }
 
                         function startLongPress(button, index) {
@@ -469,16 +403,6 @@
                         const toggleAllButton = document.getElementById('buttonToggleAll');
 
                         addEventListeners(toggleAllButton, ButtonIndexAll);
-
-                        // Update the button visuals based on the initial state
-                        function updateInitialButtonStates() {
-                            sockets.forEach((button, index) => {
-                                const state = socketStateMap.get(index);
-                                updateButtonVisuals(button, state);
-                            });
-                        }
-
-                        updateInitialButtonStates();
                     });
                 </script>
             </div>
