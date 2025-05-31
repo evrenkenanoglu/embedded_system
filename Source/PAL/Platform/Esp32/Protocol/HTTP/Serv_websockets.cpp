@@ -1,0 +1,129 @@
+/**
+ * @file Serv_websockets.cpp
+ * @brief Source file for Serv_websockets
+ *
+ * This file contains definitions for the Serv_websockets class and related data types and functions.
+ */
+
+#include "Serv_websockets.hpp"
+#include "HAL/Platform/ESP32/Library/logImpl.h"
+#include "cJSON.h"
+#include "sdkconfig.h"
+
+/**
+ * @brief Event handler for WebSocket events
+ *
+ * @param handler_args The handler arguments
+ * @param base The event base
+ * @param event_id The event ID
+ * @param event_data The event data
+ */
+static void websocket_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data);
+
+Serv_websockets::Serv_websockets()
+    : _server(NULL)
+{
+}
+
+Serv_websockets::~Serv_websockets()
+{
+    stop();
+}
+
+sys_error_t Serv_websockets::init()
+{
+    return ERROR_SUCCESS;
+}
+
+sys_error_t Serv_websockets::start()
+{
+    return ERROR_SUCCESS;
+}
+
+sys_error_t Serv_websockets::stop()
+{
+    return ERROR_SUCCESS;
+}
+
+sys_error_t Serv_websockets::restart()
+{
+    RETURN_ON_ERROR(stop());
+    RETURN_ON_ERROR(init());
+    return start();
+}
+
+void websocket_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data) {}
+
+void Serv_websockets::startWebSocketServer(httpd_handle_t server)
+{
+    if (server == NULL)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Server is NULL, cannot start websocket server");
+        return;
+    }
+    _server = server;
+
+    logger().log(ILog::LogLevel::INFO, "Starting websocket server");
+}
+void Serv_websockets::stopWebSocketServer()
+{
+    _server = NULL;
+}
+
+sys_error_t Serv_websockets::broadcast(uint8_t* payload, size_t len, httpd_ws_type_t type)
+{
+    if (_server == NULL)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Server is NULL, cannot send message");
+        return ERROR_FAIL;
+    }
+    httpd_ws_frame_t ws_frame;
+    ws_frame.payload = payload;
+    ws_frame.len     = len;
+    ws_frame.type    = type;
+
+    // print the message
+    cJSON* json    = cJSON_Parse((char*)payload);
+    char*  message = cJSON_Print(json);
+    logger().log(ILog::LogLevel::INFO, message);
+    cJSON_Delete(json);
+    free(message);
+
+    static size_t maxClients = CONFIG_LWIP_MAX_LISTENING_TCP;
+    size_t        fds        = maxClients;
+    int           client_fds[maxClients];
+
+    error_t error = ESP_OK;
+    error         = httpd_get_client_list(_server, &fds, client_fds);
+
+    if (error != ESP_OK)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Failed to get client list");
+        return ERROR_FAIL;
+    }
+
+    // print all client fds
+    for (uint8_t i = 0; i < fds; i++)
+    {
+        logger().log(ILog::LogLevel::INFO, "Client FD: " + std::to_string(client_fds[i]));
+    }
+
+    for (uint8_t i = 0; i < fds; i++)
+    {
+        int clientInfo = httpd_ws_get_fd_info(_server, client_fds[i]);
+        if (clientInfo == HTTPD_WS_CLIENT_WEBSOCKET)
+        {
+            error = httpd_ws_send_frame_async(_server, client_fds[i], &ws_frame);
+        }
+        // print the error code
+        logger().log(ILog::LogLevel::INFO, "Error code: " + std::to_string(error));
+
+        if (error != ESP_OK)
+        {
+            logger().log(ILog::LogLevel::ERROR, "Failed to send message");
+            return ERROR_FAIL;
+        }
+    }
+
+    return ERROR_SUCCESS;
+}

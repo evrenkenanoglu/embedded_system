@@ -10,6 +10,7 @@
 
 #include "HAL/IHal.h"
 #include "Process/Process.hpp"
+#include <functional>
 #include <vector>
 
 #define ALL_SWITCHES 0xFF
@@ -36,6 +37,9 @@ private:
     TaskHandle_t                           _xHandleSwitches; // Task handle for the switches
     std::unique_ptr<std::vector<Switch_t>> _switches;        // States of the switches
     QueueHandle_t                          _SwitchesQueue;   // Queue to handle the switches
+
+    // Vector of Register cbs for notification of switch state changes
+    std::vector<std::function<void(uint8_t, bool)>> _switchStateChangeCbs;
 
 private:
     // Private member functions
@@ -69,6 +73,21 @@ public:
      * @return bool State of the switch
      */
     bool getSwitchState(uint8_t switchNo);
+
+    /**
+     * @brief Register a callback function for switch state change
+     *
+     * @param cb Callback function
+     */
+    void registerSwitchStateChangeCb(std::function<void(uint8_t, bool)> cb);
+
+    /**
+     * @brief Notify the switch state change
+     *
+     * @param switchNo Switch number
+     * @param state State of the switch
+     */
+    void notifySwitchStateChange(uint8_t switchNo, bool state);
 };
 
 #endif /* PROC_SWITCHES_HPP */

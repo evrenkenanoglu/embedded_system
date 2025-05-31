@@ -13,15 +13,21 @@
 #include "PAL/Pal.h"
 #include "Process/Process.hpp"
 #include <esp_http_server.h>
+#include <functional>
 #include <vector>
 
 class Serv_httpServer : public PAL_Service
 {
 private:
-    httpd_handle_t _server;
-    httpd_config_t _config;
+    httpd_handle_t            _server;
+    httpd_config_t            _config;
     std::vector<httpd_uri_t*> _uriList;
-    // sys_error_t (*registerUri)(void* params);
+
+    // Websocket callback function for starting the Websocket server
+    std::function<void(httpd_handle_t _server)> _websocketStartCb;
+
+    // Websocket callback function for stopping the Websocket server
+    std::function<void()> _websocketStopCb;
 
 public:
     Serv_httpServer();
@@ -36,8 +42,11 @@ public:
     sys_error_t restart() override;
 
 public:
-    sys_error_t registerUri(const httpd_uri_t *uri);
-    sys_error_t unregisterUri(const httpd_uri_t *uri);
+    sys_error_t registerUri(const httpd_uri_t* uri);
+    sys_error_t unregisterUri(const httpd_uri_t* uri);
+
+    // Register the Websocket server callback function
+    void registerWebsocketCbs(std::function<void(httpd_handle_t _server)> startCb, std::function<void()> stopCb);
 };
 
 #endif /* PAL_HTTPSERVER_HPP */

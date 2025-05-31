@@ -6,6 +6,7 @@
  */
 
 #include "Serv_mdns.hpp"
+#include "HAL/Platform/ESP32/Library/logImpl.h"
 #include "mdns.h"
 
 Serv_mdns::Serv_mdns(std::string hostname, std::string instanceName, uint16_t port)
@@ -23,26 +24,61 @@ Serv_mdns::~Serv_mdns()
 
 sys_error_t Serv_mdns::init()
 {
-    ESP_ERROR_CHECK(mdns_init());
+    error_t error = mdns_init();
+    if (error != ESP_OK)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Failed to initialize mDNS");
+        return ERROR_FAIL;
+    }
+
+    logger().log(ILog::LogLevel::INFO, "mDNS initialized");
+
     return ERROR_SUCCESS;
 }
 
 sys_error_t Serv_mdns::start()
 {
     // Initialize mDNS
-    ESP_ERROR_CHECK(mdns_hostname_set(_hostname.c_str()));
-    ESP_ERROR_CHECK(mdns_instance_name_set(_instanceName.c_str()));
+    error_t error = mdns_hostname_set(_hostname.c_str());
+    if (error != ESP_OK)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Failed to set mDNS hostname");
+        return ERROR_FAIL;
+    }
+
+    error = mdns_instance_name_set(_instanceName.c_str());
+
+    if (error != ESP_OK)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Failed to set mDNS instance name");
+        return ERROR_FAIL;
+    }
 
     // Set mDNS service
-    ESP_ERROR_CHECK(mdns_service_add("ESP32-WebServer", "_http", "_tcp", _port, NULL, 0));
-    ESP_ERROR_CHECK(mdns_service_txt_item_set("_http", "_tcp", "path", "/"));
+    error = mdns_service_add("ESP32-WebServer", "_http", "_tcp", _port, NULL, 0);
 
+    if (error != ESP_OK)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Failed to add mDNS service");
+        return ERROR_FAIL;
+    }
+
+    error = mdns_service_txt_item_set("_http", "_tcp", "path", "/");
+
+    if (error != ESP_OK)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Failed to set mDNS service text item");
+        return ERROR_FAIL;
+    }
+
+    logger().log(ILog::LogLevel::INFO, "mDNS service started!");
     return ERROR_SUCCESS;
 }
 
 sys_error_t Serv_mdns::stop()
 {
     mdns_free();
+    logger().log(ILog::LogLevel::INFO, "mDNS stopped!");
     return ERROR_SUCCESS;
 }
 

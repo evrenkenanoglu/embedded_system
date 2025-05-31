@@ -115,6 +115,9 @@ void Proc_Switches::setSwitchState(uint8_t switchNo, bool state)
     _switches->at(switchNo).ioGpio.set(reinterpret_cast<void*>(&state));
     _switches->at(switchNo).state = state;
     _switches->at(switchNo).state = state;
+
+    // Notify the switch state change
+    notifySwitchStateChange(switchNo, state);
 }
 
 bool Proc_Switches::getSwitchState(uint8_t switchNo)
@@ -125,6 +128,18 @@ bool Proc_Switches::getSwitchState(uint8_t switchNo)
 QueueHandle_t Proc_Switches::getSwitchesQueue()
 {
     return _SwitchesQueue;
+}
+void Proc_Switches::registerSwitchStateChangeCb(std::function<void(uint8_t, bool)> cb)
+{
+    _switchStateChangeCbs.push_back(cb);
+}
+
+void Proc_Switches::notifySwitchStateChange(uint8_t switchNo, bool state)
+{
+    for (auto& cb : _switchStateChangeCbs)
+    {
+        cb(switchNo, state);
+    }
 }
 
 static void SwitchesTask(void* pvParameters)
