@@ -88,6 +88,12 @@ public:
      * @param state State of the switch
      */
     void notifySwitchStateChange(uint8_t switchNo, bool state);
+
+    /**
+     * @brief Get the list of switches
+     * @return std::vector<Switch_t>* Pointer to the vector of switches
+     */
+    std::vector<Switch_t>* getSwitches();
 };
 
 #endif /* PROC_SWITCHES_HPP */

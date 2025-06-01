@@ -165,3 +165,9 @@ static void SwitchesTask(void* pvParameters)
         std::this_thread::sleep_for(std::chrono::milliseconds(programRoutineTaskDelay));
     }
 }
+
+
+std::vector<Proc_Switches::Switch_t>* Proc_Switches::getSwitches()
+{
+    return _switches.get();
+}
