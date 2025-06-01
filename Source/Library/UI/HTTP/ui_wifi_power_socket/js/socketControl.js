@@ -14,8 +14,9 @@ async function handleSocketState(button, index) {
     return;
   }
   try {
-    setButtonState(index, ButtonState.DISABLED);
+    // First get the current state of the socket
     const getToggledState = !socketStateMap.get(index) ? 1 : 0;
+    setButtonState(index, ButtonState.DISABLED);
     const response = await fetch("/power-switches-control", {
       method: "PUT",
       headers: {

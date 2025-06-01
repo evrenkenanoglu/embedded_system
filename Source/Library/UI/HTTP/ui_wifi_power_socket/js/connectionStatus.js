@@ -1,11 +1,10 @@
-
 // Function to update connection status UI
 function updateConnectionStatus(isConnected, details) {
   const statusIndicator = document.getElementById("connectionStatus");
   const statusText = document.getElementById("connectionText");
 
   if (isConnected) {
-    statusIndicator.style.backgroundColor = "#00ff00"; 
+    statusIndicator.style.backgroundColor = "#00ff00";
     statusText.textContent = details || "Connected";
     statusIndicator.style.boxShadow = "0 0 5px rgba(0, 159, 252, 0.5)";
   } else {
@@ -15,10 +14,17 @@ function updateConnectionStatus(isConnected, details) {
   }
 }
 
-// Add event listeners for WebSocket connection events
-if (typeof websocket !== "undefined") {
+function initConnectionStatus() {
+  if (typeof window.getWebSocket === "function") {
+    const ws = window.getWebSocket();
+    if (ws) {
+      addWebSocketListeners(ws);
+    }
+  }
+}
+function addWebSocketListeners(websocket) {
   websocket.addEventListener("open", function (event) {
-    updateConnectionStatus(true, "Connected to server");
+    updateConnectionStatus(true, "Connected");
   });
 
   websocket.addEventListener("close", function (event) {
@@ -63,5 +69,3 @@ if (typeof websocket !== "undefined") {
     updateConnectionStatus(false);
   }
 }
-
-

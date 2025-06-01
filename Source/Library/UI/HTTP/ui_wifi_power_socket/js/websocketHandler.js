@@ -28,4 +28,7 @@ function initializeWebSocket() {
   };
 }
 
-
+// Function to expose the websocket object
+function getWebSocket() {
+  return websocket;
+}
