@@ -15,6 +15,7 @@ public:
 
     error_t updateSwitchStates(uint16_t socketId, bool state);
 
+    Serv_websockets& getWebsocketServer();
 private:
     Serv_websockets& _websocketServer;
 };

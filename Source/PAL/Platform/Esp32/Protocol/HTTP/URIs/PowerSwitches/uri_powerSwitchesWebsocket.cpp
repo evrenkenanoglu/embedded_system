@@ -30,38 +30,50 @@ static esp_err_t webSocketHandler(httpd_req_t* req)
         httpd_resp_set_type(req, "application/json");
         return ESP_OK;
     }
-    // httpd_ws_frame_t ws_pkt;
-    // memset(&ws_pkt, 0, sizeof(ws_pkt));
-    // ws_pkt.type    = HTTPD_WS_TYPE_TEXT;
-    // ws_pkt.payload = NULL;
-    // ws_pkt.len     = 0;
-    // httpd_ws_recv_frame(req, &ws_pkt, 0);
-    // ws_pkt.payload = (uint8_t*)malloc(ws_pkt.len + 1);
-    // httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
-    // ws_pkt.payload[ws_pkt.len] = 0;
-    // ESP_LOGI("TAG", "Received: %s", ws_pkt.payload);
 
-    // // Echo back to client
-    // char reply[64];
-    // snprintf(reply, sizeof(reply), "ESP32 received: %s", ws_pkt.payload);
-    // httpd_ws_frame_t ws_res = {.final = true, .fragmented = false, .type = HTTPD_WS_TYPE_TEXT, .payload = (uint8_t*)reply, .len = strlen(reply)};
-    // httpd_ws_send_frame(req, &ws_res);
-    // // print socket descriptor info
+    // Recieive WebSocket frame
+    httpd_ws_frame_t ws_pkt;
+    memset(&ws_pkt, 0, sizeof(ws_pkt));
+    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 0);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE("UriPowerSwitchesWebSocket", "Failed to receive WebSocket frame");
+        return ret;
+    }
+    ws_pkt.payload = (uint8_t*)malloc(ws_pkt.len + 1);
+    httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
+    ws_pkt.payload[ws_pkt.len] = 0; // Null-terminate the payload
+    ESP_LOGI("UriPowerSwitchesWebSocket", "Received: %s", ws_pkt.payload);
 
-    // ESP_LOGI("TAG", "Client FD: %d, Info: %d", httpd_req_to_sockfd(req), (int)httpd_ws_get_fd_info(req->handle, httpd_req_to_sockfd(req)));
+    UriPowerSwitchesWebSocket* self = static_cast<UriPowerSwitchesWebSocket*>(req->user_ctx);
 
-    // // httpd_ws_send_frame_async(server, httpd_req_to_sockfd(req), &ws_res);
-    // free(ws_pkt.payload);
+    // Send dummy switches data to the client : socketId 0, state false
+
+    std::string message1 = "{\"socketId\": 0, \"state\": false}";
+    int         clientId = httpd_req_to_sockfd(req);
+    self->getWebsocketServer().sendMessage(clientId, reinterpret_cast<uint8_t*>(message1.data()), message1.size(), HTTPD_WS_TYPE_TEXT);
 
     return ESP_OK;
 }
 
 esp_err_t UriPowerSwitchesWebSocket::updateSwitchStates(uint16_t socketId, bool state)
 {
-    char message[50];
-    std::sprintf(message, "{\"socketId\": %d, \"state\": %d}", socketId, static_cast<uint8_t>(state));
+    // Use string formatting directly with a reserve to avoid reallocations
+    std::string message;
+    message.reserve(40); // Pre-allocate enough space for the typical JSON message
+    message = "{\"socketId\": ";
+    message += std::to_string(socketId);
+    message += ", \"state\": ";
+    message += state ? "1" : "0";
+    message += "}";
 
-    RETURN_ON_ERROR(_websocketServer.broadcast(reinterpret_cast<uint8_t*>(message), sizeof(message), HTTPD_WS_TYPE_TEXT));
+    ESP_LOGI("UriPowerSwitchesWebSocket", "Updating switch state: %s", message.c_str());
 
-    return ERROR_SUCCESS;
+    // Use const_cast to avoid the reinterpret_cast which is less type-safe
+    return _websocketServer.broadcast(reinterpret_cast<uint8_t*>(message.data()), message.size(), HTTPD_WS_TYPE_TEXT);
+}
+
+Serv_websockets& UriPowerSwitchesWebSocket::getWebsocketServer()
+{
+    return _websocketServer;
 }
