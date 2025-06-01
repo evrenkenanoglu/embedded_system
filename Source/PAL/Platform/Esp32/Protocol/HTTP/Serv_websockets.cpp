@@ -70,6 +70,45 @@ void Serv_websockets::stopWebSocketServer()
     _server = NULL;
 }
 
+sys_error_t Serv_websockets::sendMessage(int client_fd, uint8_t* payload, size_t len, httpd_ws_type_t type)
+{
+    if (_server == NULL)
+    {
+        logger().log(ILog::LogLevel::ERROR, "Server is NULL, cannot send message");
+        return ERROR_FAIL;
+    }
+
+    // send to a specific client
+    httpd_ws_frame_t ws_frame;
+    ws_frame.payload = payload;
+    ws_frame.len     = len;
+    ws_frame.type    = type;
+
+    if (httpd_ws_get_fd_info(_server, client_fd) == HTTPD_WS_CLIENT_WEBSOCKET)
+    {
+        // print the message
+        cJSON* json    = cJSON_Parse((char*)payload);
+        char*  message = cJSON_Print(json);
+        logger().log(ILog::LogLevel::INFO, message);
+        cJSON_Delete(json);
+        free(message);
+
+        error_t error = httpd_ws_send_frame_async(_server, client_fd, &ws_frame);
+        if (error != ESP_OK)
+        {
+            logger().log(ILog::LogLevel::ERROR, "Failed to send message to client fd: " + std::to_string(client_fd));
+            return ERROR_FAIL;
+        }
+    }
+    else
+    {
+        logger().log(ILog::LogLevel::ERROR, "Client fd: " + std::to_string(client_fd) + " is not a websocket client");
+        return ERROR_FAIL;
+    }
+
+    return ERROR_SUCCESS;
+}
+
 sys_error_t Serv_websockets::broadcast(uint8_t* payload, size_t len, httpd_ws_type_t type)
 {
     if (_server == NULL)
@@ -77,17 +116,6 @@ sys_error_t Serv_websockets::broadcast(uint8_t* payload, size_t len, httpd_ws_ty
         logger().log(ILog::LogLevel::ERROR, "Server is NULL, cannot send message");
         return ERROR_FAIL;
     }
-    httpd_ws_frame_t ws_frame;
-    ws_frame.payload = payload;
-    ws_frame.len     = len;
-    ws_frame.type    = type;
-
-    // print the message
-    cJSON* json    = cJSON_Parse((char*)payload);
-    char*  message = cJSON_Print(json);
-    logger().log(ILog::LogLevel::INFO, message);
-    cJSON_Delete(json);
-    free(message);
 
     static size_t maxClients = CONFIG_LWIP_MAX_LISTENING_TCP;
     size_t        fds        = maxClients;
@@ -102,27 +130,9 @@ sys_error_t Serv_websockets::broadcast(uint8_t* payload, size_t len, httpd_ws_ty
         return ERROR_FAIL;
     }
 
-    // print all client fds
     for (uint8_t i = 0; i < fds; i++)
     {
-        logger().log(ILog::LogLevel::INFO, "Client FD: " + std::to_string(client_fds[i]));
-    }
-
-    for (uint8_t i = 0; i < fds; i++)
-    {
-        int clientInfo = httpd_ws_get_fd_info(_server, client_fds[i]);
-        if (clientInfo == HTTPD_WS_CLIENT_WEBSOCKET)
-        {
-            error = httpd_ws_send_frame_async(_server, client_fds[i], &ws_frame);
-        }
-        // print the error code
-        logger().log(ILog::LogLevel::INFO, "Error code: " + std::to_string(error));
-
-        if (error != ESP_OK)
-        {
-            logger().log(ILog::LogLevel::ERROR, "Failed to send message");
-            return ERROR_FAIL;
-        }
+        sendMessage(client_fds[i], payload, len, type);
     }
 
     return ERROR_SUCCESS;

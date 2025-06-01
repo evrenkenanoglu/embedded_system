@@ -39,6 +39,10 @@ public:
     void stopWebSocketServer();
 
     // Send a message to the websocket
+    sys_error_t sendMessage(int client_fd, uint8_t* payload, size_t len, httpd_ws_type_t type);
+
+    // Broadcast a message to all connected websocket clients
     sys_error_t broadcast(uint8_t* payload, size_t len, httpd_ws_type_t type);
+    
 };
 #endif /* SERV_WEBSOCKETS_HPP */
