@@ -95,9 +95,12 @@ sys_error_t Serv_websockets::sendMessage(int client_fd, uint8_t* payload, size_t
             logger().log(ILog::LogLevel::ERROR, "Failed to send message to client fd: " + std::to_string(client_fd));
             return ERROR_FAIL;
         }
-
     }
-
+    else
+    {
+        logger().log(ILog::LogLevel::ERROR, "Client fd: " + std::to_string(client_fd) + " is not a websocket client");
+        return ERROR_FAIL;
+    }
 
     return ERROR_SUCCESS;
 }
@@ -125,7 +128,10 @@ sys_error_t Serv_websockets::broadcast(uint8_t* payload, size_t len, httpd_ws_ty
 
     for (uint8_t i = 0; i < fds; i++)
     {
-        sendMessage(client_fds[i], payload, len, type);
+        if (httpd_ws_get_fd_info(_server, client_fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET)
+        {
+            sendMessage(client_fds[i], payload, len, type);
+        }
     }
 
     return ERROR_SUCCESS;
