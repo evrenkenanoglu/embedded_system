@@ -4,3 +4,4 @@ Scripts/*.c*
 Scripts/*.h*
 _deps/
 **.pyc
+output/
