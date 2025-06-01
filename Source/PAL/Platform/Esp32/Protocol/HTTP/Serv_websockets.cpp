@@ -87,24 +87,17 @@ sys_error_t Serv_websockets::sendMessage(int client_fd, uint8_t* payload, size_t
     if (httpd_ws_get_fd_info(_server, client_fd) == HTTPD_WS_CLIENT_WEBSOCKET)
     {
         // print the message
-        cJSON* json    = cJSON_Parse((char*)payload);
-        char*  message = cJSON_Print(json);
-        logger().log(ILog::LogLevel::INFO, message);
-        cJSON_Delete(json);
-        free(message);
 
         error_t error = httpd_ws_send_frame_async(_server, client_fd, &ws_frame);
+        logger().log(ILog::LogLevel::INFO, "Sending message to client fd: " + std::to_string(client_fd) + ", type: " + std::to_string(type) + ", len: " + std::to_string(len));
         if (error != ESP_OK)
         {
             logger().log(ILog::LogLevel::ERROR, "Failed to send message to client fd: " + std::to_string(client_fd));
             return ERROR_FAIL;
         }
+
     }
-    else
-    {
-        logger().log(ILog::LogLevel::ERROR, "Client fd: " + std::to_string(client_fd) + " is not a websocket client");
-        return ERROR_FAIL;
-    }
+
 
     return ERROR_SUCCESS;
 }
