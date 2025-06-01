@@ -1,3 +1,11 @@
+function generateUiElements() {
+  // Generate the connection status container
+  generateConnectionStatusContainer();
+
+  // Generate the buttons
+  generateButtons();
+}
+
 function generateButtons(buttons) {
   // Clear existing content first to refresh all buttons
   document.getElementById("controls").innerHTML = "";
@@ -125,4 +133,31 @@ function generateButtonToggleAll() {
   mainControlsDiv.appendChild(socketContainer);
   // Add event listener for the toggle all button
   addEventListeners(buttonToggleAll, ButtonIndexAll);
+}
+
+// Connection Status Container Generation
+function generateConnectionStatusContainer() {
+  const statusPlaceholderDiv = document.getElementById("statusPlaceholder");
+  // Clear any existing content
+  statusPlaceholderDiv.innerHTML = "";
+
+  // Create the status container
+  const statusContainer = document.createElement("div");
+  statusContainer.id = "connectionStatusContainer";
+
+  // Create the status indicator span
+  const statusIndicator = document.createElement("span");
+  statusIndicator.id = "connectionStatus";
+  statusIndicator.style.backgroundColor = "#ff0000";
+
+  // Create the text span
+  const statusText = document.createElement("span");
+  statusText.id = "connectionText";
+  statusText.textContent = "Connecting...";
+
+  // Append the status indicator and text to the container
+  statusContainer.appendChild(statusIndicator);
+  statusContainer.appendChild(statusText);
+  // Append the status container to the placeholder div
+  statusPlaceholderDiv.appendChild(statusContainer);
 }

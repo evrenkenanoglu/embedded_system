@@ -4,13 +4,15 @@ function updateConnectionStatus(isConnected, details) {
   const statusText = document.getElementById("connectionText");
 
   if (isConnected) {
-    statusIndicator.style.backgroundColor = "#00ff00";
+    statusIndicator.style.backgroundColor = "rgba(0, 255, 0, 0.5)";
     statusText.textContent = details || "Connected";
-    statusIndicator.style.boxShadow = "0 0 5px rgba(0, 159, 252, 0.5)";
+    statusIndicator.style.boxShadow = "0 0 5px rgba(0, 255, 0, 0.5)";
+    statusIndicator.style.animation = "glowGreen 1.5s infinite alternate";
   } else {
-    statusIndicator.style.backgroundColor = "#ff0000";
+    statusIndicator.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
     statusText.textContent = details || "Disconnected";
     statusIndicator.style.boxShadow = "0 0 5px rgba(255, 0, 0, 0.5)";
+    statusIndicator.style.animation = "glowRed 1.5s infinite alternate"; 
   }
 }
 

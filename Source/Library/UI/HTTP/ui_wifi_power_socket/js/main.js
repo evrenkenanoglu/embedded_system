@@ -6,7 +6,7 @@ registerDomContentLoadedFunc(() => {
 
 // Function to generate buttons and add them to the DOM
 registerDomContentLoadedFunc(() => { 
-    generateButtons();
+    generateUiElements();
 });
 
 // Register the WebSocket initialization function

@@ -213,7 +213,7 @@ h2 {
   transition: all 0.3s ease;
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(97, 76, 76, 0.5);
 }
 
 #connectionStatusContainer:hover {
@@ -222,16 +222,16 @@ h2 {
 }
 
 #connectionStatus {
-  width: 12px;
-  height: 12px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   margin-right: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+  box-shadow: 0 0 5px rgba(52, 35, 197, 0.5);
 }
 
 #connectionText {
-  font-size: 14px;
+  font-size: 25px;
   font-weight: 600;
   letter-spacing: 0.3px;
   color: #333;
@@ -241,12 +241,7 @@ h2 {
  <body>
   <div class="container">
    <form style="position: relative;">
-    <div id="connectionStatusContainer">
-     <span id="connectionStatus" style="background-color: #ff0000;">
-     </span>
-     <span id="connectionText">
-      Disconnected
-     </span>
+    <div id="statusPlaceholder">
     </div>
     <h1 class="mt-5" style="margin-top: 5rem !important;">
      UNIVERSE
@@ -328,13 +323,15 @@ function cancelLongPress() {
   const statusText = document.getElementById("connectionText");
 
   if (isConnected) {
-    statusIndicator.style.backgroundColor = "#00ff00";
+    statusIndicator.style.backgroundColor = "rgba(0, 255, 0, 0.5)";
     statusText.textContent = details || "Connected";
-    statusIndicator.style.boxShadow = "0 0 5px rgba(0, 159, 252, 0.5)";
+    statusIndicator.style.boxShadow = "0 0 5px rgba(0, 255, 0, 0.5)";
+    statusIndicator.style.animation = "glowGreen 1.5s infinite alternate";
   } else {
-    statusIndicator.style.backgroundColor = "#ff0000";
+    statusIndicator.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
     statusText.textContent = details || "Disconnected";
     statusIndicator.style.boxShadow = "0 0 5px rgba(255, 0, 0, 0.5)";
+    statusIndicator.style.animation = "glowRed 1.5s infinite alternate"; 
   }
 }
 
@@ -348,7 +345,7 @@ function initConnectionStatus() {
 }
 function addWebSocketListeners(websocket) {
   websocket.addEventListener("open", function (event) {
-    updateConnectionStatus(true, "Connected to server");
+    updateConnectionStatus(true, "Connected");
   });
 
   websocket.addEventListener("close", function (event) {
@@ -443,7 +440,7 @@ function registerDomContentLoadedFunc(func) {
 });
 
 registerDomContentLoadedFunc(() => { 
-    generateButtons();
+    generateUiElements();
 });
 
 registerDomContentLoadedFunc(() => {
@@ -511,7 +508,13 @@ function setButtonState(index, state) {
 }
   </script>
   <script>
-   function generateButtons(buttons) {
+   function generateUiElements() {
+  generateConnectionStatusContainer();
+
+  generateButtons();
+}
+
+function generateButtons(buttons) {
   document.getElementById("controls").innerHTML = "";
 
   for (let i = 0; i < 10; i++) {
@@ -630,6 +633,26 @@ function generateButtonToggleAll() {
   mainControlsDiv.appendChild(socketContainer);
   addEventListeners(buttonToggleAll, ButtonIndexAll);
 }
+
+function generateConnectionStatusContainer() {
+  const statusPlaceholderDiv = document.getElementById("statusPlaceholder");
+  statusPlaceholderDiv.innerHTML = "";
+
+  const statusContainer = document.createElement("div");
+  statusContainer.id = "connectionStatusContainer";
+
+  const statusIndicator = document.createElement("span");
+  statusIndicator.id = "connectionStatus";
+  statusIndicator.style.backgroundColor = "#ff0000";
+
+  const statusText = document.createElement("span");
+  statusText.id = "connectionText";
+  statusText.textContent = "Connecting...";
+
+  statusContainer.appendChild(statusIndicator);
+  statusContainer.appendChild(statusText);
+  statusPlaceholderDiv.appendChild(statusContainer);
+}
   </script>
   <script>
    let websocket = null;
@@ -646,11 +669,20 @@ function initializeWebSocket() {
   websocket.onmessage = (e) => {
     const message = JSON.parse(e.data);
     console.log("Received message:", message);
-    if (message.socketId !== undefined && message.state !== undefined) {
-      setButtonState(message.socketId, message.state);
-    } else {
+    if (message.socketId === undefined || message.state === undefined) {
       console.warn("Invalid message format:", message);
     }
+
+    if (message.socketId === ButtonIndexAll) {
+      if (Array.isArray(message.state)) {
+        message.state.forEach((state, index) => {
+          setButtonState(index, state);
+        });
+        return;
+      }
+    }
+
+    setButtonState(message.socketId, message.state);
   };
 
   websocket.onclose = () => {

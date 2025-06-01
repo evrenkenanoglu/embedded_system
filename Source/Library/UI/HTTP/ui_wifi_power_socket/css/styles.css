@@ -204,7 +204,7 @@ h2 {
   transition: all 0.3s ease;
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(97, 76, 76, 0.5);
 }
 
 #connectionStatusContainer:hover {
@@ -213,16 +213,16 @@ h2 {
 }
 
 #connectionStatus {
-  width: 12px;
-  height: 12px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   margin-right: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+  box-shadow: 0 0 5px rgba(52, 35, 197, 0.5);
 }
 
 #connectionText {
-  font-size: 14px;
+  font-size: 25px;
   font-weight: 600;
   letter-spacing: 0.3px;
   color: #333;
