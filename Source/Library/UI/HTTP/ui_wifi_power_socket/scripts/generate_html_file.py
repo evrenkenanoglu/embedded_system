@@ -90,7 +90,7 @@ if __name__ == "__main__":
     current_dir = os.path.join(current_dir, "..")
 
     template_path = os.path.join(current_dir, "template/template.html")
-    output_path = os.path.join(current_dir, "output/html/ui_wifi_power_sockets.html")
+    output_path = os.path.join(current_dir, "ui_wifi_power_sockets.html")
     stylesheet_list_path = os.path.join(current_dir, "css", "styleSheetlist.txt")
     script_list_path = os.path.join(current_dir, "js", "scriptList.txt")
     js_directory = os.path.join(current_dir, "js")
