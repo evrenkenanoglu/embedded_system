@@ -51,7 +51,7 @@ Proc_httpServer::Proc_httpServer(EventGroupHandle_t& wifiConfigEventGroup, Queue
       _config(HTTPD_DEFAULT_CONFIG()),                                                                     // Initialize the server and configuration
       _wifiConfigEventGroup(wifiConfigEventGroup),                                                         // Initialize the event group
       _wifiConfigScanResults(wifiConfigScanResults),                                                       // Initialize the scan results queue
-      _welcomeWifiConnectHtml(HTML_UI_WELCOME_WIFI_CONNECT_CONTENT),                                       // Initialize the welcome page HTML content
+      _welcomeWifiConnectHtml(HTML_UI_WIFI_SETUP_CONTENT),                                       // Initialize the welcome page HTML content
       _memDevice(memDevice),                                                                               // Initialize the memory device
       welcome({.uri = "/welcome", .method = HTTP_GET, .handler = welcome_get_handler, .user_ctx = this}),  // Initialize the URI handler for the welcome page
       scan({.uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler, .user_ctx = this}),           // Initialize the URI handler for the scan

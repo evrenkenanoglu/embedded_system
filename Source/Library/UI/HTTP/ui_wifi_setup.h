@@ -1,7 +1,7 @@
-#ifndef UI_WELCOME_WIFI_CONNECT_H
-#define UI_WELCOME_WIFI_CONNECT_H
+#ifndef UI_WIFI_SETUP_H
+#define UI_WIFI_SETUP_H
 
-#define HTML_UI_WELCOME_WIFI_CONNECT_CONTENT "<!DOCTYPE HTML>\
+#define HTML_UI_WIFI_SETUP_CONTENT "<!DOCTYPE HTML>\
 <html>\
 \
 <head>\
@@ -112,7 +112,8 @@
 <body>\
   <div class=\"center\">\
     <div class=\"form\">\
-      <div class=\"form__title\">UNIVERSE HOME WELCOME WIFI CONNECT</div>\
+      <div class=\"form__title\">UNIVERSE HOME</div>\
+      <div class=\"form__title\">WiFi CONNECT</div>\
       <form method=\"POST\">\
         <div class=\"form__group\">\
           <label for=\"ssid\">SSID</label>\

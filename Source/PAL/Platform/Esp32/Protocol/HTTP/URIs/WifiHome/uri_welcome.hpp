@@ -3,11 +3,11 @@
 
 #include "PAL/Platform/Esp32/Protocol/HTTP/URIs/HttpUriGet.hpp"
 
-class UriWelcome : public HttpUriGet
+class UriWifiSetup : public HttpUriGet
 {
 public:
-    UriWelcome();
-    ~UriWelcome();
+    UriWifiSetup();
+    ~UriWifiSetup();
 };
 
 #endif // URI_WELCOME_HPP

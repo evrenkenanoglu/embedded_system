@@ -2,9 +2,9 @@
 
 #include "Library/UI/HTTP/ui_welcome_wifi_connect.h"
 
-UriWelcome::UriWelcome()
-    : HttpUriGet("/welcome", nullptr, this, HTML_UI_WELCOME_WIFI_CONNECT_CONTENT)
+UriWifiSetup::UriWifiSetup()
+    : HttpUriGet("/welcome", nullptr, this, HTML_UI_WIFI_SETUP_CONTENT)
 {
 }
 
-UriWelcome::~UriWelcome() {}
+UriWifiSetup::~UriWifiSetup() {}
