@@ -1,7 +1,7 @@
-#ifndef WELCOME_H
-#define WELCOME_H
+#ifndef UI_WELCOME_H
+#define UI_WELCOME_H
 
-#define HTML_WELCOME_CONTENT "<!DOCTYPE html>\
+#define HTML_UI_WELCOME_CONTENT "<!DOCTYPE html>\
 <html>\
  <head>\
   <meta charset=\"utf-8\"/>\
@@ -690,7 +690,7 @@ footer {\
   </header>\
   <main id=\"welcome-page\">\
    <div class=\"icon-grid\">\
-    <a class=\"icon-button\" href=\"wifi.html\" id=\"wifi-button\">\
+    <a class=\"icon-button\" href=\"wifiSetup\" id=\"wifi-button\">\
      <div class=\"icon-symbol\">\
       📶\
      </div>\
