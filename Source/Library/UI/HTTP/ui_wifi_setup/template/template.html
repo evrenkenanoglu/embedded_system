@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WIFI SETUP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    {external_stylesheets}
+    {inline_styles}
+</head>
+
+<body>
+    <div class="center">
+        <div class="form">
+            <div class="form__title">UNIVERSE HOME</div>
+            <div class="form__title">WiFi CONNECT</div>
+            <form method="POST">
+                <div class="form__group">
+                    <label for="ssid">SSID</label>
+                    <input type="text" id="ssid" name="ssid" list="ssidList" class="form__input">
+                    <datalist id="ssidList">
+                        <!-- Options will be populated by the scan function --></datalist>
+                </div>
+                <div class="form__group">
+                    <label for="password">PASSWORD</label>
+                    <input type="password" id="password" name="password" class="form__input">
+                </div>
+                <div class="form__buttons">
+                    <button type="submit" class="form__button" id="connectButton">
+                        CONNECT
+                    </button>
+                    <button type="button" class="form__button" id="scanButton" onclick="scan()">SCAN WIFI</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {inline_scripts}
+    {external_scripts}
+</body>
+
+</html>

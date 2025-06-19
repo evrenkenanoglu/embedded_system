@@ -1,5 +1,5 @@
-#ifndef URI_WELCOME_HPP
-#define URI_WELCOME_HPP
+#ifndef URI_WIFI_SETUP_HPP
+#define URI_WIFI_SETUP_HPP
 
 #include "PAL/Platform/Esp32/Protocol/HTTP/URIs/HttpUriGet.hpp"
 
@@ -10,4 +10,4 @@ public:
     ~UriWifiSetup();
 };
 
-#endif // URI_WELCOME_HPP
+#endif // URI_WIFI_SETUP_HPP
