@@ -1,0 +1,180 @@
+/* Power Bar (Socket) Application Styling */
+
+/* Container for the entire power bar */
+.power-bar-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 20px auto;
+  background-color: #2a2a2a;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  border: 2px solid #444;
+}
+
+/* Header for the power bar application */
+.power-bar-header {
+  text-align: center;
+  padding: 10px 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #444;
+  color: #f0f0f0;
+}
+
+/* Grid layout for multiple sockets */
+.socket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+  padding: 15px;
+}
+
+/* Individual socket styling */
+.socket-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  background-color: #333;
+  border-radius: 50%; /* Make socket completely round */
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3);
+  padding: 10px;
+}
+
+/* Power outlet circles */
+.socket-icon-btn::before,
+.socket-icon-btn::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background-color: #222;
+  width: 20px;
+  height: 20px;
+  transition: background-color 0.3s ease;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.8);
+}
+
+.socket-icon-btn::before {
+  /* Position in the middle, slightly to the left */
+  top: calc(50% - 10px);
+  left: calc(50% - 25px);
+}
+
+.socket-icon-btn::after {
+  /* Position in the middle, slightly to the right */
+  top: calc(50% - 10px);
+  left: calc(50% + 5px);
+}
+
+/* Power switch indicator - small indicator light at the bottom */
+.power-indicator {
+  position: absolute;
+  bottom: 15px;
+  width: 15px;
+  height: 15px;
+  background-color: #555;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  border: 2px solid #222;
+}
+
+/* Hover state */
+.socket-icon-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.5);
+  background-color: #3a3a3a;
+}
+
+/* Active/pressed state */
+.socket-icon-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* When socket is turned on */
+.socket-icon-btn.active {
+  background-color: #444;
+}
+
+.socket-icon-btn.active::before,
+.socket-icon-btn.active::after {
+  background-color: #4CAF50; /* Green dots when active */
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5), 0 0 8px rgba(76, 175, 80, 0.7);
+}
+
+.socket-icon-btn.active .power-indicator {
+  background-color: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
+}
+
+/* Socket labels */
+.socket-label {
+  position: absolute;
+  bottom: -25px;
+  width: 100%;
+  text-align: center;
+  color: #f0f0f0;
+  font-size: 14px;
+}
+
+/* Power status display */
+.power-status {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+  padding: 15px;
+  background-color: #333;
+  border-radius: 10px;
+  color: #f0f0f0;
+}
+
+/* Power consumption meter */
+.power-meter {
+  height: 10px;
+  width: 100%;
+  background-color: #444;
+  border-radius: 5px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.power-meter-fill {
+  height: 100%;
+  width: 30%;
+  background-color: #4CAF50;
+  transition: width 0.3s ease;
+}
+
+/* Master control switch */
+.master-control {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.master-switch {
+  background-color: #555;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+}
+
+.master-switch:hover {
+  background-color: #666;
+}
+
+.master-switch.all-on {
+  background-color: #4CAF50;
+}
+
+.master-switch.all-off {
+  background-color: #f44336;
+}
