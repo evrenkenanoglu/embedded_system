@@ -698,15 +698,15 @@ footer {\
       WiFi Setup\
      </div>\
     </a>\
-    <a class=\"icon-button\" href=\"application.html\" id=\"app-button\">\
+    <a class=\"icon-button\" href=\"applications\" id=\"app-button\">\
      <div class=\"icon-symbol\">\
       🚀\
      </div>\
      <div class=\"icon-label\">\
-      Application\
+      Applications\
      </div>\
     </a>\
-    <a class=\"icon-button\" href=\"settings.html\" id=\"settings-button\">\
+    <a class=\"icon-button\" href=\"settings\" id=\"settings-button\">\
      <div class=\"icon-symbol\">\
       ⚙️\
      </div>\
