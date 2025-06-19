@@ -1,0 +1,152 @@
+/* === WiFi Setup Page Specific Styles === */
+
+/* Define input background colors as CSS variables (add to :root if not already there for other purposes) */
+:root {
+    /* ... your existing variables ... */
+    --input-bg-normal: #f8f9fa;
+    --input-bg-error: #ffebee;   /* Light red */
+    --input-bg-warning: #fffde7; /* Light yellow */
+    --input-bg-success: #e8f5e9; /* Light green */
+    --input-border-color: #ced4da;
+    --input-focus-border-color: var(--primary-color);
+    --input-focus-box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* Use your primary color's RGB */
+                                /* If --primary-color is #007bff, then 0,123,255 */
+}
+
+
+.content-page.wifi-setup-page {
+    /* Add any specific overall styling for the wifi page here if needed */
+}
+
+.wifi-form-container {
+    background-color: var(--card-background-color); /* Or transparent if .content-page handles it */
+    padding: 25px;
+    border-radius: var(--border-radius);
+    /* box-shadow: var(--box-shadow); Remove if .content-page already has shadow and this is inside */
+    margin-top: 20px; /* Space between page title/description and form */
+    max-width: 500px; /* Max width for the form itself */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.wifi-form-container .form__title {
+    font-size: 1.5em; /* Adjust size as needed */
+    font-weight: 500;
+    margin-bottom: 25px;
+    text-align: center;
+    color: var(--primary-color); /* Or keep your gradient if you prefer */
+    /* If keeping gradient from your original:
+    background: linear-gradient(90deg, #0077b6, #00a8ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    user-select: none;
+    */
+}
+
+.form__group {
+    margin-bottom: 20px;
+}
+
+.form__group label {
+    display: block;
+    font-weight: 500;
+    color: var(--text-color-subtle);
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+.form__input {
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 1em;
+    font-family: 'Roboto', sans-serif;
+    border: 1px solid var(--input-border-color);
+    border-radius: 8px; /* Modern rounded corners */
+    background-color: var(--input-bg-normal);
+    color: var(--text-color);
+    box-sizing: border-box; /* Important for consistent sizing */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.form__input::placeholder {
+    color: #999;
+}
+
+.form__input:focus {
+    outline: none;
+    border-color: var(--input-focus-border-color);
+    box-shadow: var(--input-focus-box-shadow);
+    background-color: #fff; /* Brighter background on focus */
+}
+
+.form__buttons {
+    display: flex;
+    flex-direction: column; /* Stack buttons */
+    gap: 15px; /* Space between stacked buttons */
+    margin-top: 25px;
+}
+
+.form__button {
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    padding: 12px 20px;
+    text-align: center;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    width: 100%;
+    display: flex; /* For aligning text and loading dots */
+    align-items: center;
+    justify-content: center;
+}
+
+.form__button:hover:not(.disabled) {
+    background-color: var(--primary-hover-color);
+}
+
+.form__button:active:not(.disabled) {
+    transform: scale(0.98);
+}
+
+.form__button.scan-button {
+    background-color: #5a6573; /* A different color for secondary action, or keep primary */
+}
+.form__button.scan-button:hover:not(.disabled) {
+    background-color: #48515a;
+}
+
+.form__button.disabled,
+.form__button:disabled { /* Style for disabled state */
+    background-color: #cccccc;
+    color: #888888;
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+/* Loading dots animation */
+.loading-dots span {
+    animation: blink 1.4s infinite both;
+    display: inline-block; /* Ensures they sit correctly with text */
+    margin-left: 1px;
+}
+.loading-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.loading-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+@keyframes blink {
+    0% { opacity: .2; }
+    20% { opacity: 1; }
+    100% { opacity: .2; }
+}
+
+/* Ensure datalist dropdown matches input style (browser dependent) */
+#ssidList {
+    /* Basic styling, actual appearance is very browser-dependent */
+    font-family: 'Roboto', sans-serif;
+}

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WiFi Setup - Device Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>Device Dashboard</h1>
+    </header>
+    <main>
+        <div class="content-page wifi-setup-page"> <!-- Added wifi-setup-page for specific styling if needed -->
+            <h2>WiFi Setup</h2>
+            <p>Connect your device to a wireless network.</p>
+
+            <div class="wifi-form-container">
+                <div class="form__title">WiFi Connection</div> <!-- Kept a specific title for the form area -->
+                <form method="POST" id="wifiForm">
+                    <div class="form__group">
+                        <label for="ssid">SSID (Network Name)</label>
+                        <input type="text" id="ssid" name="ssid" list="ssidList" class="form__input" placeholder="Select or type network name">
+                        <datalist id="ssidList">
+                            <!-- Options will be populated by the scan function -->
+                        </datalist>
+                    </div>
+                    <div class="form__group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" class="form__input" placeholder="Enter network password">
+                    </div>
+                    <div class="form__buttons">
+                        <button type="submit" class="form__button" id="connectButton">
+                            CONNECT
+                        </button>
+                        <button type="button" class="form__button scan-button" id="scanButton">
+                            SCAN WIFI
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <a href="index.html" class="back-link">Back to Dashboard</a>
+        </div>
+    </main>
+    <footer>
+        <p>Device OS v1.0</p>
+    </footer>
+
+    <script>
+        const scanButton = document.getElementById('scanButton');
+        const ssidList = document.getElementById('ssidList');
+        const connectButton = document.getElementById('connectButton');
+        const ssidInput = document.getElementById('ssid');
+        const passwordInput = document.getElementById('password'); // Get password input
+        const wifiForm = document.getElementById('wifiForm');
+
+        // Use CSS custom properties for colors if available, or fallback
+        const rootStyles = getComputedStyle(document.documentElement);
+        const primaryColor = rootStyles.getPropertyValue('--primary-color').trim() || '#007bff';
+        const buttonDisabledColor = '#cccccc'; // A neutral disabled color
+
+        // Input field feedback colors (can be further customized in CSS)
+        const inputNormalBg = rootStyles.getPropertyValue('--input-bg-normal').trim() || '#f8f9fa';
+        const inputErrorBg = rootStyles.getPropertyValue('--input-bg-error').trim() || '#ffebee';
+        const inputWarningBg = rootStyles.getPropertyValue('--input-bg-warning').trim() || '#fff9c4';
+        const inputSuccessBg = rootStyles.getPropertyValue('--input-bg-success').trim() || '#e8f5e9';
+
+        const timeoutDuration = 8000; // Increased timeout for network operations
+
+        wifiForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const ssid = ssidInput.value;
+            const password = passwordInput.value;
+            changeBackgroundColorInputFields(inputNormalBg); // Reset to normal
+
+            if (!ssid) {
+                ssidInput.style.backgroundColor = inputWarningBg;
+                ssidInput.focus();
+                alert('Please select or enter the WiFi SSID (Network Name).');
+                return;
+            }
+             if (!password) { // Password can be optional for open networks, but usually required
+                passwordInput.style.backgroundColor = inputWarningBg;
+                passwordInput.focus();
+                // For some open networks, password might not be needed.
+                // Consider if you want to enforce password or allow empty for open networks.
+                // For now, let's assume it's usually required.
+                // alert('Please enter the WiFi Password.');
+                // return; // Uncomment if password is always mandatory
+            }
+
+
+            // If validation passes (or you want to proceed with potentially empty password)
+            ssidInput.style.backgroundColor = inputSuccessBg;
+            passwordInput.style.backgroundColor = inputSuccessBg;
+
+            disableButtons();
+            connectButton.innerHTML = 'CONNECTING <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>';
+
+
+            try {
+                const response = await fetch('/wifiConnect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ssid, password }),
+                    signal: AbortSignal.timeout(timeoutDuration) // Modern way for timeout
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message || "Successfully connected!"); // Provide default message
+                    // Optionally redirect or update UI further on success
+                    // window.location.href = 'index.html'; // Example redirect
+                } else {
+                    const errorData = await response.text(); // Try to get text for more info
+                    alert(`Connection failed: ${response.status} - ${errorData || 'Server error'}`);
+                    changeBackgroundColorInputFields(inputErrorBg);
+                }
+            } catch (error) {
+                if (error.name === 'TimeoutError') {
+                    alert('Connection attempt timed out. Please check network and try again.');
+                } else {
+                    alert('An error occurred: ' + error.message);
+                }
+                changeBackgroundColorInputFields(inputErrorBg);
+            }
+
+            enableButtons();
+            connectButton.textContent = 'CONNECT';
+        });
+
+        async function scan() {
+            disableButtons();
+            scanButton.innerHTML = 'SCANNING <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>';
+            ssidInput.value = '';
+            ssidList.innerHTML = ''; // Clear previous results
+            changeBackgroundColorInputFields(inputNormalBg); // Reset input fields
+
+            try {
+                const response = await fetch('/wifiScan', {
+                    signal: AbortSignal.timeout(timeoutDuration) // Modern way for timeout
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        data.forEach((item) => {
+                            const option = document.createElement('option');
+                            option.value = item.ssid;
+                            // option.text = `${item.ssid} (Ch: ${item.channel || 'N/A'}, RSSI: ${item.rssi || 'N/A'})`; // More info if available
+                            ssidList.appendChild(option);
+                        });
+                        alert(data.length + " network(s) found.");
+                    } else {
+                        alert("No WiFi networks found, or an empty list was returned.");
+                    }
+                } else {
+                    const errorData = await response.text();
+                    alert(`Error scanning: ${response.status} - ${errorData || 'Server error'}`);
+                }
+            } catch (error) {
+                if (error.name === 'TimeoutError') {
+                    alert('WiFi scan timed out.');
+                } else {
+                    alert('An error occurred during scan: ' + error.message);
+                }
+            }
+
+            scanButton.textContent = 'SCAN WIFI';
+            enableButtons();
+        }
+
+        function disableButtons() {
+            connectButton.disabled = true;
+            scanButton.disabled = true;
+            connectButton.style.backgroundColor = buttonDisabledColor;
+            connectButton.classList.add('disabled');
+            scanButton.style.backgroundColor = buttonDisabledColor;
+            scanButton.classList.add('disabled');
+        }
+
+        function enableButtons() {
+            connectButton.disabled = false;
+            scanButton.disabled = false;
+            connectButton.style.backgroundColor = primaryColor;
+            connectButton.classList.remove('disabled');
+            scanButton.style.backgroundColor = primaryColor; // Or a different color for scan button if desired
+            scanButton.classList.remove('disabled');
+        }
+
+        function changeBackgroundColorInputFields(color) {
+            ssidInput.style.backgroundColor = color;
+            passwordInput.style.backgroundColor = color;
+        }
+
+        // Auto-scan on page load (optional)
+        // window.addEventListener('DOMContentLoaded', () => {
+        //    scan();
+        // });
+    </script>
+</body>
+</html>

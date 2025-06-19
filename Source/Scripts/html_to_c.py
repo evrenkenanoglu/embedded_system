@@ -2,7 +2,7 @@ import sys
 import os.path
 
 # Read the HTML file
-with open(sys.argv[1], "r") as f:
+with open(sys.argv[1], "r", encoding="utf-8") as f:
     html_content = f.read()
 
 # Remove line breaks from the content
@@ -22,7 +22,7 @@ output_file_name = os.path.basename(output_file_name)
 c_style_html = f'#ifndef {output_file_name.upper()}_H\n#define {output_file_name.upper()}_H\n\n#define HTML_{output_file_name.upper()}_CONTENT "{html_content}"\n\n#endif'
 
 # Write the result to the header file
-with open(sys.argv[2], "w") as f:
+with open(sys.argv[2], "w", encoding="utf-8") as f:
     f.write(c_style_html)
 
 print(f"The output has been written to {sys.argv[2]}")
