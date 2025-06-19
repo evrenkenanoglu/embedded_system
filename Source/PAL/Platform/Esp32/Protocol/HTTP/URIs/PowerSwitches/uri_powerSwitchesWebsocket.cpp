@@ -1,7 +1,7 @@
 #include "uri_powerSwitchesWebsocket.hpp"
 
 #include "HAL/Platform/ESP32/library/logImpl.h"
-#include "Library/UI/HTTP/ui_wifi_power_sockets.h"
+#include "Library/UI/HTTP/ui_wifi_power_sockets/output/header/ui_wifi_power_sockets.h"
 #include <esp_http_server.h>
 
 namespace
