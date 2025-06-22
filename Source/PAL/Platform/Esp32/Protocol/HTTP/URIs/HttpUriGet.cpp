@@ -1,4 +1,5 @@
 #include "HttpUriGet.hpp"
+#include "HAL/Platform/ESP32/Library/logImpl.h"
 
 /**
  * @brief Default HTTP GET handler for the app interface
@@ -28,7 +29,13 @@ static error_t default_app_interface_get_handler(httpd_req_t* req)
         return ESP_FAIL;
     }
 
-    /* Send response with custom headers and body set as the *string passed in user context*/
-    ESP_ERROR_CHECK(httpd_resp_send(req, htmlPage->getHtmlContent(), HTTPD_RESP_USE_STRLEN));
+    /* Send response with custom headers and body set as the string passed in user context */
+    esp_err_t err = httpd_resp_send(req, htmlPage->getHtmlContent(), HTTPD_RESP_USE_STRLEN);
+    if (err != ESP_OK) {
+        logger().log(ILog::LogLevel::ERROR, "Failed to send response: " + std::to_string(err));
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send response");
+        return err;
+    }
+    
     return ESP_OK;
 }
