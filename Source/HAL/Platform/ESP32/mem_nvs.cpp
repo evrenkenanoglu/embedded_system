@@ -129,7 +129,7 @@ sys_error_t mem_nvs::writeData(const void* addressOrKey, const uint8_t* data, si
     return ERROR_SUCCESS;
 }
 
-sys_error_t mem_nvs::erase(void* addressOrKey)
+sys_error_t mem_nvs::erase(const void* addressOrKey)
 {
 
     if (_initialized == HAL_UNINITIALIZED)

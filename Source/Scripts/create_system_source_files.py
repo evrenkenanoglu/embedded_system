@@ -134,7 +134,7 @@ elif system_file_type == "MEM":
         + "::writeData(const void* addressOrKey, const uint8_t* data, size_t length) override;\n"
     )
     erase_definition = (
-        "sys_error_t " + classname + "::erase(void* addressOrKey) override;\n"
+        "sys_error_t " + classname + "::erase(const void* addressOrKey) override;\n"
     )
     getSize_definition = (
         "sys_error_t " + classname + "::getSize(uint32_t *size) override;\n"

@@ -31,7 +31,7 @@ public:
 
     sys_error_t writeData(const void* addressOrKey, const uint8_t* data, size_t length) override;
 
-    sys_error_t erase(void* addressOrKey) override;
+    sys_error_t erase(const void* addressOrKey) override;
 
     sys_error_t getSize(uint32_t* size) override;
 };

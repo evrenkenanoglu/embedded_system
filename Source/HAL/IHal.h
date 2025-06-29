@@ -133,7 +133,7 @@ public:
      *
      * @return sys_error_t True if erase operation was successful, false otherwise.
      */
-    virtual sys_error_t erase(void* addressOrKey) = 0;
+    virtual sys_error_t erase(const void* addressOrKey) = 0;
 
     /**
      * @brief Get the total size of the memory device.
