@@ -37,6 +37,8 @@ sys_error_t Serv_httpServer::start()
     ss << "Starting server on port: " << _config.server_port;
     logger().log(ILog::LogLevel::INFO, ss.str());
 
+    _config.stack_size = 8192; // Set stack size for the server task
+
     if (httpd_start(&_server, &_config) == ESP_OK)
     {
         logger().log(ILog::LogLevel::INFO, "HTTP server started successfully");

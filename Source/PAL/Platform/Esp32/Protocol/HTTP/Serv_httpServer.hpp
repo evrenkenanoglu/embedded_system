@@ -5,8 +5,8 @@
  * This file contains declarations for the Serv_httpServer class and related data types and functions.
  */
 
-#ifndef PAL_HTTPSERVER_HPP
-#define PAL_HTTPSERVER_HPP
+#ifndef PAL_HTTP_SERVER_HPP
+#define PAL_HTTP_SERVER_HPP
 
 #include "HAL/IHal.h"
 #include "HAL/Platform/ESP32/cpx_wifi.h"
@@ -15,6 +15,7 @@
 #include <esp_http_server.h>
 #include <functional>
 #include <vector>
+
 
 class Serv_httpServer : public PAL_Service
 {
@@ -28,6 +29,8 @@ private:
 
     // Websocket callback function for stopping the Websocket server
     std::function<void()> _websocketStopCb;
+
+
 
 public:
     Serv_httpServer();
@@ -49,4 +52,4 @@ public:
     void registerWebsocketCbs(std::function<void(httpd_handle_t _server)> startCb, std::function<void()> stopCb);
 };
 
-#endif /* PAL_HTTPSERVER_HPP */
+#endif /* PAL_HTTP_SERVER_HPP */
