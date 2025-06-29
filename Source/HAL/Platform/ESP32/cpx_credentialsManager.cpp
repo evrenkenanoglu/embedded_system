@@ -17,6 +17,7 @@ cpx_credentialsManager::cpx_credentialsManager(IHAL_MEM& memDevice)
     : _memDevice(memDevice)                                                        // Reference to the memory device for storing credentials
     , _credentials{.privateKey = std::vector<unsigned char>(KEY_PEM_BUF_SIZE, 0),  // Initialize private key buffer
                    .serverCert = std::vector<unsigned char>(CERT_PEM_BUF_SIZE, 0)} // Initialize server certificate buffer
+    , _charData{nullptr, 0, nullptr, 0}                                            // Initialize character data for credentials
     , _keyGenTaskHandle(nullptr)                                                   // Task handle for key generation task
     , _credentialMngrEventGroup(xEventGroupCreate())                               // Event group for credential manager events
     , _mutex(nullptr)                                                              // Mutex for thread safety
@@ -86,8 +87,8 @@ sys_error_t cpx_credentialsManager::start()
     memset(_credentials.serverCert.data(), 0, _credentials.serverCert.size());
 
     // Check if the key already exists and is valid
-    bool serverCertExist = (_memDevice.readData(KEY_NVS_NAME, _credentials.serverCert.data(), _credentials.serverCert.size()) == ERROR_SUCCESS);
-    bool privateKeyExist = (_memDevice.readData(CERT_NVS_NAME, _credentials.privateKey.data(), _credentials.privateKey.size()) == ERROR_SUCCESS);
+    bool serverCertExist = (_memDevice.readData(CERT_NVS_NAME, _credentials.serverCert.data(), _credentials.serverCert.size()) == ERROR_SUCCESS);
+    bool privateKeyExist = (_memDevice.readData(KEY_NVS_NAME, _credentials.privateKey.data(), _credentials.privateKey.size()) == ERROR_SUCCESS);
 
     if (serverCertExist && privateKeyExist && !isKeyGenerationNeeded)
     {
@@ -127,16 +128,33 @@ sys_error_t cpx_credentialsManager::start()
 
 void* cpx_credentialsManager::get()
 {
-    // Check if keys are stored
-    if (strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) > 0 && strlen(reinterpret_cast<const char*>(_credentials.privateKey.data())) > 0)
+    // Semaphore for thread safety
+    xSemaphoreTake(_mutex, portMAX_DELAY);
+
+    // Populate the _charData member
+    if (!_credentials.privateKey.empty() && !_credentials.serverCert.empty())
     {
-        logger().log(ILog::LogLevel::INFO, "Returning stored credentials");
-        return static_cast<void*>(&_credentials); // Return the credentials data
+        _charData.privateKeyPtr  = _credentials.privateKey.data();
+        _charData.privateKeySize = strlen(reinterpret_cast<const char*>(_charData.privateKeyPtr)) + 1; // Include null terminator
+
+        _charData.serverCertPtr  = _credentials.serverCert.data();
+        _charData.serverCertSize = strlen(reinterpret_cast<const char*>(_charData.serverCertPtr)) + 1; // Include null terminator
+
+        logger().log(ILog::LogLevel::INFO, "Returning stored credentials as char pointers");
+    }
+    else
+    {
+        _charData.privateKeyPtr  = nullptr;
+        _charData.privateKeySize = 0;
+        _charData.serverCertPtr  = nullptr;
+        _charData.serverCertSize = 0;
+
+        logger().log(ILog::LogLevel::INFO, "No stored credentials found, returning nullptr");
     }
 
-    // If no keys are stored, return nullptr
-    logger().log(ILog::LogLevel::INFO, "No stored credentials found, returning nullptr");
-    return nullptr; // No credentials available
+    // Release the mutex
+    xSemaphoreGive(_mutex);
+    return static_cast<void*>(&_charData);
 }
 
 void cpx_credentialsManager::set(void* data)
@@ -206,7 +224,7 @@ sys_error_t cpx_credentialsManager::generateKeys()
     }
 
     // Step 2: Generate the RSA key
-    if (mbedtls_pk_setup(&_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) != 0 || (mbedtls_rsa_gen_key(mbedtls_pk_rsa(_key), mbedtls_ctr_drbg_random, &_ctr_drbg, KEY_SIZE, 65537)) != 0)
+    if (mbedtls_pk_setup(&_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) != 0 || mbedtls_rsa_gen_key(mbedtls_pk_rsa(_key), mbedtls_ctr_drbg_random, &_ctr_drbg, KEY_SIZE, 65537) != 0)
     {
         logger().log(ILog::LogLevel::ERROR, "Failed to generate RSA key");
         CleanupOnError();
@@ -217,17 +235,31 @@ sys_error_t cpx_credentialsManager::generateKeys()
     mbedtls_x509write_crt_set_subject_key(&_cert, &_key);
     mbedtls_x509write_crt_set_issuer_key(&_cert, &_key); // Self-signed
     mbedtls_x509write_crt_set_subject_name(&_cert, CERT_SUBJECT_NAME);
-    mbedtls_mpi_lset(&_serial, time(NULL));
-    mbedtls_x509write_crt_set_version(&_cert, MBEDTLS_X509_CRT_VERSION_3);
-    // mbedtls_x509write_crt_set_serial(&_cert, &_serial);
-    mbedtls_x509write_crt_set_validity(&_cert, CERT_TIME_STAMP_BEGIN, CERT_TIME_STAMP_END);
-    mbedtls_x509write_crt_set_basic_constraints(&_cert, 1, -1);
-    mbedtls_x509write_crt_set_key_usage(&_cert, MBEDTLS_X509_KU_DIGITAL_SIGNATURE);
+    mbedtls_x509write_crt_set_issuer_name(&_cert, CERT_SUBJECT_NAME);
+
+    // Generate a serial number
+    unsigned char serial_raw[MBEDTLS_X509_RFC5280_MAX_SERIAL_LEN] = {0};
+    time_t        current_time                                    = time(NULL);
+    memcpy(serial_raw, &current_time, sizeof(current_time));
+    mbedtls_x509write_crt_set_serial_raw(&_cert, serial_raw, sizeof(current_time));
+
+    // Set validity period
+    char start_date[16], end_date[16];
+    strftime(start_date, sizeof(start_date), "%Y%m%d%H%M%S", gmtime(&current_time));
+    time_t end_time = current_time + (365 * 24 * 60 * 60 * 45); // 45 years validity
+    strftime(end_date, sizeof(end_date), "%Y%m%d%H%M%S", gmtime(&end_time));
+    mbedtls_x509write_crt_set_validity(&_cert, start_date, end_date);
+
+    // Set basic constraints
+    mbedtls_x509write_crt_set_basic_constraints(&_cert, 0, -1);
+
+    // Set key usage
+    mbedtls_x509write_crt_set_key_usage(&_cert, MBEDTLS_X509_KU_DIGITAL_SIGNATURE | MBEDTLS_X509_KU_KEY_ENCIPHERMENT);
     mbedtls_x509write_crt_set_md_alg(&_cert, MBEDTLS_MD_SHA256);
 
     // Step 4: Write the certificate and key to PEM format buffers
-    if (mbedtls_x509write_crt_pem(&_cert, _credentials.serverCert.data(), _credentials.serverCert.size(), mbedtls_ctr_drbg_random, &_ctr_drbg) != 0 ||
-        mbedtls_pk_write_key_pem(&_key, _credentials.privateKey.data(), _credentials.privateKey.size()) != 0)
+    int ret = mbedtls_x509write_crt_pem(&_cert, _credentials.serverCert.data(), _credentials.serverCert.size(), mbedtls_ctr_drbg_random, &_ctr_drbg);
+    if (ret != 0 || mbedtls_pk_write_key_pem(&_key, _credentials.privateKey.data(), _credentials.privateKey.size()) != 0)
     {
         logger().log(ILog::LogLevel::ERROR, "Failed to write private key or certificate to PEM format");
         CleanupOnError();
@@ -238,8 +270,13 @@ sys_error_t cpx_credentialsManager::generateKeys()
     CleanupOnError();
 
     // Print the generated keys for debugging
+    logger().log(ILog::LogLevel::INFO, "Private Key Size: ");
+    logger().log(ILog::LogLevel::INFO, std::to_string(_credentials.privateKey.size()).c_str());
     logger().log(ILog::LogLevel::INFO, "Generated private key: ");
     logger().log(ILog::LogLevel::INFO, reinterpret_cast<const char*>(_credentials.privateKey.data()));
+
+    logger().log(ILog::LogLevel::INFO, "Server Certificate Size: ");
+    logger().log(ILog::LogLevel::INFO, std::to_string(_credentials.serverCert.size()).c_str());
     logger().log(ILog::LogLevel::INFO, "Generated server certificate: ");
     logger().log(ILog::LogLevel::INFO, reinterpret_cast<const char*>(_credentials.serverCert.data()));
 
