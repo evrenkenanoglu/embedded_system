@@ -367,7 +367,7 @@ void programRoutineTask(void* pvParameters)
                 proc->getWifiCpx().setWifiMode(WIFI_MODE_APSTA);
 
                 // Start WiFi
-                ON_ERROR_WITH_OUTPUT(proc->getWifiCpx().start());
+                ON_ERROR_WITH_OUTPUT(proc->getWifiCpx().start(), "Failed to start WiFi in AP-STA mode");
 
                 // Notify other tasks that the AP is ready
                 xEventGroupSetBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_AP_SETUP_READY);
