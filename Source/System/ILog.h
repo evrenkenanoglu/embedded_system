@@ -2,7 +2,6 @@
 #define ILOG_H
 
 #include <iostream>
-
 /**
  * @brief The ILog class is a platform interface for logging messages with different severity levels.
  */
@@ -16,13 +15,14 @@ public:
     {
         INFO,    /**< Informational messages */
         WARNING, /**< Warning messages */
-        ERROR    /**< Error messages */
+        ERROR,   /**< Error messages */
+        DEBUG    /**< Debug messages */
     };
 
     /**
      * @brief Destructor for the ILog class.
      */
-    virtual ~ILog(){};
+    virtual ~ILog() {};
 
     /**
      * @brief Logs an informational message.
@@ -43,7 +43,14 @@ public:
     virtual void logError(const std::string& message) = 0;
 
     /**
-     * @brief
+     * @brief Logs a debug message.
+     * @param message The message to log.
+     *
+     */
+    virtual void logDebug(const std::string& message) = 0;
+
+    /**
+     * @brief Logs a message to a file with the specified severity level.
      *
      * @param filename
      * @param level
@@ -51,61 +58,8 @@ public:
      */
     virtual void logToFile(const std::string& filename, LogLevel level, const std::string& message) = 0;
 };
-
-/**
- * @brief The LogHandler class is a wrapper for the ILog class to log messages with different severity levels.
- */
-class LogHandler
-{
-private:
-    ILog* _logImpl = nullptr;
-
-private:
-    /**
-     * @brief Constructs a new LogHandler object with the given ILog implementation.
-     *
-     * @param logImpl An implementation of the ILog interface.
-     */
-    LogHandler(ILog* logImpl) : _logImpl(logImpl)
-    {
-        std::cout << "LogHandler is initialized" << std::endl;
-    }
-
-public:
-    /**
-     * @brief Destructor for the LogHandler class.
-     */
-    ~LogHandler() {}
-
-    static LogHandler& getInstance(ILog* logImpl)
-    {
-        static LogHandler logHandler(logImpl);
-        return logHandler;
-    }
-    /**
-     * @brief Logs a message with the given severity level.
-     *
-     * @param level The severity level of the message to log.
-     * @param message The message to log.
-     */
-    void log(ILog::LogLevel level, const std::string& message)
-    {
-        switch (level)
-        {
-            case ILog::LogLevel::INFO:
-                _logImpl->logInfo(message);
-                break;
-            case ILog::LogLevel::WARNING:
-                _logImpl->logWarning(message);
-                break;
-            case ILog::LogLevel::ERROR:
-                _logImpl->logError(message);
-                break;
-        }
-    }
-};
-
 #endif // ILOG_H
+
 // /**
 //  * @brief The logWrapperImpl class is an implementation of the ILog interface for logging messages to the console.
 //  */

@@ -2,6 +2,7 @@
 #define LOGIMPL_H
 
 #include "System/ILog.h"
+#include "System/LogHandler.h"
 #include "esp_log.h"
 #include <iostream>
 
@@ -11,7 +12,8 @@ private:
     const char* _tag;
 
 private:
-    logImpl(const char* tag) : _tag(tag)
+    logImpl(const char* tag)
+        : _tag(tag)
     {
         ESP_LOGI(_tag, "ESP logger wrapper implementation is initialized");
     }
@@ -62,16 +64,21 @@ public:
         ESP_LOGE(_tag, "%s", message.c_str());
     }
 
+    void logDebug(const std::string& message) override
+    {
+        ESP_LOGD(_tag, "%s", message.c_str());
+    }
+
     void logToFile(const std::string& filename, LogLevel level, const std::string& message) override
     {
         ESP_LOGE(_tag, "LOG-TO-FILE Feature Not Implemented");
     }
-};
 
-// Public method to get the Singleton instance
-static LogHandler& logger()
-{
-    return LogHandler::getInstance(&logImpl::getInstance());
-}
+    // Initialize the global logger with this implementation
+    static void initializeLogger()
+    {
+        LogHandler::getInstance().setLogImplementation(&getInstance());
+    }
+};
 
 #endif // LOGIMPL_H
