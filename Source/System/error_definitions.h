@@ -15,11 +15,11 @@
 #ifndef ERROR_DEFINITIONS_H
 #define ERROR_DEFINITIONS_H
 
-#include "System/ILog.h"
+#include "System/LogHandler.h"
 #include <cstdio>
 
 // Macro for handling errors and returning on error
-#define RETURN_ON_ERROR_WITH_OUTPUT(expr, logWrapper)                                                                                                                                                  \
+#define RETURN_ON_ERROR_WITH_OUTPUT(expr, message)                                                                                                                                                     \
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
         sys_error_t err = (expr);                                                                                                                                                                      \
@@ -27,13 +27,13 @@
         {                                                                                                                                                                                              \
             char errMsg[256];                                                                                                                                                                          \
             std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d\n", __FILE__, __LINE__, err);                                                                                                 \
-            logWrapper.log(ILog::LogLevel::ERROR, errMsg);                                                                                                                                             \
+            SYS_LOG_E(errMsg);                                                                                                                                                                         \
             return err;                                                                                                                                                                                \
         }                                                                                                                                                                                              \
     } while (0)
 
 // Macro for handling errors and logging the error
-#define ON_ERROR_WITH_OUTPUT(expr, logWrapper)                                                                                                                                                         \
+#define ON_ERROR_WITH_OUTPUT(expr)                                                                                                                                                                     \
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
         sys_error_t err = (expr);                                                                                                                                                                      \
@@ -41,7 +41,7 @@
         {                                                                                                                                                                                              \
             char errMsg[256];                                                                                                                                                                          \
             std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d\n", __FILE__, __LINE__, err);                                                                                                 \
-            logWrapper.log(ILog::LogLevel::ERROR, errMsg);                                                                                                                                             \
+            SYS_LOG_E(errMsg);                                                                                                                                                                         \
         }                                                                                                                                                                                              \
     } while (0)
 

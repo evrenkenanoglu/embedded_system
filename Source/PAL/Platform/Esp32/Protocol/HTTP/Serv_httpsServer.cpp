@@ -76,14 +76,14 @@ sys_error_t Serv_httpsServer::start()
 {
     std::stringstream ss;
     ss << "Starting server on port: " << _sslConfig.port_secure;
-    logger().log(ILog::LogLevel::INFO, ss.str());
+    SYS_LOG_I( ss.str());
 
     _sslConfig.httpd.stack_size = 8192; // Set stack size for the server task
 
     // Check if server certificate and private key are provided
     if (_serverCert == nullptr || _privateKey == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, "Server certificate or private key is not set");
+        SYS_LOG_E("Server certificate or private key is not set");
         return ERROR_FAIL;
     }
 
@@ -98,14 +98,14 @@ sys_error_t Serv_httpsServer::start()
 
     if (httpd_ssl_start(&_server, &_sslConfig) == ESP_OK)
     {
-        logger().log(ILog::LogLevel::INFO, "HTTP server started successfully");
+        SYS_LOG_I( "HTTP server started successfully");
         setStatus(Status::STARTED);
 
         for (auto uri : _uriList)
         {
             if (httpd_register_uri_handler(_server, uri) != ESP_OK)
             {
-                logger().log(ILog::LogLevel::ERROR, "Failed to register URI handler");
+                SYS_LOG_E("Failed to register URI handler");
                 return ERROR_FAIL;
             }
         }
@@ -116,12 +116,12 @@ sys_error_t Serv_httpsServer::start()
         }
         else
         {
-            logger().log(ILog::LogLevel::WARNING, "Websocket start callback is not set");
+            SYS_LOG_W( "Websocket start callback is not set");
         }
     }
     else
     {
-        logger().log(ILog::LogLevel::ERROR, "Starting HTTP server failed!");
+        SYS_LOG_E("Starting HTTP server failed!");
         return ERROR_FAIL;
     }
 
@@ -132,7 +132,7 @@ sys_error_t Serv_httpsServer::stop()
 {
     if (_server == NULL)
     {
-        logger().log(ILog::LogLevel::WARNING, "Server already stopped or not started");
+        SYS_LOG_W( "Server already stopped or not started");
         return ERROR_SUCCESS;
     }
 
@@ -150,7 +150,7 @@ sys_error_t Serv_httpsServer::restart()
     sys_error_t err = stop();
     if (err != ERROR_SUCCESS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to stop server during restart");
+        SYS_LOG_E("Failed to stop server during restart");
         return err;
     }
 
@@ -161,11 +161,11 @@ sys_error_t Serv_httpsServer::registerUri(const httpd_uri_t* uri)
 {
     if (httpd_register_uri_handler(_server, uri) != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to register URI handler");
+        SYS_LOG_E("Failed to register URI handler");
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, "URI handler registered successfully");
+    SYS_LOG_I( "URI handler registered successfully");
 
     return ERROR_SUCCESS;
 }
@@ -174,11 +174,11 @@ sys_error_t Serv_httpsServer::unregisterUri(const httpd_uri_t* uri)
 {
     if (httpd_unregister_uri_handler(_server, uri->uri, uri->method) != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to unregister URI handler");
+        SYS_LOG_E("Failed to unregister URI handler");
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, "URI handler unregistered successfully");
+    SYS_LOG_I( "URI handler unregistered successfully");
     return ERROR_SUCCESS;
 }
 
@@ -194,7 +194,7 @@ static void print_peer_cert_info(const mbedtls_ssl_context* ssl)
     const mbedtls_x509_crt* cert = mbedtls_ssl_get_peer_cert(ssl);
     if (cert == NULL)
     {
-        logger().log(ILog::LogLevel::WARNING, "Could not obtain the peer certificate!");
+        SYS_LOG_W( "Could not obtain the peer certificate!");
         return;
     }
 
@@ -202,18 +202,18 @@ static void print_peer_cert_info(const mbedtls_ssl_context* ssl)
     std::unique_ptr<char[]> buf(new (std::nothrow) char[buf_size]());
     if (!buf)
     {
-        logger().log(ILog::LogLevel::ERROR, "Out of memory - Callback execution failed!");
+        SYS_LOG_E("Out of memory - Callback execution failed!");
         return;
     }
 
     mbedtls_x509_crt_info(buf.get(), buf_size - 1, "    ", cert);
-    logger().log(ILog::LogLevel::INFO, "Peer certificate info:");
-    logger().log(ILog::LogLevel::INFO, buf.get());
+    SYS_LOG_I( "Peer certificate info:");
+    SYS_LOG_I( buf.get());
 }
 
 static void https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
 {
-    logger().log(ILog::LogLevel::INFO, "User callback invoked!");
+    SYS_LOG_I( "User callback invoked!");
 
     mbedtls_ssl_context* ssl_ctx = NULL;
 
@@ -229,19 +229,19 @@ static void https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
             esp_ret = esp_tls_get_conn_sockfd(user_cb->tls, &sockfd);
             if (esp_ret != ESP_OK)
             {
-                logger().log(ILog::LogLevel::ERROR, "Error in obtaining the sockfd from tls context");
+                SYS_LOG_E("Error in obtaining the sockfd from tls context");
                 break;
             }
-            logger().log(ILog::LogLevel::INFO, "Socket FD: " + std::to_string(sockfd));
+            SYS_LOG_I( "Socket FD: " + std::to_string(sockfd));
 
             ssl_ctx = (mbedtls_ssl_context*)esp_tls_get_ssl_context(user_cb->tls);
             if (ssl_ctx == NULL)
             {
-                logger().log(ILog::LogLevel::ERROR, "Error in obtaining ssl context");
+                SYS_LOG_E("Error in obtaining ssl context");
                 break;
             }
             // Logging the current ciphersuite
-            logger().log(ILog::LogLevel::INFO, "Current Ciphersuite: " + std::string(mbedtls_ssl_get_ciphersuite(ssl_ctx)));
+            SYS_LOG_I( "Current Ciphersuite: " + std::string(mbedtls_ssl_get_ciphersuite(ssl_ctx)));
         }
         break;
 
@@ -253,7 +253,7 @@ static void https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
             ssl_ctx = (mbedtls_ssl_context*)esp_tls_get_ssl_context(user_cb->tls);
             if (ssl_ctx == NULL)
             {
-                logger().log(ILog::LogLevel::ERROR, "Error in obtaining ssl context");
+                SYS_LOG_E("Error in obtaining ssl context");
                 break;
             }
             print_peer_cert_info(ssl_ctx);
@@ -261,7 +261,7 @@ static void https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
         break;
         default:
         {
-            logger().log(ILog::LogLevel::ERROR, "Illegal state!");
+            SYS_LOG_E("Illegal state!");
             return;
         }
     }

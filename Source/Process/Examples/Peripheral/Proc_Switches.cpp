@@ -32,7 +32,7 @@ sys_error_t Proc_Switches::start()
 {
     if (_switches == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, "Invalid Switches");
+        SYS_LOG_E("Invalid Switches");
         return ERROR_FAIL;
     }
 
@@ -51,11 +51,11 @@ sys_error_t Proc_Switches::start()
 
     if (result != pdPASS)
     {
-        logger().log(ILog::LogLevel::INFO, " Task Failed to Start");
+        SYS_LOG_I( " Task Failed to Start");
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, " Task Started");
+    SYS_LOG_I( " Task Started");
     return ERROR_SUCCESS;
 }
 
@@ -108,7 +108,7 @@ void Proc_Switches::setSwitchState(uint8_t switchNo, bool state)
 
     if (switchNo >= _switches->size())
     {
-        logger().log(ILog::LogLevel::ERROR, "Invalid switch number");
+        SYS_LOG_E("Invalid switch number");
         return;
     }
 
@@ -148,7 +148,7 @@ static void SwitchesTask(void* pvParameters)
 
     if (proc == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, " Task: Invalid parameters");
+        SYS_LOG_E(" Task: Invalid parameters");
         return;
     }
 

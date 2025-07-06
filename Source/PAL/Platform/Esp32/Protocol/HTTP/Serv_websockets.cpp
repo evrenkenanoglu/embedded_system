@@ -58,12 +58,12 @@ void Serv_websockets::startWebSocketServer(httpd_handle_t server)
 {
     if (server == NULL)
     {
-        logger().log(ILog::LogLevel::ERROR, "Server is NULL, cannot start websocket server");
+        SYS_LOG_E("Server is NULL, cannot start websocket server");
         return;
     }
     _server = server;
 
-    logger().log(ILog::LogLevel::INFO, "Starting websocket server");
+    SYS_LOG_I( "Starting websocket server");
 }
 void Serv_websockets::stopWebSocketServer()
 {
@@ -74,7 +74,7 @@ sys_error_t Serv_websockets::sendMessage(int client_fd, uint8_t* payload, size_t
 {
     if (_server == NULL)
     {
-        logger().log(ILog::LogLevel::ERROR, "Server is NULL, cannot send message");
+        SYS_LOG_E("Server is NULL, cannot send message");
         return ERROR_FAIL;
     }
 
@@ -89,16 +89,16 @@ sys_error_t Serv_websockets::sendMessage(int client_fd, uint8_t* payload, size_t
         // print the message
 
         error_t error = httpd_ws_send_frame_async(_server, client_fd, &ws_frame);
-        logger().log(ILog::LogLevel::INFO, "Sending message to client fd: " + std::to_string(client_fd) + ", type: " + std::to_string(type) + ", len: " + std::to_string(len));
+        SYS_LOG_I( "Sending message to client fd: " + std::to_string(client_fd) + ", type: " + std::to_string(type) + ", len: " + std::to_string(len));
         if (error != ESP_OK)
         {
-            logger().log(ILog::LogLevel::ERROR, "Failed to send message to client fd: " + std::to_string(client_fd));
+            SYS_LOG_E("Failed to send message to client fd: " + std::to_string(client_fd));
             return ERROR_FAIL;
         }
     }
     else
     {
-        logger().log(ILog::LogLevel::ERROR, "Client fd: " + std::to_string(client_fd) + " is not a websocket client");
+        SYS_LOG_E("Client fd: " + std::to_string(client_fd) + " is not a websocket client");
         return ERROR_FAIL;
     }
 
@@ -109,7 +109,7 @@ sys_error_t Serv_websockets::broadcast(uint8_t* payload, size_t len, httpd_ws_ty
 {
     if (_server == NULL)
     {
-        logger().log(ILog::LogLevel::ERROR, "Server is NULL, cannot send message");
+        SYS_LOG_E("Server is NULL, cannot send message");
         return ERROR_FAIL;
     }
 
@@ -122,7 +122,7 @@ sys_error_t Serv_websockets::broadcast(uint8_t* payload, size_t len, httpd_ws_ty
 
     if (error != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to get client list");
+        SYS_LOG_E("Failed to get client list");
         return ERROR_FAIL;
     }
 

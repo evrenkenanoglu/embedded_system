@@ -52,12 +52,12 @@ sys_error_t cpx_wifi::start()
         {
             ESP_ERROR_CHECK(wifiInit());
             ESP_ERROR_CHECK(wifiStart());
-            logger().log(ILog::LogLevel::INFO, "WiFi Started!");
+            SYS_LOG_I( "WiFi Started!");
             return ERROR_SUCCESS;
         }
         break;
         default:
-            logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
+            SYS_LOG_E("WIFI Mode not set yet!");
             return ERROR_INVALID_CONFIG;
             break;
     }
@@ -126,7 +126,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI STA Initializing...!" << std::endl << "SSID: " << _wifiConfig.sta.ssid << std::endl << "PASSWORD: " << _wifiConfig.sta.password << std::endl;
-            logger().log(ILog::LogLevel::INFO, ss.str());
+            SYS_LOG_I( ss.str());
             _espNetifSta = esp_netif_create_default_wifi_sta();
             std::cout << "DEBUG: Default WIFI STA Created!" << std::endl;
         }
@@ -136,7 +136,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT AP Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
-            logger().log(ILog::LogLevel::INFO, ss.str());
+            SYS_LOG_I( ss.str());
             _espNetifAp = esp_netif_create_default_wifi_ap();
             std::cout << "DEBUG: Default AP Created!" << std::endl;
         }
@@ -146,7 +146,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT APSTA Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
-            logger().log(ILog::LogLevel::INFO, ss.str());
+            SYS_LOG_I( ss.str());
             _espNetifAp  = esp_netif_create_default_wifi_ap();
             _espNetifSta = esp_netif_create_default_wifi_sta();
 
@@ -155,7 +155,7 @@ sys_error_t cpx_wifi::wifiInit()
         break;
 
         default:
-            logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
+            SYS_LOG_E("WIFI Mode not set yet!");
             return ERROR_INVALID_CONFIG;
             break;
     }
@@ -203,7 +203,7 @@ sys_error_t cpx_wifi::wifiStart()
     }
     else
     {
-        logger().log(ILog::LogLevel::ERROR, "WIFI Mode not set yet!");
+        SYS_LOG_E("WIFI Mode not set yet!");
         return ERROR_NOT_IMPLEMENTED;
     }
     return ERROR_SUCCESS;
@@ -236,7 +236,7 @@ sys_error_t cpx_wifi::scan(void* config)
     }
     else
     {
-        logger().log(ILog::LogLevel::ERROR, "WiFi not initialized!");
+        SYS_LOG_E("WiFi not initialized!");
         return ERROR_FAIL;
     }
 }
@@ -251,7 +251,7 @@ sys_error_t cpx_wifi::getScanResults(QueueHandle_t apRecordsResult)
 
     std::stringstream ss;
     ss << "Total APs scanned = " << static_cast<int>(scanCountResult) << std::endl;
-    logger().log(ILog::LogLevel::INFO, ss.str());
+    SYS_LOG_I( ss.str());
 
     for (int i = 0; (i < WIFI_SCAN_MAX_RECORDS) && (i < scanCountResult); i++)
     {
@@ -281,47 +281,47 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
         case WIFI_EVENT_WIFI_READY: /**< WiFi ready */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_WIFI_READY: ");
+            SYS_LOG_I( "WIFI_EVENT_WIFI_READY: ");
         }
         break;
 
         case WIFI_EVENT_SCAN_DONE: /**< Finished scanning AP */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_SCAN_DONE: ");
+            SYS_LOG_I( "WIFI_EVENT_SCAN_DONE: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_SCAN_DONE);
         }
         break;
 
         case WIFI_EVENT_STA_START: /**< Station start */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_START: ");
+            SYS_LOG_I( "WIFI_EVENT_STA_START: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_STA_STARTED);
         }
         break;
 
         case WIFI_EVENT_STA_STOP: /**< Station stop */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_STOP: ");
+            SYS_LOG_I( "WIFI_EVENT_STA_STOP: ");
         }
         break;
 
         case WIFI_EVENT_STA_CONNECTED: /**< Station connected to AP */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_CONNECTED: ");
+            SYS_LOG_I( "WIFI_EVENT_STA_CONNECTED: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_CONNECTED);
         }
         break;
 
         case WIFI_EVENT_STA_DISCONNECTED: /**< Station disconnected from AP */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_DISCONNECTED: ");
+            SYS_LOG_I( "WIFI_EVENT_STA_DISCONNECTED: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_DISCONNECTED);
         }
         break;
 
         case WIFI_EVENT_STA_AUTHMODE_CHANGE: /**< the auth mode of AP connected by device's station changed */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_STA_AUTHMODE_CHANGE: ");
+            SYS_LOG_I( "WIFI_EVENT_STA_AUTHMODE_CHANGE: ");
         }
         break;
             /***************************************************************
@@ -330,40 +330,40 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
         case WIFI_EVENT_AP_START: /**< Soft-AP start */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_START: ");
+            SYS_LOG_I( "WIFI_EVENT_AP_START: ");
         }
         break;
 
         case WIFI_EVENT_AP_STOP: /**< Soft-AP stop */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_STOP: ");
+            SYS_LOG_I( "WIFI_EVENT_AP_STOP: ");
         }
         break;
 
         case WIFI_EVENT_AP_STACONNECTED: /**< a station connected to Soft-AP */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_STACONNECTED: ");
+            SYS_LOG_I( "WIFI_EVENT_AP_STACONNECTED: ");
             wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*)event_data;
 
             std::stringstream ss;
             ss << "Station " << mac::convertToMac(event->mac) << std::uppercase << " join, AID= " << event->aid;
-            logger().log(ILog::LogLevel::INFO, ss.str());
+            SYS_LOG_I( ss.str());
         }
         break;
 
         case WIFI_EVENT_AP_STADISCONNECTED: /**< a station disconnected from Soft-AP */
         {
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_STADISCONNECTED: ");
+            SYS_LOG_I( "WIFI_EVENT_AP_STADISCONNECTED: ");
             wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*)event_data;
 
             std::stringstream ss;
             ss << "Station " << mac::convertToMac(event->mac) << std::uppercase << " leave, AID= " << event->aid;
-            logger().log(ILog::LogLevel::INFO, ss.str());
+            SYS_LOG_I( ss.str());
         }
         break;
 
         case WIFI_EVENT_AP_PROBEREQRECVED: /**< Receive probe request packet in soft-AP interface */
-            logger().log(ILog::LogLevel::INFO, "WIFI_EVENT_AP_PROBEREQRECVED:");
+            SYS_LOG_I( "WIFI_EVENT_AP_PROBEREQRECVED:");
             break;
 
         default:
@@ -381,11 +381,11 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
         {
             ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
 
-            logger().log(ILog::LogLevel::INFO, "IP_EVENT_STA_GOT_IP: ");
+            SYS_LOG_I( "IP_EVENT_STA_GOT_IP: ");
 
             char ipString[24] = "IP: ";
             sprintf(&ipString[4], IPSTR, IP2STR(&event->ip_info.ip));
-            logger().log(ILog::LogLevel::INFO, std::string(ipString));
+            SYS_LOG_I( std::string(ipString));
 
             // Set Event Bit for Station Connected
             xEventGroupSetBits(wifiEventGroup, WIFI_CONNECTED);
@@ -395,7 +395,7 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
 
         case IP_EVENT_STA_LOST_IP: /*!< station lost IP and the IP is reset to 0 */
         {
-            logger().log(ILog::LogLevel::INFO, "IP_EVENT_STA_LOST_IP: ");
+            SYS_LOG_I( "IP_EVENT_STA_LOST_IP: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_DISCONNECTED);
             xEventGroupClearBits(wifiEventGroup, WIFI_CONNECTED);
         }
@@ -403,7 +403,7 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
 
         case IP_EVENT_AP_STAIPASSIGNED: /*!< soft-AP assign an IP to a connected station */
         {
-            logger().log(ILog::LogLevel::INFO, "IP_EVENT_AP_STAIPASSIGNED: ");
+            SYS_LOG_I( "IP_EVENT_AP_STAIPASSIGNED: ");
         }
         break;
 

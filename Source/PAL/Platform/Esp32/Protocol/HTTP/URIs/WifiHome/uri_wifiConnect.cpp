@@ -54,7 +54,7 @@ static error_t connect_post_handler(httpd_req_t* req)
         {
             httpd_resp_send_408(req);
         }
-        logger().log(ILog::LogLevel::ERROR, "Error receiving data from POST request!");
+        SYS_LOG_E("Error receiving data from POST request!");
         return ESP_FAIL;
     }
 
@@ -65,7 +65,7 @@ static error_t connect_post_handler(httpd_req_t* req)
     cJSON* json = cJSON_Parse(content);
     if (json == NULL)
     {
-        logger().log(ILog::LogLevel::ERROR, "Error parsing JSON data!");
+        SYS_LOG_E("Error parsing JSON data!");
         return ESP_FAIL;
     }
 
@@ -81,17 +81,17 @@ static error_t connect_post_handler(httpd_req_t* req)
     {
         if ((json_ssid->valuestring[0] == '\0') || (json_password->valuestring[0] == '\0')) // Check if SSID and password are empty
         {
-            logger().log(ILog::LogLevel::ERROR, "SSID or password can't be empty!");
+            SYS_LOG_E("SSID or password can't be empty!");
 
             cJSON_AddStringToObject(response, "message", "SSID or password can't be empty!");
         }
         else // SSID and password are not empty
         {
-            logger().log(ILog::LogLevel::INFO, "Received SSID and password!");
+            SYS_LOG_I( "Received SSID and password!");
             std::stringstream ss;
             ss << "SSID: " << json_ssid->valuestring << std::endl;
             ss << "Password: " << json_password->valuestring << std::endl;
-            logger().log(ILog::LogLevel::INFO, ss.str());
+            SYS_LOG_I( ss.str());
 
             std::cout << "WIFI_SSID: " << WIFI_SSID << std::endl;
             std::cout << "WIFI_PASSWORD: " << WIFI_PASSWORD << std::endl;
@@ -103,7 +103,7 @@ static error_t connect_post_handler(httpd_req_t* req)
             std::string responseMessage;
             if (errorWifi != ERROR_SUCCESS || errorPass != ERROR_SUCCESS)
             {
-                logger().log(ILog::LogLevel::ERROR, "Storing WiFi and Password Failed!");
+                SYS_LOG_E("Storing WiFi and Password Failed!");
                 responseMessage = "Storing WiFi And Password Failed!";
             }
             else // if writing to memory device operation Success
@@ -120,7 +120,7 @@ static error_t connect_post_handler(httpd_req_t* req)
     }
     else // Error parsing SSID and password
     {
-        logger().log(ILog::LogLevel::ERROR, "Error parsing SSID and password!");
+        SYS_LOG_E("Error parsing SSID and password!");
 
         cJSON_AddStringToObject(response, "message", "Error parsing SSID and password!");
     }

@@ -206,7 +206,7 @@ void programRoutineTask(void* pvParameters)
 
     if (proc == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
+        SYS_LOG_E("Event manager task: Invalid parameters");
         return;
     }
 
@@ -223,7 +223,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::INITIALIZED:
             {
-                logger().log(ILog::LogLevel::INFO, "WiFi Configuration Manager Initialized");
+                SYS_LOG_I("WiFi Configuration Manager Initialized");
 
                 proc->setProgramState(ProgramState::TRY_ACCESS_CREDENTIALS);
             }
@@ -231,7 +231,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::TRY_ACCESS_CREDENTIALS:
             {
-                logger().log(ILog::LogLevel::INFO, "Trying to access credentials...");
+                SYS_LOG_I("Trying to access credentials...");
 
                 // Try to access the credentials
                 uint8_t ssid[WIFI_SSID_LENGTH];
@@ -266,7 +266,7 @@ void programRoutineTask(void* pvParameters)
                     std::stringstream ss("");
                     ss << "SSID: " << config.sta.ssid << std::endl;
                     ss << "Password: " << config.sta.password << std::endl;
-                    logger().log(ILog::LogLevel::INFO, ss.str());
+                    SYS_LOG_I(ss.str());
 
                     proc->getWifiCpx().set(&config);
 
@@ -279,7 +279,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::TRY_CONNECT:
             {
-                logger().log(ILog::LogLevel::INFO, "Trying to connect to the network...");
+                SYS_LOG_I("Trying to connect to the network...");
                 for (uint8_t i = 0; i < tryConnectCount; i++)
                 {
                     // Try to connect to the network
@@ -290,7 +290,7 @@ void programRoutineTask(void* pvParameters)
                         if (i == tryConnectCount - 1) // If the connection fails after the last try, change the state to DISCONNECTED
                                                       // proc->setProgramState(ProgramState::CREDENTIALS_NOT_FOUND_OR_INVALID);
                         {
-                            logger().log(ILog::LogLevel::ERROR, "Connection failed");
+                            SYS_LOG_E("Connection failed");
                         }
                         else
                             continue;
@@ -321,7 +321,7 @@ void programRoutineTask(void* pvParameters)
                         if (i == tryConnectCount - 1) // If the connection fails after the last try, change the state to DISCONNECTED
                                                       // proc->setProgramState(ProgramState::CREDENTIALS_NOT_FOUND_OR_INVALID);
                         {
-                            logger().log(ILog::LogLevel::ERROR, "Connection failed");
+                            SYS_LOG_E("Connection failed");
                             proc->setProgramState(ProgramState::CREDENTIALS_NOT_FOUND_OR_INVALID);
                         }
                         else
@@ -337,7 +337,7 @@ void programRoutineTask(void* pvParameters)
             case ProgramState::CREDENTIALS_NOT_FOUND_OR_INVALID:
             {
                 // Notify the user that the credentials are not found or invalid
-                logger().log(ILog::LogLevel::WARNING, "Credentials not found or invalid");
+                SYS_LOG_W("Credentials not found or invalid");
 
                 if (proc->getWifiCpx().getWifiMode() == WIFI_MODE_STA)
                 {
@@ -355,7 +355,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::AP_STA_MODE:
             {
-                logger().log(ILog::LogLevel::INFO, "Starting AP-STA mode...");
+                SYS_LOG_I("Starting AP-STA mode...");
 
                 // Stop WiFi if it is already started
                 proc->getWifiCpx().stop();
@@ -367,7 +367,7 @@ void programRoutineTask(void* pvParameters)
                 proc->getWifiCpx().setWifiMode(WIFI_MODE_APSTA);
 
                 // Start WiFi
-                ON_ERROR_WITH_OUTPUT(proc->getWifiCpx().start(), logger());
+                ON_ERROR_WITH_OUTPUT(proc->getWifiCpx().start());
 
                 // Notify other tasks that the AP is ready
                 xEventGroupSetBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_AP_SETUP_READY);
@@ -379,7 +379,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::STA_MODE:
             {
-                logger().log(ILog::LogLevel::INFO, "Starting STA mode...");
+                SYS_LOG_I("Starting STA mode...");
                 // Set WiFi mode as STA mode
                 proc->getWifiCpx().setWifiMode(WIFI_MODE_STA);
 
@@ -409,11 +409,11 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::AWAITING_CREDENTIALS:
             {
-                logger().log(ILog::LogLevel::INFO, "Awaiting credentials...");
+                SYS_LOG_I("Awaiting credentials...");
                 // Wait until user enters the SSID and password
                 xEventGroupWaitBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_CREDENTIALS_STORED, pdTRUE, pdFALSE, portMAX_DELAY);
 
-                logger().log(ILog::LogLevel::INFO, "Credentials stored");
+                SYS_LOG_I("Credentials stored");
                 // If user enters, try to connect to the network
 
                 std::cout << "WIFI CONFIG PROGRAM: Changing state to TRY_CONNECT..." << std::endl;
@@ -423,7 +423,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::CONNECTED:
             {
-                logger().log(ILog::LogLevel::INFO, "Connected to the network");
+                SYS_LOG_I("Connected to the network");
                 // Notify the user that the connection is successful
                 // Change the state to STA_MODE
                 // proc->setProgramState(ProgramState::STA_MODE);
@@ -440,7 +440,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::RESTART:
             {
-                logger().log(ILog::LogLevel::INFO, "Restarting WiFi...");
+                SYS_LOG_I("Restarting WiFi...");
                 // Notify the user that the WiFi is restarting
 
                 // Restart WiFi
@@ -451,14 +451,14 @@ void programRoutineTask(void* pvParameters)
                 std::cout << "DEBUG: STARTING WIFI" << std::endl;
                 proc->getWifiCpx().start();
 
-                logger().log(ILog::LogLevel::INFO, "WIFI CONFIG PROGRAM: Changing state to INITIALIZED...");
+                SYS_LOG_I("WIFI CONFIG PROGRAM: Changing state to INITIALIZED...");
                 proc->setProgramState(ProgramState::INITIALIZED);
             }
             break;
 
             case ProgramState::DISCONNECTED:
             {
-                logger().log(ILog::LogLevel::INFO, "Disconnected from the network");
+                SYS_LOG_I("Disconnected from the network");
                 // Try to connect to the network
                 proc->setProgramState(ProgramState::TRY_CONNECT);
             }
@@ -466,7 +466,7 @@ void programRoutineTask(void* pvParameters)
 
             case ProgramState::CONNECTION_FAILED:
             {
-                logger().log(ILog::LogLevel::ERROR, "Connection failed");
+                SYS_LOG_E("Connection failed");
                 // Notify the user that the connection failed
 
                 // Restart WiFi
@@ -483,7 +483,7 @@ void wifiEventHandler(void* pvParameters)
     Proc_wifiConfigurationManager* proc = static_cast<Proc_wifiConfigurationManager*>(pvParameters);
     if (proc == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
+        SYS_LOG_E("Event manager task: Invalid parameters");
         return;
     }
 
@@ -536,7 +536,7 @@ void wifiConfigEventHandler(void* pvParameters)
     Proc_wifiConfigurationManager* proc = static_cast<Proc_wifiConfigurationManager*>(pvParameters);
     if (proc == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, "Event manager task: Invalid parameters");
+        SYS_LOG_E("Event manager task: Invalid parameters");
         return;
     }
 
@@ -562,7 +562,7 @@ void wifiConfigEventHandler(void* pvParameters)
                 sys_error_t error = proc->getWifiCpx().scan(nullptr);
                 if (error != ERROR_SUCCESS)
                 {
-                    logger().log(ILog::LogLevel::ERROR, "Failed to scan for WiFi networks");
+                    SYS_LOG_E("Failed to scan for WiFi networks");
                 }
             }
         }
@@ -594,6 +594,6 @@ sys_error_t getWifiCredentialsfromMem(IHAL_MEM& memDevice, uint8_t* ssid, uint8_
     ss << "Password: " << password << std::endl;
 
     // Log SSID and Password
-    logger().log(ILog::LogLevel::INFO, ss.str());
+    SYS_LOG_I(ss.str());
     return ERROR_SUCCESS;
 }

@@ -48,7 +48,7 @@ static error_t control_put_handler(httpd_req_t* req)
     cJSON* json = cJSON_Parse(content);
     if (json == NULL)
     {
-        logger().log(ILog::LogLevel::ERROR, "Error parsing JSON data");
+        SYS_LOG_E("Error parsing JSON data");
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
         return ESP_FAIL;
     }
@@ -59,7 +59,7 @@ static error_t control_put_handler(httpd_req_t* req)
 
     if (!cJSON_IsNumber(socketIdJson) || !cJSON_IsNumber(stateJson))
     {
-        logger().log(ILog::LogLevel::ERROR, "Invalid JSON data");
+        SYS_LOG_E("Invalid JSON data");
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON data");
         cJSON_Delete(json);
         return ESP_FAIL;
@@ -75,11 +75,11 @@ static error_t control_put_handler(httpd_req_t* req)
 
     if (xQueueSend(proc->getSwitchesQueue(), &switchQueue, 0) == pdTRUE)
     {
-        logger().log(ILog::LogLevel::INFO, "Switch state updated successfully");
+        SYS_LOG_I( "Switch state updated successfully");
     }
     else
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to update switch state");
+        SYS_LOG_E("Failed to update switch state");
     }
 
     // Send a response back to the client

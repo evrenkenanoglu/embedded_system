@@ -212,7 +212,7 @@ public:
 // SYS_LOG_D("This is a debug message");
 
 // // Or using the logger directly
-// logger().log(ILog::LogLevel::INFO, "Direct info log: %s", "message");
+// SYS_LOG_I( "Direct info log: %s", "message");
 
 // // Clean up (if application is ending)
 // delete logImpl;

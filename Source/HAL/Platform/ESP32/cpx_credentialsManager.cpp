@@ -68,7 +68,7 @@ sys_error_t cpx_credentialsManager::start()
     // Check if the mutex is created
     if (_mutex == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, "Mutex not created for cpx_credentialsManager");
+        SYS_LOG_E("Mutex not created for cpx_credentialsManager");
         return ERROR_FAIL;
     }
 
@@ -79,7 +79,7 @@ sys_error_t cpx_credentialsManager::start()
 
     if (_memDevice.init() != ERROR_SUCCESS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to initialize memory device");
+        SYS_LOG_E("Failed to initialize memory device");
         return ERROR_FAIL;
     }
 
@@ -95,7 +95,7 @@ sys_error_t cpx_credentialsManager::start()
         // Verify we have meaningful data (non-empty PEM)
         if (strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) > 0)
         {
-            logger().log(ILog::LogLevel::INFO, "Valid private key exists in storage");
+            SYS_LOG_I( "Valid private key exists in storage");
             xEventGroupSetBits(_credentialMngrEventGroup, KEY_GEN_COMPLETED); // Set event bit for key generation completed
             xSemaphoreGive(_mutex);
             return ERROR_SUCCESS;
@@ -117,7 +117,7 @@ sys_error_t cpx_credentialsManager::start()
 
     if (isTaskCreated != pdPASS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to create key generation task");
+        SYS_LOG_E("Failed to create key generation task");
         result = ERROR_FAIL;
     }
 
@@ -140,7 +140,7 @@ void* cpx_credentialsManager::get()
         _charData.serverCertPtr  = _credentials.serverCert.data();
         _charData.serverCertSize = strlen(reinterpret_cast<const char*>(_charData.serverCertPtr)) + 1; // Include null terminator
 
-        logger().log(ILog::LogLevel::INFO, "Returning stored credentials as char pointers");
+        SYS_LOG_I( "Returning stored credentials as char pointers");
     }
     else
     {
@@ -149,7 +149,7 @@ void* cpx_credentialsManager::get()
         _charData.serverCertPtr  = nullptr;
         _charData.serverCertSize = 0;
 
-        logger().log(ILog::LogLevel::INFO, "No stored credentials found, returning nullptr");
+        SYS_LOG_I( "No stored credentials found, returning nullptr");
     }
 
     // Release the mutex
@@ -176,7 +176,7 @@ sys_error_t cpx_credentialsManager::generateAndStoreKeys()
     // Take the mutex to ensure thread safety
     if (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to take mutex for key generation");
+        SYS_LOG_E("Failed to take mutex for key generation");
         return ERROR_FAIL;
     }
 
@@ -190,20 +190,20 @@ sys_error_t cpx_credentialsManager::generateAndStoreKeys()
     // Generate new keys
     if (generateKeys() != ERROR_SUCCESS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to generate keys");
+        SYS_LOG_E("Failed to generate keys");
         return releaseGuard(ERROR_FAIL);
     }
 
     // Store the generated keys
     if (storeKeys() != ERROR_SUCCESS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to store keys");
+        SYS_LOG_E("Failed to store keys");
         return releaseGuard(ERROR_FAIL);
     }
 
     isKeyGenerationNeeded = false; // Reset the flag after successful generation and storage
 
-    logger().log(ILog::LogLevel::INFO, "Keys generated and stored successfully");
+    SYS_LOG_I( "Keys generated and stored successfully");
     return releaseGuard(ERROR_SUCCESS);
 }
 
@@ -213,12 +213,12 @@ sys_error_t cpx_credentialsManager::generateKeys()
     mbedtlsComponentsInit();
 
     // Generate the keys
-    logger().log(ILog::LogLevel::INFO, "Generating Certificate and Private Key...");
+    SYS_LOG_I( "Generating Certificate and Private Key...");
 
     // Step 1: Seed the random number generator
     if (mbedtls_ctr_drbg_seed(&_ctr_drbg, mbedtls_entropy_func, &_entropy, NULL, 0) != 0)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to seed RNG for key generation");
+        SYS_LOG_E("Failed to seed RNG for key generation");
         CleanupOnError();
         return ERROR_FAIL;
     }
@@ -226,7 +226,7 @@ sys_error_t cpx_credentialsManager::generateKeys()
     // Step 2: Generate the RSA key
     if (mbedtls_pk_setup(&_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) != 0 || mbedtls_rsa_gen_key(mbedtls_pk_rsa(_key), mbedtls_ctr_drbg_random, &_ctr_drbg, KEY_SIZE, 65537) != 0)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to generate RSA key");
+        SYS_LOG_E("Failed to generate RSA key");
         CleanupOnError();
         return ERROR_FAIL;
     }
@@ -261,7 +261,7 @@ sys_error_t cpx_credentialsManager::generateKeys()
     int ret = mbedtls_x509write_crt_pem(&_cert, _credentials.serverCert.data(), _credentials.serverCert.size(), mbedtls_ctr_drbg_random, &_ctr_drbg);
     if (ret != 0 || mbedtls_pk_write_key_pem(&_key, _credentials.privateKey.data(), _credentials.privateKey.size()) != 0)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to write private key or certificate to PEM format");
+        SYS_LOG_E("Failed to write private key or certificate to PEM format");
         CleanupOnError();
         return ERROR_FAIL;
     }
@@ -270,15 +270,15 @@ sys_error_t cpx_credentialsManager::generateKeys()
     CleanupOnError();
 
     // Print the generated keys for debugging
-    logger().log(ILog::LogLevel::INFO, "Private Key Size: ");
-    logger().log(ILog::LogLevel::INFO, std::to_string(_credentials.privateKey.size()).c_str());
-    logger().log(ILog::LogLevel::INFO, "Generated private key: ");
-    logger().log(ILog::LogLevel::INFO, reinterpret_cast<const char*>(_credentials.privateKey.data()));
+    SYS_LOG_I( "Private Key Size: ");
+    SYS_LOG_I( std::to_string(_credentials.privateKey.size()).c_str());
+    SYS_LOG_I( "Generated private key: ");
+    SYS_LOG_I( reinterpret_cast<const char*>(_credentials.privateKey.data()));
 
-    logger().log(ILog::LogLevel::INFO, "Server Certificate Size: ");
-    logger().log(ILog::LogLevel::INFO, std::to_string(_credentials.serverCert.size()).c_str());
-    logger().log(ILog::LogLevel::INFO, "Generated server certificate: ");
-    logger().log(ILog::LogLevel::INFO, reinterpret_cast<const char*>(_credentials.serverCert.data()));
+    SYS_LOG_I( "Server Certificate Size: ");
+    SYS_LOG_I( std::to_string(_credentials.serverCert.size()).c_str());
+    SYS_LOG_I( "Generated server certificate: ");
+    SYS_LOG_I( reinterpret_cast<const char*>(_credentials.serverCert.data()));
 
     return ERROR_SUCCESS;
 }
@@ -288,27 +288,27 @@ sys_error_t cpx_credentialsManager::storeKeys()
     // Validate we have data to store
     if (strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) == 0)
     {
-        logger().log(ILog::LogLevel::ERROR, "Invalid private key data - empty string");
+        SYS_LOG_E("Invalid private key data - empty string");
         return ERROR_FAIL;
     }
 
     if (strlen(reinterpret_cast<const char*>(_credentials.privateKey.data())) == 0)
     {
-        logger().log(ILog::LogLevel::ERROR, "Invalid certificate data - empty string");
+        SYS_LOG_E("Invalid certificate data - empty string");
         return ERROR_FAIL;
     }
 
     // Store the private key in NVS
     if (_memDevice.writeData(KEY_NVS_NAME, _credentials.privateKey.data(), _credentials.privateKey.size()) != ERROR_SUCCESS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to store private key in NVS");
+        SYS_LOG_E("Failed to store private key in NVS");
         return ERROR_FAIL;
     }
 
     // Store the certificate in NVS
     if (_memDevice.writeData(CERT_NVS_NAME, _credentials.serverCert.data(), _credentials.serverCert.size()) != ERROR_SUCCESS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to store server certificate in NVS");
+        SYS_LOG_E("Failed to store server certificate in NVS");
         return ERROR_FAIL;
     }
 
@@ -325,7 +325,7 @@ static void keyGenerationTask(void* param)
 {
     if (param == nullptr)
     {
-        logger().log(ILog::LogLevel::ERROR, "Null parameter passed to key generation task");
+        SYS_LOG_E("Null parameter passed to key generation task");
         vTaskDelete(NULL);
         return;
     }

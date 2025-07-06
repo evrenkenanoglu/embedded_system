@@ -64,7 +64,7 @@ sys_error_t Proc_Leds::start()
 
     if (result != pdPASS)
     {
-        logger().log(ILog::LogLevel::ERROR, "Proc_Leds: Failed to create task!");
+        SYS_LOG_E("Proc_Leds: Failed to create task!");
         return ERROR_FAIL;
     }
     return ERROR_SUCCESS;
@@ -102,7 +102,7 @@ sys_error_t Proc_Leds::setLedState(ledData& led, ledStateMachine state)
             return ERROR_SUCCESS;
         }
     }
-    logger().log(ILog::LogLevel::ERROR, "Proc_Leds: LED not found!");
+    SYS_LOG_E("Proc_Leds: LED not found!");
     return ERROR_INVALID_ARG;
 }
 

@@ -27,11 +27,11 @@ sys_error_t Serv_mdns::init()
     error_t error = mdns_init();
     if (error != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to initialize mDNS");
+        SYS_LOG_E("Failed to initialize mDNS");
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, "mDNS initialized");
+    SYS_LOG_I( "mDNS initialized");
 
     return ERROR_SUCCESS;
 }
@@ -42,7 +42,7 @@ sys_error_t Serv_mdns::start()
     error_t error = mdns_hostname_set(_hostname.c_str());
     if (error != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to set mDNS hostname");
+        SYS_LOG_E("Failed to set mDNS hostname");
         return ERROR_FAIL;
     }
 
@@ -50,7 +50,7 @@ sys_error_t Serv_mdns::start()
 
     if (error != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to set mDNS instance name");
+        SYS_LOG_E("Failed to set mDNS instance name");
         return ERROR_FAIL;
     }
 
@@ -59,7 +59,7 @@ sys_error_t Serv_mdns::start()
 
     if (error != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to add mDNS service");
+        SYS_LOG_E("Failed to add mDNS service");
         return ERROR_FAIL;
     }
 
@@ -67,18 +67,18 @@ sys_error_t Serv_mdns::start()
 
     if (error != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to set mDNS service text item");
+        SYS_LOG_E("Failed to set mDNS service text item");
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, "mDNS service started!");
+    SYS_LOG_I( "mDNS service started!");
     return ERROR_SUCCESS;
 }
 
 sys_error_t Serv_mdns::stop()
 {
     mdns_free();
-    logger().log(ILog::LogLevel::INFO, "mDNS stopped!");
+    SYS_LOG_I( "mDNS stopped!");
     return ERROR_SUCCESS;
 }
 

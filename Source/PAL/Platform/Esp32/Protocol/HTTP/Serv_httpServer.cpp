@@ -35,20 +35,20 @@ sys_error_t Serv_httpServer::start()
 {
     std::stringstream ss;
     ss << "Starting server on port: " << _config.server_port;
-    logger().log(ILog::LogLevel::INFO, ss.str());
+    SYS_LOG_I( ss.str());
 
     _config.stack_size = 8192; // Set stack size for the server task
 
     if (httpd_start(&_server, &_config) == ESP_OK)
     {
-        logger().log(ILog::LogLevel::INFO, "HTTP server started successfully");
+        SYS_LOG_I( "HTTP server started successfully");
         setStatus(Status::STARTED);
 
         for (auto uri : _uriList)
         {
             if (httpd_register_uri_handler(_server, uri) != ESP_OK)
             {
-                logger().log(ILog::LogLevel::ERROR, "Failed to register URI handler");
+                SYS_LOG_E("Failed to register URI handler");
                 return ERROR_FAIL;
             }
         }
@@ -59,12 +59,12 @@ sys_error_t Serv_httpServer::start()
         }
         else 
         {
-            logger().log(ILog::LogLevel::WARNING, "Websocket start callback is not set");
+            SYS_LOG_W( "Websocket start callback is not set");
         }
     }
     else
     {
-        logger().log(ILog::LogLevel::ERROR, "Starting HTTP server failed!");
+        SYS_LOG_E("Starting HTTP server failed!");
         return ERROR_FAIL;
     }
 
@@ -93,11 +93,11 @@ sys_error_t Serv_httpServer::registerUri(const httpd_uri_t* uri)
 {
     if (httpd_register_uri_handler(_server, uri) != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to register URI handler");
+        SYS_LOG_E("Failed to register URI handler");
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, "URI handler registered successfully");
+    SYS_LOG_I( "URI handler registered successfully");
 
     return ERROR_SUCCESS;
 }
@@ -106,11 +106,11 @@ sys_error_t Serv_httpServer::unregisterUri(const httpd_uri_t* uri)
 {
     if (httpd_unregister_uri_handler(_server, uri->uri, uri->method) != ESP_OK)
     {
-        logger().log(ILog::LogLevel::ERROR, "Failed to unregister URI handler");
+        SYS_LOG_E("Failed to unregister URI handler");
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, "URI handler unregistered successfully");
+    SYS_LOG_I( "URI handler unregistered successfully");
     return ERROR_SUCCESS;
 }
 

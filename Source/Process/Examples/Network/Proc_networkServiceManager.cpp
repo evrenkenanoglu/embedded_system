@@ -43,7 +43,7 @@ sys_error_t Proc_networkServiceManager::start()
         return ERROR_FAIL;
     }
 
-    logger().log(ILog::LogLevel::INFO, "Starting network service manager");
+    SYS_LOG_I( "Starting network service manager");
     return ERROR_SUCCESS;
 }
 
@@ -56,13 +56,13 @@ sys_error_t Proc_networkServiceManager::stop()
 
 sys_error_t Proc_networkServiceManager::pause()
 {
-    logger().log(ILog::LogLevel::ERROR, "Pause not implemented");
+    SYS_LOG_E("Pause not implemented");
     return ERROR_NOT_IMPLEMENTED;
 }
 
 sys_error_t Proc_networkServiceManager::resume()
 {
-    logger().log(ILog::LogLevel::ERROR, "Resume not implemented");
+    SYS_LOG_E("Resume not implemented");
     return ERROR_NOT_IMPLEMENTED;
 }
 
@@ -71,7 +71,7 @@ sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& network
     // mutex lock
     xSemaphoreTake(mutex, portMAX_DELAY);
 
-    logger().log(ILog::LogLevel::WARNING, "Registering...");
+    SYS_LOG_W( "Registering...");
     std::vector<IProcess*>& networkServices = (type == NetworkServiceType::AP) ? _networkServicesAP : _networkServicesSTA;
 
     // Check if the network service is already registered
@@ -84,7 +84,7 @@ sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& network
     }
     networkServices.emplace_back(&networkService);
 
-    logger().log(ILog::LogLevel::WARNING, "Registering Completed!");
+    SYS_LOG_W( "Registering Completed!");
     // mutex unlock
     xSemaphoreGive(mutex);
     return ERROR_SUCCESS;
@@ -185,11 +185,11 @@ static void programTask(void* pvParameters)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::AP) == NetworkServiceState::RUNNING)
             {
-                logger().log(ILog::LogLevel::INFO, "AP network services are already running");
+                SYS_LOG_I( "AP network services are already running");
             }
             else
             {
-                logger().log(ILog::LogLevel::INFO, "Start the AP network services");
+                SYS_LOG_I( "Start the AP network services");
                 proc->setNetworkServiceState(NetworkServiceType::AP, NetworkServiceState::RUNNING);
                 proc->executeNetworkServices(NetworkServiceType::AP, true);
             }
@@ -199,11 +199,11 @@ static void programTask(void* pvParameters)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::AP) == NetworkServiceState::STOPPED)
             {
-                logger().log(ILog::LogLevel::INFO, "AP network services are already stopped");
+                SYS_LOG_I( "AP network services are already stopped");
             }
             else
             {
-                logger().log(ILog::LogLevel::INFO, "Stop the AP network services");
+                SYS_LOG_I( "Stop the AP network services");
                 proc->setNetworkServiceState(NetworkServiceType::AP, NetworkServiceState::STOPPED);
                 proc->executeNetworkServices(NetworkServiceType::AP, false);
             }
@@ -214,11 +214,11 @@ static void programTask(void* pvParameters)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::STA) == NetworkServiceState::RUNNING)
             {
-                logger().log(ILog::LogLevel::INFO, "STA network services are already running");
+                SYS_LOG_I( "STA network services are already running");
             }
             else
             {
-                logger().log(ILog::LogLevel::INFO, "Start the STA network services");
+                SYS_LOG_I( "Start the STA network services");
                 proc->setNetworkServiceState(NetworkServiceType::STA, NetworkServiceState::RUNNING);
                 proc->executeNetworkServices(NetworkServiceType::STA, true);
             }
@@ -228,11 +228,11 @@ static void programTask(void* pvParameters)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::STA) == NetworkServiceState::STOPPED)
             {
-                logger().log(ILog::LogLevel::INFO, "STA network services are already stopped");
+                SYS_LOG_I( "STA network services are already stopped");
             }
             else
             {
-                logger().log(ILog::LogLevel::INFO, "Stop the STA network services");
+                SYS_LOG_I( "Stop the STA network services");
                 proc->setNetworkServiceState(NetworkServiceType::STA, NetworkServiceState::STOPPED);
                 proc->executeNetworkServices(NetworkServiceType::STA, false);
             }
