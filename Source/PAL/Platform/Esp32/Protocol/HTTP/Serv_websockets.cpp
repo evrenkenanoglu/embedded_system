@@ -6,7 +6,7 @@
  */
 
 #include "Serv_websockets.hpp"
-#include "HAL/Platform/ESP32/Library/logImpl.h"
+#include "System/LogHandler.h"
 #include "cJSON.h"
 #include "sdkconfig.h"
 

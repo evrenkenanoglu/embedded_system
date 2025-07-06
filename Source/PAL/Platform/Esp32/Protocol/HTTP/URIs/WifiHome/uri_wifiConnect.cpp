@@ -1,5 +1,5 @@
 #include "uri_wifiConnect.hpp"
-#include "HAL/Platform/ESP32/library/logImpl.h"
+#include "System/LogHandler.h"
 #include "Process/Examples/Network/Proc_wifiConfigurationManager.hpp"
 #include "cJSON.h"
 

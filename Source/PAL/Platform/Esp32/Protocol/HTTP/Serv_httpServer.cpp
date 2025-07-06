@@ -6,7 +6,7 @@
  */
 
 #include "Serv_httpServer.hpp"
-#include "HAL/Platform/ESP32/library/logImpl.h"
+#include "System/LogHandler.h"
 #include "string.h"
 #include <esp_log.h>
 #include <sstream>

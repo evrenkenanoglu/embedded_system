@@ -6,7 +6,7 @@
  */
 
 #include "Serv_mdns.hpp"
-#include "HAL/Platform/ESP32/Library/logImpl.h"
+#include "System/LogHandler.h"
 #include "mdns.h"
 
 Serv_mdns::Serv_mdns(std::string hostname, std::string instanceName, uint16_t port)
@@ -55,7 +55,7 @@ sys_error_t Serv_mdns::start()
     }
 
     // Set mDNS service
-    error = mdns_service_add("ESP32-WebServer", "_http", "_tcp", _port, NULL, 0);
+    error = mdns_service_add("ESP32-WebServer", "_https", "_tcp", _port, NULL, 0);
 
     if (error != ESP_OK)
     {
@@ -63,7 +63,7 @@ sys_error_t Serv_mdns::start()
         return ERROR_FAIL;
     }
 
-    error = mdns_service_txt_item_set("_http", "_tcp", "path", "/");
+    error = mdns_service_txt_item_set("_https", "_tcp", "path", "/");
 
     if (error != ESP_OK)
     {

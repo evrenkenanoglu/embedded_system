@@ -6,7 +6,7 @@
  */
 
 #include "Proc_wifiConfigurationManager.hpp"
-#include "HAL/Platform/ESP32/Library/logImpl.h"
+#include "System/LogHandler.h"
 
 namespace
 {

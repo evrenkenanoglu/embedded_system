@@ -6,7 +6,7 @@
  */
 
 #include "Proc_Leds.hpp"
-#include "HAL/Platform/ESP32/Library/logImpl.h"
+#include "System/LogHandler.h"
 
 namespace
 {

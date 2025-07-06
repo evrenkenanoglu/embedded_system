@@ -9,7 +9,7 @@
 #include <atomic>
 #include <string>
 // Logger include
-#include "HAL/Platform/ESP32/library/logImpl.h"
+#include "System/LogHandler.h"
 
 static void keyGenerationTask(void* param);
 

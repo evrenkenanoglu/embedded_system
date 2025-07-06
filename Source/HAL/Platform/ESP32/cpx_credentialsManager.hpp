@@ -37,13 +37,13 @@
 #define KEY_GEN_COMPLETED     BIT1
 #define KEY_GEN_FAILED        BIT2
 
-struct CredentialsCharData
+typedef struct
 {
     uint8_t* privateKeyPtr;
     size_t   privateKeySize;
     uint8_t* serverCertPtr;
     size_t   serverCertSize;
-};
+} CredentialsCharData_t;
 
 class cpx_credentialsManager : public IHAL_CPX
 {
@@ -55,12 +55,12 @@ private:
     };
 
     // private members
-    IHAL_MEM&           _memDevice;   // Reference to the memory device for storing credentials
-    CredentialsData     _credentials; // Struct to hold the credentials data
-    CredentialsCharData _charData;    // Struct to hold character data for credentials
-    TaskHandle_t        _keyGenTaskHandle;
-    EventGroupHandle_t  _credentialMngrEventGroup;
-    SemaphoreHandle_t   _mutex;
+    IHAL_MEM&             _memDevice;   // Reference to the memory device for storing credentials
+    CredentialsData       _credentials; // Struct to hold the credentials data
+    CredentialsCharData_t _charData;    // Struct to hold character data for credentials
+    TaskHandle_t          _keyGenTaskHandle;
+    EventGroupHandle_t    _credentialMngrEventGroup;
+    SemaphoreHandle_t     _mutex;
 
     bool isKeyGenerationNeeded; // Flag to indicate if new key generation is needed
 

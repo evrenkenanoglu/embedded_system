@@ -1,5 +1,5 @@
 #include "HttpUriGet.hpp"
-#include "HAL/Platform/ESP32/Library/logImpl.h"
+#include "System/LogHandler.h"
 
 /**
  * @brief Default HTTP GET handler for the app interface

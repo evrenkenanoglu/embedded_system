@@ -1,5 +1,5 @@
 #include "cJSON.h"
-#include "HAL/Platform/ESP32/library/logImpl.h"
+#include "System/LogHandler.h"
 #include "uri_powerSwitchesControl.hpp"
 #include "Process/Examples/Peripheral/Proc_Switches.hpp"
 

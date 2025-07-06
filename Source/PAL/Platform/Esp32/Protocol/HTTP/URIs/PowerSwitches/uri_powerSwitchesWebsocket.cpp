@@ -1,8 +1,9 @@
 #include "uri_powerSwitchesWebsocket.hpp"
 
-#include "HAL/Platform/ESP32/library/logImpl.h"
+#include "System/LogHandler.h"
 #include "Library/UI/HTTP/PowerSwitches/ui_wifi_power_sockets/output/header/ui_wifi_power_sockets.h"
 #include <esp_http_server.h>
+#include <esp_log.h>
 
 namespace
 {

@@ -6,7 +6,7 @@
  */
 
 #include "Proc_httpServer.hpp"
-#include "HAL/Platform/ESP32/library/logImpl.h"
+#include "System/LogHandler.h"
 
 Proc_httpServer::Proc_httpServer(IPAL_Service& networkService)
     : _networkService(networkService)
