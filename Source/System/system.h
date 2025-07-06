@@ -20,15 +20,19 @@
 
 ///** Errors Includes **///
 #include "error_definitions.h"
+#include "error_macros.h"
 
-/** FreeRTOS Includes **///
+///** Logger Includes **///
+// #include "LogHandler.h"
+
+/** FreeRTOS Includes **/ //
 #include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 #include "freertos/list.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
-#include "freertos/event_groups.h"
 
 ///** POSIX Includes **///
 // #include "esp_pthread.h"

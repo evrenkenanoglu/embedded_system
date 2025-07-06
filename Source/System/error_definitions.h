@@ -15,47 +15,6 @@
 #ifndef ERROR_DEFINITIONS_H
 #define ERROR_DEFINITIONS_H
 
-#include "System/LogHandler.h"
-#include <cstdio>
-
-// Macro for handling errors and returning on error
-#define RETURN_ON_ERROR_WITH_OUTPUT(expr, message)                                                                                                                                                     \
-    do                                                                                                                                                                                                 \
-    {                                                                                                                                                                                                  \
-        sys_error_t err = (expr);                                                                                                                                                                      \
-        if (err != ERROR_SUCCESS)                                                                                                                                                                      \
-        {                                                                                                                                                                                              \
-            char errMsg[256];                                                                                                                                                                          \
-            std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d\n", __FILE__, __LINE__, err);                                                                                                 \
-            SYS_LOG_E(errMsg);                                                                                                                                                                         \
-            return err;                                                                                                                                                                                \
-        }                                                                                                                                                                                              \
-    } while (0)
-
-// Macro for handling errors and logging the error
-#define ON_ERROR_WITH_OUTPUT(expr)                                                                                                                                                                     \
-    do                                                                                                                                                                                                 \
-    {                                                                                                                                                                                                  \
-        sys_error_t err = (expr);                                                                                                                                                                      \
-        if (err != ERROR_SUCCESS)                                                                                                                                                                      \
-        {                                                                                                                                                                                              \
-            char errMsg[256];                                                                                                                                                                          \
-            std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d\n", __FILE__, __LINE__, err);                                                                                                 \
-            SYS_LOG_E(errMsg);                                                                                                                                                                         \
-        }                                                                                                                                                                                              \
-    } while (0)
-
-// Macro for handling errors and returning on error
-#define RETURN_ON_ERROR(expr)                                                                                                                                                                          \
-    do                                                                                                                                                                                                 \
-    {                                                                                                                                                                                                  \
-        sys_error_t err = (expr);                                                                                                                                                                      \
-        if (err != ERROR_SUCCESS)                                                                                                                                                                      \
-        {                                                                                                                                                                                              \
-            return err;                                                                                                                                                                                \
-        }                                                                                                                                                                                              \
-    } while (0)
-
 typedef enum
 {
     // General error codes
