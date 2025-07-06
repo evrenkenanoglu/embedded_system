@@ -2,7 +2,7 @@ let websocket = null;
 
 function initializeWebSocket() {
   console.log("Trying to open a WebSocket connection...");
-  websocket = new WebSocket("ws://" + location.host + "/powerSwitchesWs");
+  websocket = new WebSocket(websocketUrl);
 
   websocket.onopen = () => {
     console.log("WebSocket Connected!");
