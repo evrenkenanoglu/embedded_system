@@ -6,9 +6,8 @@
  */
 
 #include "io_gpio.hpp"
+#include "System/LogHandler.h"
 #include "esp_log.h"
-
-#define TAG "GPIO"
 
 namespace
 {
@@ -30,7 +29,7 @@ static void IRAM_ATTR isrHandler(void* arg)
     io_gpio* gpioClass = static_cast<io_gpio*>(arg);
     if (gpioClass == nullptr)
     {
-        ESP_LOGE(TAG, "gpioClass can't be null!");
+        SYS_LOG_E("gpioClass can't be null!");
     }
     gpio_intr_disable(gpioClass->getGpioNumber());
 
@@ -57,17 +56,23 @@ static void IRAM_ATTR isrHandler(void* arg)
     // Start the timer
     if (xTimerStart(timerHandle, 0) != pdPASS)
     {
-        ESP_LOGE(TAG, "Failed to start timer!");
+        SYS_LOG_E("Failed to start timer!");
     }
 }
 
-io_gpio::io_gpio(gpio_num_t gpioNumber, void* config) : _gpioNumber(gpioNumber), _config((gpio_config_t*)config), _gpioEventQueue(xQueueCreate(5, sizeof(uint32_t))), _counter(0) {}
+io_gpio::io_gpio(gpio_num_t gpioNumber, void* config)
+    : _gpioNumber(gpioNumber)
+    , _config((gpio_config_t*)config)
+    , _gpioEventQueue(xQueueCreate(5, sizeof(uint32_t)))
+    , _counter(0)
+{
+}
 
 sys_error_t io_gpio::init()
 {
     if (_config == nullptr)
     {
-        ESP_LOGE(TAG, "Config can't be null!");
+        SYS_LOG_E("Config can't be null!");
     }
     ESP_ERROR_CHECK(gpio_config(_config));
 
@@ -99,7 +104,7 @@ void io_gpio::get(void* data)
 sys_error_t io_gpio::set(void* data)
 {
     if (_config->mode == GPIO_MODE_INPUT)
-        ESP_LOGW(TAG, "Gpio is an input type! Level can not be set!");
+        SYS_LOG_W("Gpio is an input type! Level can not be set!");
 
     gpio_set_level(_gpioNumber, *(uint8_t*)data);
 

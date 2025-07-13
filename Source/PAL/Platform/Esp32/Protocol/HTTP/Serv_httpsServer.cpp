@@ -76,7 +76,7 @@ sys_error_t Serv_httpsServer::start()
 {
     std::stringstream ss;
     ss << "Starting server on port: " << _sslConfig.port_secure;
-    SYS_LOG_I( ss.str());
+    SYS_LOG_I(ss.str());
 
     _sslConfig.httpd.stack_size = 8192; // Set stack size for the server task
 
@@ -98,7 +98,7 @@ sys_error_t Serv_httpsServer::start()
 
     if (httpd_ssl_start(&_server, &_sslConfig) == ESP_OK)
     {
-        SYS_LOG_I( "HTTP server started successfully");
+        SYS_LOG_I("HTTP server started successfully");
         setStatus(Status::STARTED);
 
         for (auto uri : _uriList)
@@ -116,7 +116,7 @@ sys_error_t Serv_httpsServer::start()
         }
         else
         {
-            SYS_LOG_W( "Websocket start callback is not set");
+            SYS_LOG_W("Websocket start callback is not set");
         }
     }
     else
@@ -132,7 +132,7 @@ sys_error_t Serv_httpsServer::stop()
 {
     if (_server == NULL)
     {
-        SYS_LOG_W( "Server already stopped or not started");
+        SYS_LOG_W("Server already stopped or not started");
         return ERROR_SUCCESS;
     }
 
@@ -165,7 +165,7 @@ sys_error_t Serv_httpsServer::registerUri(const httpd_uri_t* uri)
         return ERROR_FAIL;
     }
 
-    SYS_LOG_I( "URI handler registered successfully");
+    SYS_LOG_I("URI handler registered successfully");
 
     return ERROR_SUCCESS;
 }
@@ -178,7 +178,7 @@ sys_error_t Serv_httpsServer::unregisterUri(const httpd_uri_t* uri)
         return ERROR_FAIL;
     }
 
-    SYS_LOG_I( "URI handler unregistered successfully");
+    SYS_LOG_I("URI handler unregistered successfully");
     return ERROR_SUCCESS;
 }
 
@@ -194,7 +194,7 @@ static void print_peer_cert_info(const mbedtls_ssl_context* ssl)
     const mbedtls_x509_crt* cert = mbedtls_ssl_get_peer_cert(ssl);
     if (cert == NULL)
     {
-        SYS_LOG_W( "Could not obtain the peer certificate!");
+        SYS_LOG_W("Could not obtain the peer certificate!");
         return;
     }
 
@@ -207,13 +207,13 @@ static void print_peer_cert_info(const mbedtls_ssl_context* ssl)
     }
 
     mbedtls_x509_crt_info(buf.get(), buf_size - 1, "    ", cert);
-    SYS_LOG_I( "Peer certificate info:");
-    SYS_LOG_I( buf.get());
+    SYS_LOG_I("Peer certificate info:");
+    SYS_LOG_I(buf.get());
 }
 
 static void https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
 {
-    SYS_LOG_I( "User callback invoked!");
+    SYS_LOG_I("User callback invoked!");
 
     mbedtls_ssl_context* ssl_ctx = NULL;
 
@@ -232,7 +232,7 @@ static void https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
                 SYS_LOG_E("Error in obtaining the sockfd from tls context");
                 break;
             }
-            SYS_LOG_I( "Socket FD: " + std::to_string(sockfd));
+            SYS_LOG_I("Socket FD: " + std::to_string(sockfd));
 
             ssl_ctx = (mbedtls_ssl_context*)esp_tls_get_ssl_context(user_cb->tls);
             if (ssl_ctx == NULL)
@@ -241,7 +241,7 @@ static void https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
                 break;
             }
             // Logging the current ciphersuite
-            SYS_LOG_I( "Current Ciphersuite: " + std::string(mbedtls_ssl_get_ciphersuite(ssl_ctx)));
+            SYS_LOG_I("Current Ciphersuite: " + std::string(mbedtls_ssl_get_ciphersuite(ssl_ctx)));
         }
         break;
 

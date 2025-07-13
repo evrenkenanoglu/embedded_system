@@ -63,7 +63,7 @@ void Serv_websockets::startWebSocketServer(httpd_handle_t server)
     }
     _server = server;
 
-    SYS_LOG_I( "Starting websocket server");
+    SYS_LOG_I("Starting websocket server");
 }
 void Serv_websockets::stopWebSocketServer()
 {
@@ -84,12 +84,15 @@ sys_error_t Serv_websockets::sendMessage(int client_fd, uint8_t* payload, size_t
     ws_frame.len     = len;
     ws_frame.type    = type;
 
+    // print the message
+    SYS_LOG_D("Sending message: " + std::string(reinterpret_cast<char*>(payload), len) + ", type: " + std::to_string(type) + ", len: " + std::to_string(len));
+
     if (httpd_ws_get_fd_info(_server, client_fd) == HTTPD_WS_CLIENT_WEBSOCKET)
     {
         // print the message
 
         error_t error = httpd_ws_send_frame_async(_server, client_fd, &ws_frame);
-        SYS_LOG_I( "Sending message to client fd: " + std::to_string(client_fd) + ", type: " + std::to_string(type) + ", len: " + std::to_string(len));
+        SYS_LOG_I("Sending message to client fd: " + std::to_string(client_fd) + ", type: " + std::to_string(type) + ", len: " + std::to_string(len));
         if (error != ESP_OK)
         {
             SYS_LOG_E("Failed to send message to client fd: " + std::to_string(client_fd));
