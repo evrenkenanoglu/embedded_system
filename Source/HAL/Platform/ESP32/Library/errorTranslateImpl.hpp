@@ -1,9 +1,7 @@
-#ifndef ERROR_TRANSLATE_ESP32_H
-#define ERROR_TRANSLATE_ESP32_H
+#ifndef ERROR_TRANSLATE_IMPL_H
+#define ERROR_TRANSLATE_IMPL_H
 
 #include "System/IErrorTranslate.h"
-#include "esp_err.h"
-#include <unordered_map>
 
 /**
  * @brief Implementation of error translation for ESP32 platform
@@ -15,13 +13,6 @@
 class ErrorTranslateImpl : public IErrorTranslate
 {
 private:
-    /**
-     * @brief Default constructor
-     *
-     * Initializes the error messages and severities for common ESP32 errors.
-     */
-    void initialize();
-
     /**
      * @brief Default constructor
      */
@@ -44,11 +35,17 @@ public:
      */
     static ErrorTranslateImpl& getInstance();
 
+    /**
+     * @brief Initializes the error translation handler
+     *
+     * This method sets the error translation handler instance.
+     */
+    static void initialize();
+
     std::string getErrorMessageName(int errorCode) const override;
 
     sys_error_t translateError(int errorCode) const override;
 
-    int getErrorSeverity(int errorCode) const override;
 };
 
-#endif // ERROR_TRANSLATE_ESP32_H
+#endif // ERROR_TRANSLATE_IMPL_H
