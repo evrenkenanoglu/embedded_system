@@ -63,7 +63,7 @@ static esp_err_t webSocketHandler(httpd_req_t* req)
     return ESP_OK;
 }
 
-esp_err_t UriPowerSwitchesWebSocket::updateSwitchStates(uint16_t socketId, bool state)
+sys_error_t UriPowerSwitchesWebSocket::updateSwitchStates(uint16_t socketId, bool state)
 {
     // Use string formatting directly with a reserve to avoid reallocations
     std::string message;

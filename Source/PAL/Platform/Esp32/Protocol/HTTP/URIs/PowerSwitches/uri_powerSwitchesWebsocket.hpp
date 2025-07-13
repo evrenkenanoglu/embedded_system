@@ -13,7 +13,7 @@ public:
     ~UriPowerSwitchesWebSocket();
     sys_error_t start();
 
-    error_t updateSwitchStates(uint16_t socketId, bool state);
+    sys_error_t updateSwitchStates(uint16_t socketId, bool state);
 
     // Serv_websockets& getWebsocketServer();
     // Proc_Switches& getProcSwitches();
