@@ -15,6 +15,7 @@ private:
     logImpl(const char* tag)
         : _tag(tag)
     {
+        esp_log_level_set("APP", ESP_LOG_INFO); // Set default log level for the tag
         ESP_LOGI(_tag, "ESP logger wrapper implementation is initialized");
     }
 
@@ -66,7 +67,7 @@ public:
 
     void logDebug(const std::string& message) override
     {
-        ESP_LOGD(_tag, "%s", message.c_str());
+        std::cout << "[DEBUG] " << message << std::endl;
     }
 
     void logToFile(const std::string& filename, LogLevel level, const std::string& message) override
@@ -75,7 +76,7 @@ public:
     }
 
     // Initialize the global logger with this implementation
-    static void initializeLogger()
+    static void initialize()
     {
         LogHandler::getInstance().setLogImplementation(&getInstance());
     }

@@ -5,10 +5,11 @@
 #include <memory>
 
 // Log macros for convenience
-#define SYS_LOG_I(message, ...) LogHandler::getInstance().log(ILog::LogLevel::INFO, message, ##__VA_ARGS__)
-#define SYS_LOG_W(message, ...) LogHandler::getInstance().log(ILog::LogLevel::WARNING, message, ##__VA_ARGS__)
-#define SYS_LOG_E(message, ...) LogHandler::getInstance().log(ILog::LogLevel::ERROR, message, ##__VA_ARGS__)
-#define SYS_LOG_D(message, ...) LogHandler::getInstance().log(ILog::LogLevel::DEBUG, message, ##__VA_ARGS__)
+#define SYS_LOGGER()            LogHandler::getInstance()
+#define SYS_LOG_I(message, ...) SYS_LOGGER().log(ILog::LogLevel::INFO, message, ##__VA_ARGS__)
+#define SYS_LOG_W(message, ...) SYS_LOGGER().log(ILog::LogLevel::WARNING, message, ##__VA_ARGS__)
+#define SYS_LOG_E(message, ...) SYS_LOGGER().log(ILog::LogLevel::ERROR, message, ##__VA_ARGS__)
+#define SYS_LOG_D(message, ...) SYS_LOGGER().log(ILog::LogLevel::DEBUG, message, ##__VA_ARGS__)
 
 /**
  * @brief The LogHandler class is a wrapper for the ILog class to log messages with different severity levels.
@@ -16,7 +17,8 @@
 class LogHandler
 {
 private:
-    ILog* _logImpl = nullptr;
+    ILog*          _logImpl = nullptr;
+    ILog::LogLevel _logLevel;
 
 private:
     /**
@@ -26,6 +28,7 @@ private:
      */
     LogHandler(ILog* logImpl = nullptr)
         : _logImpl(logImpl)
+        , _logLevel(ILog::LogLevel::INFO)
     {
         std::cout << "LogHandler is initialized" << std::endl;
     }
@@ -55,6 +58,12 @@ public:
     {
         _logImpl = logImpl;
     }
+
+    void setLogLevel(ILog::LogLevel logLevel)
+    {
+        _logLevel = logLevel;
+    }
+
     /**
      * @brief Logs a message with the given severity level.
      *
@@ -65,6 +74,10 @@ public:
     template <typename... Args>
     void log(ILog::LogLevel level, const std::string& format, Args... args)
     {
+        // Check if the log level is enabled
+        if (level > _logLevel)
+            return;
+
         if (_logImpl == nullptr)
         {
             return;
