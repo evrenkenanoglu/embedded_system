@@ -36,6 +36,7 @@ typedef enum
     ERROR_WRITE_FAILED    = -103, // Data write to hardware failed
     ERROR_IRQ_HANDLER     = -104, // Error in interrupt handler
     ERROR_DEVICE_BUSY     = -105, // Device or resource is busy
+    ERROR_INVALID_STATE    = -106, // Invalid state of the hardware or peripheral
 
     // Error codes related to memory
     ERROR_OUT_OF_MEMORY    = -201, // Memory allocation failed, out of available memory

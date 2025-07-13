@@ -19,23 +19,15 @@
 #include "error_definitions.h"
 #include <cstdio>
 
-#if defined(DEBUG_PRINT_ENABLED)
-#define DEBUG_OUTPUT(err) SYS_LOG_E(ERROR_MESSAGE(err))
-#else
-#define DEBUG_OUTPUT(err) ((void)0)
-#endif
-
-// Macro for handling errors and returning on error
+// Macro for handling errors and returning on error with output
 #define RETURN_ON_ERROR_WITH_OUTPUT(expr, message)                                                                                                                                                     \
     do                                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
         sys_error_t err = (expr);                                                                                                                                                                      \
         if (err != ERROR_SUCCESS)                                                                                                                                                                      \
         {                                                                                                                                                                                              \
-            char errMsg[256];                                                                                                                                                                          \
-            std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, err, message);                                                                                     \
-            SYS_LOG_E(errMsg);                                                                                                                                                                         \
             DEBUG_OUTPUT(err);                                                                                                                                                                         \
+            SYS_LOG_E("Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, err, message);                                                                                                \
             return err;                                                                                                                                                                                \
         }                                                                                                                                                                                              \
     } while (0)
@@ -50,7 +42,6 @@
             char errMsg[256];                                                                                                                                                                          \
             std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, err, message);                                                                                     \
             SYS_LOG_E(errMsg);                                                                                                                                                                         \
-            DEBUG_OUTPUT(err);                                                                                                                                                                         \
         }                                                                                                                                                                                              \
     } while (0)
 

@@ -4,8 +4,9 @@
 #include "IErrorTranslate.h"
 #include <string>
 
-#define ERROR_MESSAGE(errorCode)   ErrorTranslateHandler::getInstance().getErrorMessageName(errorCode)
-#define TRANSLATE_ERROR(errorCode) ErrorTranslateHandler::getInstance().translateError(errorCode)
+#define SYS_ERROR_TRANSLATER()     ErrorTranslateHandler::getInstance()
+#define ERROR_MESSAGE(errorCode)   SYS_ERROR_TRANSLATER().getErrorMessageName(errorCode)
+#define TRANSLATE_ERROR(errorCode) SYS_ERROR_TRANSLATER().translateError(errorCode)
 
 /**
  * @brief Interface for translating error codes into human-readable messages
