@@ -84,6 +84,17 @@ public:
     virtual sys_error_t receiveData(uint8_t* data, size_t maxLength, size_t& receivedLength) = 0;
 
     /**
+     * @brief Write and read operation over the communication channel
+     *
+     * @param writeData Pointer to the data buffer to be written.
+     * @param writeSize Length of the data to be written.
+     * @param readData Pointer to the buffer where the read data will be stored.
+     * @param readSize Length of the data to be read.
+     * @return sys_error_t
+     */
+    virtual sys_error_t writeRead(const uint8_t* writeData, size_t writeSize, uint8_t* readData, size_t readSize) = 0;
+
+    /**
      * @brief Disconnect from the remote device or network.
      */
     virtual sys_error_t disconnect() = 0;
@@ -116,7 +127,7 @@ public:
      * @param length The length of data to be read.
      * @return sys_error_t True if data read was successful, false otherwise.
      */
-    virtual sys_error_t readData(const void *addressOrKey, uint8_t* data, size_t length) = 0;
+    virtual sys_error_t readData(const void* addressOrKey, uint8_t* data, size_t length) = 0;
 
     /**
      * @brief Write data to the memory device.

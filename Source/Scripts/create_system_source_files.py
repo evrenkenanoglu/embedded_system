@@ -71,6 +71,7 @@ set_definition = ""
 connect_definition = ""
 sendData_definition = ""
 receiveData_definition = ""
+writeRead_definition = ""
 disconnect_definition = ""
 
 # MEM Definitions
@@ -107,7 +108,7 @@ elif system_file_type == "COM":
     ihal_header_file = "IHal.h"
     ihal_classname = "IHAL_COM"
     connect_definition = "sys_error_t " + classname + "::connect() override;\n"
-    disconnect_definition = "void " + classname + "::disconnect() override;\n"
+    disconnect_definition = "sys_error_t " + classname + "::disconnect() override;\n"
     sendData_definition = (
         "sys_error_t "
         + classname
@@ -117,6 +118,11 @@ elif system_file_type == "COM":
         "sys_error_t "
         + classname
         + "::receiveData(uint8_t* data, size_t maxLength, size_t& receivedLength) override;\n"
+    )
+    writeRead_definition = (
+        "sys_error_t "
+        + classname
+        + "::writeRead(const uint8_t* writeBuffer, size_t writeSize, uint8_t* readBuffer, size_t readSize) override;\n"
     )
 
 elif system_file_type == "MEM":
@@ -169,6 +175,7 @@ else:
 
 # Generate the file contents using the templates and the user input
 
+
 def create_header_content(
     filename, classname, brief, abstract_header_file, abstract_classname, **kwargs
 ):
@@ -209,7 +216,6 @@ header_content = ""
 source_content = ""
 
 
-
 if system_file_type == "IO":
     header_content = create_header_content(
         filename,
@@ -236,6 +242,7 @@ elif system_file_type == "COM":
         connect_definition=connect_definition,
         sendData_definition=sendData_definition,
         receiveData_definition=receiveData_definition,
+        writeRead_definition=writeRead_definition,
         disconnect_definition=disconnect_definition,
     )
     source_content = create_source_content(
@@ -244,6 +251,7 @@ elif system_file_type == "COM":
         connect_definition=connect_definition,
         sendData_definition=sendData_definition,
         receiveData_definition=receiveData_definition,
+        writeRead_definition=writeRead_definition,
         disconnect_definition=disconnect_definition,
     )
 
@@ -427,4 +435,3 @@ with open(filename + ".hpp", "w") as header_file:
 with open(filename + ".cpp", "w") as source_file:
     source_file.write(source_content)
     print("Created " + filename + ".cpp")
-
