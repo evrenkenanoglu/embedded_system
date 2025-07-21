@@ -20,40 +20,62 @@
 #include <cstdio>
 
 // Macro for handling errors and returning on error with output
-#define RETURN_ON_ERROR_WITH_OUTPUT(expr, message)                                                                                                                                                     \
-    do                                                                                                                                                                                                 \
-    {                                                                                                                                                                                                  \
-        sys_error_t err = (expr);                                                                                                                                                                      \
-        if (err != ERROR_SUCCESS)                                                                                                                                                                      \
-        {                                                                                                                                                                                              \
-            DEBUG_OUTPUT(err);                                                                                                                                                                         \
-            SYS_LOG_E("Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, err, message);                                                                                                \
-            return err;                                                                                                                                                                                \
-        }                                                                                                                                                                                              \
+#define RETURN_ON_ERROR_WITH_LOG(expr, message, ...)                                                    \
+    do                                                                                                  \
+    {                                                                                                   \
+        sys_error_t err = static_cast<sys_error_t>(expr);                                               \
+        if (err != ERROR_SUCCESS)                                                                       \
+        {                                                                                               \
+            SYS_LOG_E("Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, err, message); \
+            __VA_ARGS__;                                                                                \
+            return err;                                                                                 \
+        }                                                                                               \
     } while (0)
 
 // Macro for handling errors and logging the error
-#define ON_ERROR_WITH_OUTPUT(expr, message)                                                                                                                                                            \
-    do                                                                                                                                                                                                 \
-    {                                                                                                                                                                                                  \
-        sys_error_t err = (expr);                                                                                                                                                                      \
-        if (err != ERROR_SUCCESS)                                                                                                                                                                      \
-        {                                                                                                                                                                                              \
-            char errMsg[256];                                                                                                                                                                          \
-            std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, err, message);                                                                                     \
-            SYS_LOG_E(errMsg);                                                                                                                                                                         \
-        }                                                                                                                                                                                              \
+#define ON_ERROR_WITH_LOG(expr, message)                                                                           \
+    do                                                                                                             \
+    {                                                                                                              \
+        sys_error_t err = (expr);                                                                                  \
+        if (err != ERROR_SUCCESS)                                                                                  \
+        {                                                                                                          \
+            char errMsg[256];                                                                                      \
+            std::sprintf(errMsg, "Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, err, message); \
+            SYS_LOG_E(errMsg);                                                                                     \
+        }                                                                                                          \
     } while (0)
 
 // Macro for handling errors and returning on error
-#define RETURN_ON_ERROR(expr)                                                                                                                                                                          \
-    do                                                                                                                                                                                                 \
-    {                                                                                                                                                                                                  \
-        sys_error_t err = (expr);                                                                                                                                                                      \
-        if (err != ERROR_SUCCESS)                                                                                                                                                                      \
-        {                                                                                                                                                                                              \
-            return err;                                                                                                                                                                                \
-        }                                                                                                                                                                                              \
+#define RETURN_ON_ERROR(expr, ...) \
+    do                             \
+    {                              \
+        sys_error_t err = (expr);  \
+        if (err != ERROR_SUCCESS)  \
+        {                          \
+            __VA_ARGS__;           \
+            return err;            \
+        }                          \
+    } while (0)
+
+#define RETURN_IF_ERROR_WITH_LOG(expr, errorCode, message, ...)                                               \
+    do                                                                                                        \
+    {                                                                                                         \
+        if (expr)                                                                                             \
+        {                                                                                                     \
+            SYS_LOG_E("Error in %s at line %d: Error Code: %d - %s", __FILE__, __LINE__, errorCode, message); \
+            __VA_ARGS__;                                                                                      \
+            return errorCode;                                                                                 \
+        }                                                                                                     \
+    } while (0)
+
+#define RETURN_IF_ERROR(expr, errorCode, ...) \
+    do                                        \
+    {                                         \
+        if (expr)                             \
+        {                                     \
+            __VA_ARGS__;                      \
+            return errorCode;                 \
+        }                                     \
     } while (0)
 
 #endif
