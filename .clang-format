@@ -2,12 +2,12 @@
 Language:        Cpp
 # BasedOnStyle:  LLVM
 AccessModifierOffset: -4 # -2
-AlignAfterOpenBracket: Align
+AlignAfterOpenBracket: AlwaysBreak
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignConsecutiveMacros: AcrossEmptyLinesAndComments
 AlignConsecutiveBitFields : AcrossEmptyLinesAndComments
-AlignEscapedNewlines: Right
+AlignEscapedNewlines: Left
 AlignOperands:   true
 AlignTrailingComments: true
 AllowAllParametersOfDeclarationOnNextLine: true
@@ -20,7 +20,7 @@ AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
 AlwaysBreakBeforeMultilineStrings: false
 AlwaysBreakTemplateDeclarations: true # false
-BinPackArguments: true
+BinPackArguments: false
 BinPackParameters: true
 BraceWrapping:   
   AfterClass:      true # false
@@ -46,7 +46,7 @@ BreakConstructorInitializersBeforeComma: true
 BreakConstructorInitializers: BeforeColon
 BreakAfterJavaFieldAnnotations: false
 BreakStringLiterals: true
-ColumnLimit:     200
+ColumnLimit:     175
 CommentPragmas:  '^ IWYU pragma:'
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
