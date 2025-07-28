@@ -19,8 +19,7 @@
     MCP23017_I2C_ADDRESS_DEFAULT \
     | (MCP23017_ADDRESS_PINA0_VALUE << 0) | (MCP23017_ADDRESS_PINA1_VALUE << 1) | (MCP23017_ADDRESS_PINA2_VALUE << 2)
 
-// Define the IOCON register bits
-
+// IOCON Register Definitions
 #define SEQENTIAL_OPERATION_ENABLED  0x00 // Sequential operation enabled
 #define SEQENTIAL_OPERATION_DISABLED 0x01 // Sequential operation disabled
 
@@ -38,6 +37,18 @@
 
 #define INTPOL_ACTIVE_HIGH           0x01 // Active high interrupt
 #define INTPOL_ACTIVE_LOW            0x00 // Active low interrupt
+
+// Direction Register Definitions
+#define INPUT_MODE                   0x01 // Input mode
+#define OUTPUT_MODE                  0x00 // Output mode
+
+// Polarity Register Definitions
+#define POLARITY_INVERTED            0x01 // Inverted polarity : GPIO register bit reflects the opposite logic state of the input pin
+#define POLARITY_NORMAL              0x00 // Normal polarity : GPIO register bit reflects the same logic state of the input pin.
+
+// GPIO PORT Register Definitions
+#define LOGIC_HIGH                   0x01 // GPIO pin set to high
+#define LOGIC_LOW                    0x00 // GPIO pin set to low
 
 class cpx_mcp23x17 : public IHAL_CPX
 {
