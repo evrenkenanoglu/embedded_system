@@ -215,11 +215,36 @@ private: // User-defined methods
      * @param port The port to set (A or B).
      * @param pinNo The pin number to set the direction for (0-7).
      * @param direction The direction to set (input or output).
+     *  1 = Pin is configured as an input.
+     *  0 = Pin is configured as an output.
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     sys_error_t setIODirection(PORT port, uint8_t pinNo, bool direction);
     sys_error_t enableIOInterrupt(PORT port, uint8_t pinNo, bool enable);
+
+    /**
+     * @brief Controls the polarity inversion of the input pins
+     * 1 = GPIO register bit reflects the opposite logic state of the input pin.
+     * 0 = GPIO register bit reflects the same logic state of the input pin.
+     *
+     * @param port The port to set (A or B).
+     * @param pinNo The pin number to set the polarity for (0-7).
+     * @param polarity The polarity to set (true for inverted, false for normal).
+     * @return sys_error_t
+     */
     sys_error_t setPolarity(PORT port, uint8_t pinNo, bool polarity);
+
+    /**
+     * @brief Set the Default Value register for a specific pin.
+     *
+     * The  default  comparison  value  is  configured  in  the  DEFVAL register. If enabled (via GPINTEN and
+     * INTCON) to compare against the DEFVAL register, an  opposite  value  on  the  associated  pin  will  cause  an
+     * interrupt to occur.
+     * @param port The port to set (A or B).
+     * @param pinNo The pin number to set the default value for (0-7).
+     * @param value The default value to set (true for high, false for low).
+     * @return sys_error_t
+     */
     sys_error_t setDefaultValue(PORT port, uint8_t pinNo, bool value);
     sys_error_t setGPIO(PORT port, uint8_t pinNo, bool value);
     sys_error_t getGPIO(PORT port, uint8_t pinNo, bool& value);
@@ -228,6 +253,24 @@ private: // User-defined methods
 
     sys_error_t writeRegister(const uint8_t reg, const uint8_t value);
     sys_error_t readRegister(const uint8_t reg, uint8_t& value);
-    sys_error_t updateRegister(const uint8_t reg, const uint8_t mask, const uint8_t value);
+
+    /**
+     * @brief Update a specific register with a REG_TYPE, PORT, MASK, and VALUE.
+     *
+     * @param reg
+     * @param mask
+     * @param value
+     * @param regType
+     * @param port
+     * @param pinNo
+     * @param value
+     * @return sys_error_t
+     */
+    sys_error_t updateRegister(uint8_t reg, uint8_t mask, uint8_t value);
+    sys_error_t updatePortRegisterMasked(PORT port, uint8_t reg, uint8_t mask, uint8_t value);
+    sys_error_t updateRegisterByTypeMasked(REG_TYPE regType, PORT port, uint8_t mask, uint8_t value);
+    sys_error_t updateRegisterByTypeAndPin(REG_TYPE regType, PORT port, uint8_t pinNo, bool value);
+
+    sys_error_t checkParameters(REG_TYPE regType, PORT port, uint8_t pinNo);
 };
 #endif /* CPX_MCP23X17_HPP */

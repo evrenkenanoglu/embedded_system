@@ -90,23 +90,6 @@ sys_error_t cpx_mcp23x17::writeRegister(const uint8_t reg, const uint8_t value)
         "Failed to write register",                 // Error Message
     );
 
-    do
-    {
-        sys_error_t err = static_cast<sys_error_t>(_comInterface.sendData(data, sizeof(data)));
-        if (err != ERROR_SUCCESS)
-        {
-            LogHandler::getInstance().log(
-                ILog::LogLevel::ERROR,
-                "Error in %s at line %d: Error Code: %d - %s",
-                "C:\\Workspace_Personal\\ESP32\\Embedded_IoT_BT_WIFI_Base_Project\\embedded_system\\Source\\HAL\\cpx_mcp23x17.cpp",
-                91,
-                err,
-                "Failed to write register");
-            ;
-            return err;
-        }
-    } while (0);
-
     return ERROR_SUCCESS;
 }
 
@@ -158,63 +141,46 @@ sys_error_t cpx_mcp23x17::updateRegister(const uint8_t reg, uint8_t mask, uint8_
 
 sys_error_t cpx_mcp23x17::setIODirection(PORT port, uint8_t pinNo, bool direction)
 {
-    if (!_started)
-    {
-        return ERROR_NOT_INITIALIZED; // Not started, cannot set I/O direction
-    }
-
-    uint8_t reg = regMap[REG_TYPE::IODIR][_bankMode][port];
-
-    uint8_t mask = (1 << pinNo);
-
-    // Update the I/O direction register
-    sys_error_t err = updateRegister(static_cast<uint8_t>(reg), mask, direction ? mask : 0);
-    if (err != ERROR_SUCCESS)
-    {
-        return err; // Return the error code if the operation failed
-    }
-
-    return ERROR_SUCCESS;
-}
-
-sys_error_t cpx_mcp23x17::enableIOInterrupt(PORT port, uint8_t pinNo, bool enable)
-{
-    if (!_started)
-    {
-        return ERROR_NOT_INITIALIZED; // Not started, cannot enable I/O interrupt
-    }
-
-    uint8_t reg = regMap[REG_TYPE::]
-
-        uint8_t mask = (1 << pinNo);
-
-    // Update the GPIO interrupt enable register
-    sys_error_t err = updateRegister(static_cast<uint8_t>(reg), mask, enable ? mask : 0);
-    if (err != ERROR_SUCCESS)
-    {
-        return err; // Return the error code if the operation failed
-    }
-
-    return ERROR_SUCCESS;
+    return updateRegisterByTypeAndPin(REG_TYPE::IODIR, port, pinNo, direction);
 }
 
 sys_error_t cpx_mcp23x17::setPolarity(PORT port, uint8_t pinNo, bool polarity)
 {
-    if (!_started)
-    {
-        return ERROR_NOT_INITIALIZED; // Not started, cannot set polarity
-    }
+    return updateRegisterByTypeAndPin(REG_TYPE::IPOL, port, pinNo, polarity);
+}
 
-    // Determine the register and bit to set based on port and pin number
-    REG_BANK0 reg  = (port == PORT::A) ? REG_BANK0::IPOLA : REG_BANK0::IPOLB;
-    uint8_t   mask = (1 << pinNo);
+sys_error_t cpx_mcp23x17::setDefaultValue(PORT port, uint8_t pinNo, bool value)
+{
+    return updateRegisterByTypeAndPin(REG_TYPE::DEFVAL, port, pinNo, value);
+}
 
-    // Update the input polarity register
-    sys_error_t err = updateRegister(static_cast<uint8_t>(reg), mask, polarity ? mask : 0);
-    if (err != ERROR_SUCCESS)
-    {
-        return err; // Return the error code if the operation failed
-    }
+sys_error_t cpx_mcp23x17::checkParameters(REG_TYPE regType, PORT port, uint8_t pinNo)
+{
+    RETURN_IF_ERROR_WITH_LOG(
+        (static_cast<uint8_t>(regType) >= REG_TYPE_COUNT) || (static_cast<uint8_t>(port) >= PORT_COUNT) || (pinNo > 7),
+        ERROR_INVALID_ARG,    // Error Code
+        "Invalid parameters!" // Error Message
+    );
 
     return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_mcp23x17::updateRegisterByTypeMasked(REG_TYPE regType, PORT port, const uint8_t mask, const uint8_t value)
+{
+    if (!_started)
+    {
+        return ERROR_NOT_INITIALIZED; // Not started, cannot update register
+    }
+
+    RETURN_ON_ERROR(checkParameters(regType, port, 0));
+
+    const uint8_t reg = regMap[static_cast<uint8_t const>(regType)][static_cast<uint8_t const>(_bankMode)][static_cast<uint8_t const>(port)];
+
+    return updateRegister(reg, mask, value);
+}
+
+sys_error_t cpx_mcp23x17::updateRegisterByTypeAndPin(REG_TYPE regType, PORT port, uint8_t pinNo, const bool value)
+{
+    uint8_t mask = (1 << pinNo);
+    return updateRegisterByTypeMasked(regType, port, mask, value ? mask : 0);
 }
