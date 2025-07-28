@@ -19,6 +19,26 @@
     MCP23017_I2C_ADDRESS_DEFAULT \
     | (MCP23017_ADDRESS_PINA0_VALUE << 0) | (MCP23017_ADDRESS_PINA1_VALUE << 1) | (MCP23017_ADDRESS_PINA2_VALUE << 2)
 
+// Define the IOCON register bits
+
+#define SEQENTIAL_OPERATION_ENABLED  0x00 // Sequential operation enabled
+#define SEQENTIAL_OPERATION_DISABLED 0x01 // Sequential operation disabled
+
+#define MIRROR_ENABLED               0x01 // Mirror enabled : The INT pins are internally connected
+#define MIRROR_DISABLED              0x00 // Mirror disabled : The INT pins are not connected. INTA is associated with PORTA and INTB is associated with PORTB
+
+#define SLEW_RATE_DISABLED           0x01 // Slew rate disabled
+#define SLEW_RATE_ENABLED            0x00 // Slew rate enabled
+
+#define HAEN_ENABLED                 0x01 // Hardware address enabled
+#define HAEN_DISABLED                0x00 // Hardware address disabled
+
+#define ODR_ENABLED                  0x01 // Open-drain output (overrides the INTPOL bit.)
+#define ODR_DISABLED                 0x00 // Active driver output (INTPOL bit sets the polarity.)
+
+#define INTPOL_ACTIVE_HIGH           0x01 // Active high interrupt
+#define INTPOL_ACTIVE_LOW            0x00 // Active low interrupt
+
 class cpx_mcp23x17 : public IHAL_CPX
 {
 private:
@@ -185,9 +205,17 @@ private:
     } mcp23017_config_t;
 
 private:
-    bool          _started;
-    IHAL_COM&     _comInterface; // Reference to the communication interface
-    REG_BANK_MODE _bankMode;     // True if banked mode is enabled
+    bool      _started;
+    IHAL_COM& _comInterface;  // Reference to the communication interface
+    uint8_t   _deviceAddress; // I2C address of the MCP23017
+    // IOCON register bits
+    REG_BANK_MODE _bankMode;                      // True if banked mode is enabled
+    bool          _isSequentialOperationDisabled; // True if sequential mode is disabled
+    bool          _isMirrorEnabled;               // True if mirror mode is enabled
+    bool          _isSlewRateDisabled;            // True if slew rate is disabled
+    bool          _isHardwareAddressEnabled;      // True if hardware address is enabled (A0, A1, A2)
+    bool          _isOpenDrainEnabled;            // True if open-drain output is enabled
+    bool          _isIntPolarityActiveHigh;       // True if interrupt polarity is active highF
 
 public: // Interface methods
     cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode);
@@ -246,31 +274,52 @@ private: // User-defined methods
      * @return sys_error_t
      */
     sys_error_t setDefaultValue(PORT port, uint8_t pinNo, bool value);
-    sys_error_t setGPIO(PORT port, uint8_t pinNo, bool value);
-    sys_error_t getGPIO(PORT port, uint8_t pinNo, bool& value);
+    sys_error_t setGpio(PORT port, uint8_t pinNo, bool value);
+    sys_error_t getGpio(PORT port, uint8_t pinNo, bool& value);
     sys_error_t getPortGPIO(PORT port, uint8_t& value);
     sys_error_t setPortGPIO(PORT port, uint8_t value);
 
-    sys_error_t writeRegister(const uint8_t reg, const uint8_t value);
-    sys_error_t readRegister(const uint8_t reg, uint8_t& value);
+    // IOCON Register Methods
+    sys_error_t setBankMode(REG_BANK_MODE bankMode);
+    sys_error_t setIOCONRegister();
 
+    /**
+     * @brief Write a value to a specific register.
+     *
+     * @param reg The register address to write to.
+     * @param value The value to write to the register.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    sys_error_t writeRegister(const uint8_t reg, const uint8_t value);
+
+    /**
+     * @brief Read a value from a specific register.
+     *
+     * @param reg The register address to read from.
+     * @param value Reference to store the read value.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    sys_error_t readRegister(const uint8_t reg, uint8_t& value);
+    sys_error_t readRegisterByTypeByte(const REG_TYPE regType, const PORT port, uint8_t& value);
+    sys_error_t readRegisterByTypeBit(const REG_TYPE regType, const PORT port, const uint8_t bitNo, bool& value);
     /**
      * @brief Update a specific register with a REG_TYPE, PORT, MASK, and VALUE.
      *
-     * @param reg
-     * @param mask
-     * @param value
-     * @param regType
-     * @param port
-     * @param pinNo
-     * @param value
+     * @param reg The register address to update.
+     * @param mask The mask to apply to the register value.
+     * @param value The value to set in the register after applying the mask.
+     * @param regType The type of register to update (IODIR, IPOL, etc.).
+     * @param port The port to update (A or B).
+     * @param pinNo The pin number to update (0-7).
+     * @param value The value to set in the register after applying the mask.
      * @return sys_error_t
      */
-    sys_error_t updateRegister(uint8_t reg, uint8_t mask, uint8_t value);
-    sys_error_t updatePortRegisterMasked(PORT port, uint8_t reg, uint8_t mask, uint8_t value);
-    sys_error_t updateRegisterByTypeMasked(REG_TYPE regType, PORT port, uint8_t mask, uint8_t value);
-    sys_error_t updateRegisterByTypeAndPin(REG_TYPE regType, PORT port, uint8_t pinNo, bool value);
+    sys_error_t updateRegisterMasked(const uint8_t reg, const uint8_t mask, const uint8_t value, const bool verify);
+    sys_error_t updateRegisterByTypePortMaskByte(const REG_TYPE regType, const PORT port, const uint8_t mask, const uint8_t value, const bool verify);
+    sys_error_t updateRegisterByTypePortBit(const REG_TYPE regType, const PORT port, const uint8_t bitNo, const bool value, const bool verify);
 
-    sys_error_t checkParameters(REG_TYPE regType, PORT port, uint8_t pinNo);
+    sys_error_t verifyRegister(const uint8_t reg, const uint8_t expectedValue);
+
+    sys_error_t checkParameters(const REG_TYPE regType, const PORT port, const uint8_t bitNo);
 };
 #endif /* CPX_MCP23X17_HPP */

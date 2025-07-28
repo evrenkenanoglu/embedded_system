@@ -12,7 +12,15 @@
 cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode)
     : _started(false)
     , _comInterface(comInterface)
+    , _deviceAddress(MCP23017_I2C_ADDRESS)
     , _bankMode(bankMode)
+    , _isMirrorEnabled(static_cast<bool>(MIRROR_DISABLED))
+    , _isSequentialOperationDisabled(static_cast<bool>(SEQENTIAL_OPERATION_DISABLED))
+    , _isSlewRateDisabled(static_cast<bool>(SLEW_RATE_DISABLED))
+    , _isHardwareAddressEnabled(static_cast<bool>(HAEN_ENABLED))
+    , _isOpenDrainEnabled(static_cast<bool>(ODR_DISABLED))
+    , _isIntPolarityActiveHigh(static_cast<bool>(INTPOL_ACTIVE_HIGH))
+
 {
     // constructor implementation
 }
@@ -29,6 +37,10 @@ sys_error_t cpx_mcp23x17::start()
     {
         return ERROR_SUCCESS; // Already started
     }
+
+    setIOCONRegister();
+
+    _started = true; // Mark as started
 
     return ERROR_SUCCESS;
 }
@@ -72,22 +84,74 @@ sys_error_t cpx_mcp23x17::stop()
 
 sys_error_t cpx_mcp23x17::init() {}
 
+sys_error_t cpx_mcp23x17::setBankMode(REG_BANK_MODE bankMode)
+{
+    if (bankMode != _bankMode)
+    {
+        _bankMode = bankMode;
+        return setIOCONRegister();
+    }
+    return ERROR_SUCCESS; // No change needed
+}
+
+sys_error_t cpx_mcp23x17::setIOCONRegister()
+{
+    // Set IOCON register bits based on the current configuration
+    uint8_t ioconBits = (static_cast<bool>(_bankMode) ? static_cast<uint8_t>(IOCON_BITS::BANK) : 0) |    // bank mode
+                        (_isMirrorEnabled ? static_cast<uint8_t>(IOCON_BITS::MIRROR) : 0) |              // interrupt mirror
+                        (_isSequentialOperationDisabled ? static_cast<uint8_t>(IOCON_BITS::SEQOP) : 0) | // sequential operation
+                        (_isSlewRateDisabled ? static_cast<uint8_t>(IOCON_BITS::DISSLW) : 0) |           // slew rate control
+                        (_isHardwareAddressEnabled ? static_cast<uint8_t>(IOCON_BITS::HAEN) : 0) |       // hardware address enable
+                        (_isOpenDrainEnabled ? static_cast<uint8_t>(IOCON_BITS::ODR) : 0) |              // open-drain mode
+                        (_isIntPolarityActiveHigh ? static_cast<uint8_t>(IOCON_BITS::INTPOL) : 0)        // interrupt polarity
+        ;
+    // Update the IOCON register with the provided bits
+    return updateRegisterByTypePortMaskByte(REG_TYPE::IOCON, PORT::A, 0xFF, ioconBits, true);
+}
+
+sys_error_t cpx_mcp23x17::setIODirection(PORT port, uint8_t pinNo, bool direction)
+{
+    return updateRegisterByTypePortBit(REG_TYPE::IODIR, port, pinNo, direction, true);
+}
+
+sys_error_t cpx_mcp23x17::setPolarity(PORT port, uint8_t pinNo, bool polarity)
+{
+    return updateRegisterByTypePortBit(REG_TYPE::IPOL, port, pinNo, polarity, true);
+}
+
+sys_error_t cpx_mcp23x17::setDefaultValue(PORT port, uint8_t pinNo, bool value)
+{
+    return updateRegisterByTypePortBit(REG_TYPE::DEFVAL, port, pinNo, value, true);
+}
+
+sys_error_t cpx_mcp23x17::setGpio(PORT port, uint8_t pinNo, bool value)
+{
+    return updateRegisterByTypePortBit(REG_TYPE::GPIO, port, pinNo, value, true);
+}
+
+sys_error_t cpx_mcp23x17::getGpio(PORT port, uint8_t pinNo, bool& value)
+{
+    return readRegisterByTypeBit(REG_TYPE::GPIO, port, pinNo, value);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// REGISTER OPERATIONS
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 sys_error_t cpx_mcp23x17::writeRegister(const uint8_t reg, const uint8_t value)
 {
     if (!_started)
     {
         return ERROR_NOT_INITIALIZED; // Not started, cannot write register
     }
+
     // Prepare the data to be sent
-    uint8_t data[3];
-    data[0] = static_cast<uint8_t>(MCP23017_I2C_ADDRESS); // MCP23017 I2C address
-    data[1] = static_cast<uint8_t>(reg);                  // Register address
-    data[2] = value;                                      // Value to write
+    const uint8_t data[2] = {static_cast<uint8_t>(reg), value}; // Register address and value to write
 
     // Send the data using the communication interface
     RETURN_ON_ERROR_WITH_LOG(
-        _comInterface.sendData(data, sizeof(data)), // Function Call
-        "Failed to write register",                 // Error Message
+        _comInterface.sendData(&_deviceAddress, data, sizeof(data)), // Function Call
+        "Failed to write register",                                  // Error Message
     );
 
     return ERROR_SUCCESS;
@@ -100,21 +164,39 @@ sys_error_t cpx_mcp23x17::readRegister(const uint8_t reg, uint8_t& value)
         return ERROR_NOT_INITIALIZED; // Not started, cannot read register
     }
 
-    // Prepare the data to be sent
-    uint8_t writeBuffer[2];
-    writeBuffer[0] = static_cast<uint8_t>(MCP23017_I2C_ADDRESS); // MCP23017 I2C address
-    writeBuffer[1] = static_cast<uint8_t>(reg);                  // Register address
-
     // Read the value from the register using the communication interface
     RETURN_ON_ERROR_WITH_LOG(
-        _comInterface.writeRead(writeBuffer, sizeof(writeBuffer), &value, sizeof(value)), // Function Call
-        "Failed to read register",                                                        // Error Message
+        _comInterface.writeRead(&_deviceAddress, &reg, sizeof(reg), &value, sizeof(value)), // Function Call
+        "Failed to read register",                                                          // Error Message
     );
 
     return ERROR_SUCCESS;
 }
 
-sys_error_t cpx_mcp23x17::updateRegister(const uint8_t reg, uint8_t mask, uint8_t value)
+sys_error_t cpx_mcp23x17::readRegisterByTypeByte(const REG_TYPE regType, const PORT port, uint8_t& value)
+{
+    RETURN_ON_ERROR(checkParameters(regType, port, 0));
+
+    const uint8_t reg = regMap[static_cast<uint8_t const>(regType)][static_cast<uint8_t const>(_bankMode)][static_cast<uint8_t const>(port)];
+
+    return readRegister(reg, value);
+}
+
+sys_error_t cpx_mcp23x17::readRegisterByTypeBit(const REG_TYPE regType, const PORT port, const uint8_t bitNo, bool& value)
+{
+    RETURN_ON_ERROR(checkParameters(regType, port, bitNo));
+
+    uint8_t regValue;
+    RETURN_ON_ERROR_WITH_LOG(
+        readRegisterByTypeByte(regType, port, regValue), // Function Call
+        "Failed to read register value",                 // Error Message
+    );
+
+    value = (regValue & (1 << bitNo)) != 0; // Check if the specific bit is set
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_mcp23x17::updateRegisterMasked(const uint8_t reg, const uint8_t mask, const uint8_t value, const bool verify)
 {
     if (!_started)
     {
@@ -136,51 +218,61 @@ sys_error_t cpx_mcp23x17::updateRegister(const uint8_t reg, uint8_t mask, uint8_
         "Failed to write updated register value", // Error Message
     );
 
+    if (verify)
+    {
+        // Verify the register value if required
+        RETURN_ON_ERROR_WITH_LOG(
+            verifyRegister(reg, currentValue), // Function Call
+            "Failed to verify register value", // Error Message
+        );
+    }
+
     return ERROR_SUCCESS;
 }
 
-sys_error_t cpx_mcp23x17::setIODirection(PORT port, uint8_t pinNo, bool direction)
+sys_error_t cpx_mcp23x17::verifyRegister(const uint8_t reg, const uint8_t expectedValue)
 {
-    return updateRegisterByTypeAndPin(REG_TYPE::IODIR, port, pinNo, direction);
+    if (!_started)
+    {
+        return ERROR_NOT_INITIALIZED; // Not started, cannot verify register
+    }
+
+    uint8_t currentValue;
+    RETURN_ON_ERROR_WITH_LOG(
+        readRegister(reg, currentValue),         // Function Call
+        "Failed to read current register value", // Error Message
+    );
+
+    if (currentValue != expectedValue)
+    {
+        return ERROR_READ_FAILED; // Verification failed, current value does not match expected value
+    }
+
+    return ERROR_SUCCESS;
 }
 
-sys_error_t cpx_mcp23x17::setPolarity(PORT port, uint8_t pinNo, bool polarity)
+sys_error_t cpx_mcp23x17::updateRegisterByTypePortMaskByte(const REG_TYPE regType, const PORT port, const uint8_t mask, const uint8_t value, const bool verify)
 {
-    return updateRegisterByTypeAndPin(REG_TYPE::IPOL, port, pinNo, polarity);
+    RETURN_ON_ERROR(checkParameters(regType, port, 0));
+
+    const uint8_t reg = regMap[static_cast<uint8_t const>(regType)][static_cast<uint8_t const>(_bankMode)][static_cast<uint8_t const>(port)];
+
+    return updateRegisterMasked(reg, mask, value, verify);
 }
 
-sys_error_t cpx_mcp23x17::setDefaultValue(PORT port, uint8_t pinNo, bool value)
+sys_error_t cpx_mcp23x17::updateRegisterByTypePortBit(const REG_TYPE regType, const PORT port, const uint8_t bitNo, const bool value, const bool verify)
 {
-    return updateRegisterByTypeAndPin(REG_TYPE::DEFVAL, port, pinNo, value);
+    uint8_t mask = (1 << bitNo);
+    return updateRegisterByTypePortMaskByte(regType, port, mask, value ? mask : 0, verify);
 }
 
-sys_error_t cpx_mcp23x17::checkParameters(REG_TYPE regType, PORT port, uint8_t pinNo)
+sys_error_t cpx_mcp23x17::checkParameters(const REG_TYPE regType, const PORT port, const uint8_t bitNo)
 {
     RETURN_IF_ERROR_WITH_LOG(
-        (static_cast<uint8_t>(regType) >= REG_TYPE_COUNT) || (static_cast<uint8_t>(port) >= PORT_COUNT) || (pinNo > 7),
+        (static_cast<uint8_t>(regType) >= REG_TYPE_COUNT) || (static_cast<uint8_t>(port) >= PORT_COUNT) || (bitNo > 7),
         ERROR_INVALID_ARG,    // Error Code
         "Invalid parameters!" // Error Message
     );
 
     return ERROR_SUCCESS;
-}
-
-sys_error_t cpx_mcp23x17::updateRegisterByTypeMasked(REG_TYPE regType, PORT port, const uint8_t mask, const uint8_t value)
-{
-    if (!_started)
-    {
-        return ERROR_NOT_INITIALIZED; // Not started, cannot update register
-    }
-
-    RETURN_ON_ERROR(checkParameters(regType, port, 0));
-
-    const uint8_t reg = regMap[static_cast<uint8_t const>(regType)][static_cast<uint8_t const>(_bankMode)][static_cast<uint8_t const>(port)];
-
-    return updateRegister(reg, mask, value);
-}
-
-sys_error_t cpx_mcp23x17::updateRegisterByTypeAndPin(REG_TYPE regType, PORT port, uint8_t pinNo, const bool value)
-{
-    uint8_t mask = (1 << pinNo);
-    return updateRegisterByTypeMasked(regType, port, mask, value ? mask : 0);
 }
