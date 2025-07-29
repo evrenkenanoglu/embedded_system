@@ -64,6 +64,7 @@ void cpx_credentialsManager::CleanupOnError()
 
 sys_error_t cpx_credentialsManager::start()
 {
+    SYS_LOG_I("Starting cpx_credentialsManager...");
 
     // Check if the mutex is created
     if (_mutex == nullptr)
@@ -77,11 +78,11 @@ sys_error_t cpx_credentialsManager::start()
 
     sys_error_t result = ERROR_SUCCESS;
 
-    if (_memDevice.init() != ERROR_SUCCESS)
-    {
-        SYS_LOG_E("Failed to initialize memory device");
-        return ERROR_FAIL;
-    }
+    RETURN_IF_ERROR_WITH_LOG(
+        (_memDevice.init() != ERROR_SUCCESS), // Expression
+        ERROR_INIT_FAILED,                    // Error code
+        "Failed to initialize memory device", // Error message
+        xSemaphoreGive(_mutex));              // Cleanup
 
     // Clear and reuse the buffer before reading
     memset(_credentials.serverCert.data(), 0, _credentials.serverCert.size());
@@ -95,7 +96,7 @@ sys_error_t cpx_credentialsManager::start()
         // Verify we have meaningful data (non-empty PEM)
         if (strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) > 0)
         {
-            SYS_LOG_I( "Valid private key exists in storage");
+            SYS_LOG_I("Valid private key exists in storage");
             xEventGroupSetBits(_credentialMngrEventGroup, KEY_GEN_COMPLETED); // Set event bit for key generation completed
             xSemaphoreGive(_mutex);
             return ERROR_SUCCESS;
@@ -108,11 +109,13 @@ sys_error_t cpx_credentialsManager::start()
         xEventGroupClearBits(_credentialMngrEventGroup, KEY_GEN_COMPLETED | KEY_GEN_FAILED);
     }
 
-    BaseType_t isTaskCreated = xTaskCreate(keyGenerationTask, "key_gen_task",
-                                           8192,                 // Stack size - RSA generation needs more stack
-                                           this,                 // Pass the instance of cpx_credentialsManager
-                                           tskIDLE_PRIORITY + 1, // Task priority
-                                           &_keyGenTaskHandle    // Task handle
+    BaseType_t isTaskCreated = xTaskCreate(
+        keyGenerationTask,
+        "key_gen_task",
+        8192,                 // Stack size - RSA generation needs more stack
+        this,                 // Pass the instance of cpx_credentialsManager
+        tskIDLE_PRIORITY + 1, // Task priority
+        &_keyGenTaskHandle    // Task handle
     );
 
     if (isTaskCreated != pdPASS)
@@ -140,7 +143,7 @@ void* cpx_credentialsManager::get()
         _charData.serverCertPtr  = _credentials.serverCert.data();
         _charData.serverCertSize = strlen(reinterpret_cast<const char*>(_charData.serverCertPtr)) + 1; // Include null terminator
 
-        SYS_LOG_I( "Returning stored credentials as char pointers");
+        SYS_LOG_I("Returning stored credentials as char pointers");
     }
     else
     {
@@ -149,7 +152,7 @@ void* cpx_credentialsManager::get()
         _charData.serverCertPtr  = nullptr;
         _charData.serverCertSize = 0;
 
-        SYS_LOG_I( "No stored credentials found, returning nullptr");
+        SYS_LOG_I("No stored credentials found, returning nullptr");
     }
 
     // Release the mutex
@@ -205,7 +208,7 @@ sys_error_t cpx_credentialsManager::generateAndStoreKeys()
 
     isKeyGenerationNeeded = false; // Reset the flag after successful generation and storage
 
-    SYS_LOG_I( "Keys generated and stored successfully");
+    SYS_LOG_I("Keys generated and stored successfully");
     return releaseGuard(ERROR_SUCCESS);
 }
 
@@ -215,7 +218,7 @@ sys_error_t cpx_credentialsManager::generateKeys()
     mbedtlsComponentsInit();
 
     // Generate the keys
-    SYS_LOG_I( "Generating Certificate and Private Key...");
+    SYS_LOG_I("Generating Certificate and Private Key...");
 
     // Step 1: Seed the random number generator
     if (mbedtls_ctr_drbg_seed(&_ctr_drbg, mbedtls_entropy_func, &_entropy, NULL, 0) != 0)
@@ -226,7 +229,8 @@ sys_error_t cpx_credentialsManager::generateKeys()
     }
 
     // Step 2: Generate the RSA key
-    if (mbedtls_pk_setup(&_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) != 0 || mbedtls_rsa_gen_key(mbedtls_pk_rsa(_key), mbedtls_ctr_drbg_random, &_ctr_drbg, KEY_SIZE, 65537) != 0)
+    if (mbedtls_pk_setup(&_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) != 0 ||
+        mbedtls_rsa_gen_key(mbedtls_pk_rsa(_key), mbedtls_ctr_drbg_random, &_ctr_drbg, KEY_SIZE, 65537) != 0)
     {
         SYS_LOG_E("Failed to generate RSA key");
         CleanupOnError();
@@ -272,15 +276,15 @@ sys_error_t cpx_credentialsManager::generateKeys()
     CleanupOnError();
 
     // Print the generated keys for debugging
-    SYS_LOG_I( "Private Key Size: ");
-    SYS_LOG_I( std::to_string(_credentials.privateKey.size()).c_str());
-    SYS_LOG_I( "Generated private key: ");
-    SYS_LOG_I( reinterpret_cast<const char*>(_credentials.privateKey.data()));
+    SYS_LOG_I("Private Key Size: ");
+    SYS_LOG_I(std::to_string(_credentials.privateKey.size()).c_str());
+    SYS_LOG_I("Generated private key: ");
+    SYS_LOG_I(reinterpret_cast<const char*>(_credentials.privateKey.data()));
 
-    SYS_LOG_I( "Server Certificate Size: ");
-    SYS_LOG_I( std::to_string(_credentials.serverCert.size()).c_str());
-    SYS_LOG_I( "Generated server certificate: ");
-    SYS_LOG_I( reinterpret_cast<const char*>(_credentials.serverCert.data()));
+    SYS_LOG_I("Server Certificate Size: ");
+    SYS_LOG_I(std::to_string(_credentials.serverCert.size()).c_str());
+    SYS_LOG_I("Generated server certificate: ");
+    SYS_LOG_I(reinterpret_cast<const char*>(_credentials.serverCert.data()));
 
     return ERROR_SUCCESS;
 }
