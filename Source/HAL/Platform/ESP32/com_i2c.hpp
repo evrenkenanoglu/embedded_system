@@ -27,11 +27,11 @@ public:
 
     sys_error_t connect() override;
 
-    sys_error_t sendData(const uint8_t* data, size_t length) override;
+    sys_error_t sendData(const void* deviceAddress, const uint8_t* data, size_t length) override;
 
-    sys_error_t receiveData(uint8_t* data, size_t maxLength, size_t& receivedLength) override;
+    sys_error_t receiveData(const void* deviceAddress, uint8_t* data, size_t maxLength, size_t& receivedLength) override;
 
-    sys_error_t writeRead(const uint8_t* writeData, size_t writeSize, uint8_t* readData, size_t readSize) override;
+    sys_error_t writeRead(const void* deviceAddress, const uint8_t* writeData, size_t writeSize, uint8_t* readData, size_t readSize) override;
 
     sys_error_t disconnect() override;
 

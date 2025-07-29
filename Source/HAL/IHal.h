@@ -71,7 +71,7 @@ public:
      * @param length The length of the data to be sent.
      * @return sys_error_t The error code indicating the success or failure of the data transmission.
      */
-    virtual sys_error_t sendData(const uint8_t* data, size_t length) = 0;
+    virtual sys_error_t sendData(const void* deviceAddress, const uint8_t* data, size_t length) = 0;
 
     /**
      * @brief Receive data from the communication channel.
@@ -81,7 +81,7 @@ public:
      * @param receivedLength Reference to store the actual received data length.
      * @return sys_error_t The error code indicating the success or failure of the data reception.
      */
-    virtual sys_error_t receiveData(uint8_t* data, size_t maxLength, size_t& receivedLength) = 0;
+    virtual sys_error_t receiveData(const void* deviceAddress, uint8_t* data, size_t maxLength, size_t& receivedLength) = 0;
 
     /**
      * @brief Write and read operation over the communication channel
@@ -92,7 +92,7 @@ public:
      * @param readSize Length of the data to be read.
      * @return sys_error_t
      */
-    virtual sys_error_t writeRead(const uint8_t* writeData, size_t writeSize, uint8_t* readData, size_t readSize) = 0;
+    virtual sys_error_t writeRead(const void* deviceAddress, const uint8_t* writeData, size_t writeSize, uint8_t* readData, size_t readSize) = 0;
 
     /**
      * @brief Disconnect from the remote device or network.
@@ -188,7 +188,7 @@ public:
      * @param data Pointer to the buffer containing the data to be set.
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    virtual void set(void* data) = 0;
+    virtual sys_error_t set(void* data) = 0;
 
     /**
      * @brief Stop the complex operation.

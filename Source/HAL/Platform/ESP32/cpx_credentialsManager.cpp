@@ -157,13 +157,15 @@ void* cpx_credentialsManager::get()
     return static_cast<void*>(&_charData);
 }
 
-void cpx_credentialsManager::set(void* data)
+sys_error_t cpx_credentialsManager::set(void* data)
 {
     // Set the flag to indicate that key generation is needed
     if (data != nullptr)
     {
         isKeyGenerationNeeded = *static_cast<bool*>(data);
     }
+
+    return ERROR_SUCCESS;
 }
 
 sys_error_t cpx_credentialsManager::stop()

@@ -9,13 +9,35 @@
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// MACRO DEFINITIONS
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define CPX_MCP23X17_REG_FUNCS(NAME, REGTYPE)                                                \
+    sys_error_t cpx_mcp23x17::set##NAME##No(PORT port, uint8_t pinNo, bool value)            \
+    {                                                                                        \
+        return updateRegisterByTypePortBit(REG_TYPE::REGTYPE, port, pinNo, value, true);     \
+    }                                                                                        \
+    sys_error_t cpx_mcp23x17::get##NAME##No(PORT port, uint8_t pinNo, bool& value)           \
+    {                                                                                        \
+        return readRegisterByTypeBit(REG_TYPE::REGTYPE, port, pinNo, value);                 \
+    }                                                                                        \
+    sys_error_t cpx_mcp23x17::set##NAME(PORT port, uint8_t value)                            \
+    {                                                                                        \
+        return updateRegisterByTypePortMaskByte(REG_TYPE::REGTYPE, port, 0xFF, value, true); \
+    }                                                                                        \
+    sys_error_t cpx_mcp23x17::get##NAME(PORT port, uint8_t& value)                           \
+    {                                                                                        \
+        return readRegisterByTypeByte(REG_TYPE::REGTYPE, port, value);                       \
+    }
+
 cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode)
     : _started(false)
     , _comInterface(comInterface)
     , _deviceAddress(MCP23017_I2C_ADDRESS)
     , _bankMode(bankMode)
-    , _isMirrorEnabled(static_cast<bool>(MIRROR_DISABLED))
     , _isSequentialOperationDisabled(static_cast<bool>(SEQENTIAL_OPERATION_DISABLED))
+    , _isMirrorEnabled(static_cast<bool>(MIRROR_DISABLED))
     , _isSlewRateDisabled(static_cast<bool>(SLEW_RATE_DISABLED))
     , _isHardwareAddressEnabled(static_cast<bool>(HAEN_ENABLED))
     , _isOpenDrainEnabled(static_cast<bool>(ODR_DISABLED))
@@ -82,7 +104,12 @@ sys_error_t cpx_mcp23x17::stop()
     return ERROR_SUCCESS;
 }
 
-sys_error_t cpx_mcp23x17::init() {}
+sys_error_t cpx_mcp23x17::init()
+{
+
+
+    return ERROR_SUCCESS;
+}
 
 sys_error_t cpx_mcp23x17::setBankMode(REG_BANK_MODE bankMode)
 {
@@ -109,30 +136,16 @@ sys_error_t cpx_mcp23x17::setIOCONRegister()
     return updateRegisterByTypePortMaskByte(REG_TYPE::IOCON, PORT::A, 0xFF, ioconBits, true);
 }
 
-sys_error_t cpx_mcp23x17::setIODirection(PORT port, uint8_t pinNo, bool direction)
-{
-    return updateRegisterByTypePortBit(REG_TYPE::IODIR, port, pinNo, direction, true);
-}
-
-sys_error_t cpx_mcp23x17::setPolarity(PORT port, uint8_t pinNo, bool polarity)
-{
-    return updateRegisterByTypePortBit(REG_TYPE::IPOL, port, pinNo, polarity, true);
-}
-
-sys_error_t cpx_mcp23x17::setDefaultValue(PORT port, uint8_t pinNo, bool value)
-{
-    return updateRegisterByTypePortBit(REG_TYPE::DEFVAL, port, pinNo, value, true);
-}
-
-sys_error_t cpx_mcp23x17::setGpio(PORT port, uint8_t pinNo, bool value)
-{
-    return updateRegisterByTypePortBit(REG_TYPE::GPIO, port, pinNo, value, true);
-}
-
-sys_error_t cpx_mcp23x17::getGpio(PORT port, uint8_t pinNo, bool& value)
-{
-    return readRegisterByTypeBit(REG_TYPE::GPIO, port, pinNo, value);
-}
+CPX_MCP23X17_REG_FUNCS(Direction, IODIR);
+CPX_MCP23X17_REG_FUNCS(Polarity, IPOL);
+CPX_MCP23X17_REG_FUNCS(InterruptEnable, GPINTEN);
+CPX_MCP23X17_REG_FUNCS(DefaultValue, DEFVAL);
+CPX_MCP23X17_REG_FUNCS(InterruptControl, INTCON);
+CPX_MCP23X17_REG_FUNCS(PullUpResistor, GPPU);
+CPX_MCP23X17_REG_FUNCS(InterruptFlag, INTF);
+CPX_MCP23X17_REG_FUNCS(InterruptCaptured, INTCAP);
+CPX_MCP23X17_REG_FUNCS(Gpio, GPIO);
+CPX_MCP23X17_REG_FUNCS(Latch, OLAT);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // REGISTER OPERATIONS

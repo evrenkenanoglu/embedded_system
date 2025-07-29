@@ -10,6 +10,10 @@
 
 #include "IHal.h"
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// MACRO DEFINITIONS
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
 #define MCP23017_ADDRESS_PINA0_VALUE 0 // MCP23017 I2C Address Value for PINA0
 #define MCP23017_ADDRESS_PINA1_VALUE 0 // MCP23017 I2C Address Value for PINA1
 #define MCP23017_ADDRESS_PINA2_VALUE 0 // MCP23017 I2C Address Value for PINA2
@@ -19,36 +23,80 @@
     MCP23017_I2C_ADDRESS_DEFAULT \
     | (MCP23017_ADDRESS_PINA0_VALUE << 0) | (MCP23017_ADDRESS_PINA1_VALUE << 1) | (MCP23017_ADDRESS_PINA2_VALUE << 2)
 
+/**
+ * @brief Macro for Register access functions for MCP23X17.
+ *
+ * These functions allow you to set or get the value of a register or a specific pin in a register.
+ *
+ * @param port The port to access (A or B).
+ * @param pinNo The pin number to access (0-7). Used for No-suffix functions.
+ * @param value The value to set or get. For set functions, this is the value to write. For get functions, this is a reference to store the read value.
+ *        - For pinNo functions: bool (true/false)
+ *        - For port functions: uint8_t (bitmask for all pins in the port)
+ * @return sys_error_t The error code indicating the success or failure of the operation.
+ *
+ * Functions declared:
+ *   - set<RegisterName>No(PORT port, uint8_t pinNo, bool value)
+ *   - get<RegisterName>No(PORT port, uint8_t pinNo, bool& value)
+ *   - set<RegisterName>(PORT port, uint8_t value)
+ *   - get<RegisterName>(PORT port, uint8_t& value)
+ */
+#define CPX_MCP23X17_REG_DECL(NAME)                                   \
+    sys_error_t set##NAME##No(PORT port, uint8_t pinNo, bool value);  \
+    sys_error_t get##NAME##No(PORT port, uint8_t pinNo, bool& value); \
+    sys_error_t set##NAME(PORT port, uint8_t value);                  \
+    sys_error_t get##NAME(PORT port, uint8_t& value);
+
 // IOCON Register Definitions
-#define SEQENTIAL_OPERATION_ENABLED  0x00 // Sequential operation enabled
-#define SEQENTIAL_OPERATION_DISABLED 0x01 // Sequential operation disabled
+#define SEQENTIAL_OPERATION_ENABLED    0x00 // Sequential operation enabled
+#define SEQENTIAL_OPERATION_DISABLED   0x01 // Sequential operation disabled
 
-#define MIRROR_ENABLED               0x01 // Mirror enabled : The INT pins are internally connected
-#define MIRROR_DISABLED              0x00 // Mirror disabled : The INT pins are not connected. INTA is associated with PORTA and INTB is associated with PORTB
+#define MIRROR_ENABLED                 0x01 // Mirror enabled : The INT pins are internally connected
+#define MIRROR_DISABLED                0x00 // Mirror disabled : The INT pins are not connected. INTA is associated with PORTA and INTB is associated with PORTB
 
-#define SLEW_RATE_DISABLED           0x01 // Slew rate disabled
-#define SLEW_RATE_ENABLED            0x00 // Slew rate enabled
+#define SLEW_RATE_DISABLED             0x01 // Slew rate disabled
+#define SLEW_RATE_ENABLED              0x00 // Slew rate enabled
 
-#define HAEN_ENABLED                 0x01 // Hardware address enabled
-#define HAEN_DISABLED                0x00 // Hardware address disabled
+#define HAEN_ENABLED                   0x01 // Hardware address enabled
+#define HAEN_DISABLED                  0x00 // Hardware address disabled
 
-#define ODR_ENABLED                  0x01 // Open-drain output (overrides the INTPOL bit.)
-#define ODR_DISABLED                 0x00 // Active driver output (INTPOL bit sets the polarity.)
+#define ODR_ENABLED                    0x01 // Open-drain output (overrides the INTPOL bit.)
+#define ODR_DISABLED                   0x00 // Active driver output (INTPOL bit sets the polarity.)
 
-#define INTPOL_ACTIVE_HIGH           0x01 // Active high interrupt
-#define INTPOL_ACTIVE_LOW            0x00 // Active low interrupt
+#define INTPOL_ACTIVE_HIGH             0x01 // Active high interrupt
+#define INTPOL_ACTIVE_LOW              0x00 // Active low interrupt
 
 // Direction Register Definitions
-#define INPUT_MODE                   0x01 // Input mode
-#define OUTPUT_MODE                  0x00 // Output mode
+#define INPUT_MODE                     0x01 // Input mode
+#define OUTPUT_MODE                    0x00 // Output mode
 
 // Polarity Register Definitions
-#define POLARITY_INVERTED            0x01 // Inverted polarity : GPIO register bit reflects the opposite logic state of the input pin
-#define POLARITY_NORMAL              0x00 // Normal polarity : GPIO register bit reflects the same logic state of the input pin.
+#define POLARITY_INVERTED              0x01 // Inverted polarity : GPIO register bit reflects the opposite logic state of the input pin
+#define POLARITY_NORMAL                0x00 // Normal polarity : GPIO register bit reflects the same logic state of the input pin.
 
 // GPIO PORT Register Definitions
-#define LOGIC_HIGH                   0x01 // GPIO pin set to high
-#define LOGIC_LOW                    0x00 // GPIO pin set to low
+#define LOGIC_HIGH                     0x01 // GPIO pin set to high
+#define LOGIC_LOW                      0x00 // GPIO pin set to low
+
+// Interrupt-on-Change Enable Register Definitions
+#define INTERRUPT_ON_CHANGE_ENABLED    0x01 // Interrupt-on-change enabled
+#define INTERRUPT_ON_CHANGE_DISABLED   0x00 // Interrupt-on-change disabled
+
+// Interrupt-on-Change Control Register Definitions
+#define COMPARE_AGAINST_DEFVAL_STATE   0x01 // Pin value is compared against the associated bit in the DEFVAL register.
+#define COMPARE_AGAINST_PREVIOUS_STATE 0x00 // Pin value is compared against the previous pin value.
+
+// Pull-Up Resistor Register Definitions
+#define PULL_UP_RESISTOR_ENABLED       0x01 // Pull-up resistor enabled
+#define PULL_UP_RESISTOR_DISABLED      0x00 // Pull-up resistor disabled
+
+// Interrupt Flag Register Definitions
+#define PIN_CAUSED_INTERRUPT           0x01 // Pin caused interrupt
+#define INTERRUPT_NOT_PENDING          0x00 // Interrupt not pending
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// CLASS DECLARATION
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
 class cpx_mcp23x17 : public IHAL_CPX
 {
@@ -249,46 +297,80 @@ private: // User-defined methods
     sys_error_t init();
 
     /**
-     * @brief Set the I/O direction for a specific port.
-     *
-     * @param port The port to set (A or B).
-     * @param pinNo The pin number to set the direction for (0-7).
-     * @param direction The direction to set (input or output).
-     *  1 = Pin is configured as an input.
-     *  0 = Pin is configured as an output.
+     * @brief Set the I/O direction for a specific port or pin.
+     * @param value Use INPUT_MODE or OUTPUT_MODE
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    sys_error_t setIODirection(PORT port, uint8_t pinNo, bool direction);
-    sys_error_t enableIOInterrupt(PORT port, uint8_t pinNo, bool enable);
+    CPX_MCP23X17_REG_DECL(Direction);
 
     /**
-     * @brief Controls the polarity inversion of the input pins
-     * 1 = GPIO register bit reflects the opposite logic state of the input pin.
-     * 0 = GPIO register bit reflects the same logic state of the input pin.
-     *
-     * @param port The port to set (A or B).
-     * @param pinNo The pin number to set the polarity for (0-7).
-     * @param polarity The polarity to set (true for inverted, false for normal).
-     * @return sys_error_t
+     * @brief Set the polarity for a specific port or pin.
+     * @param value Use POLARITY_INVERTED or POLARITY_NORMAL
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    sys_error_t setPolarity(PORT port, uint8_t pinNo, bool polarity);
+    CPX_MCP23X17_REG_DECL(Polarity);
 
     /**
-     * @brief Set the Default Value register for a specific pin.
-     *
-     * The  default  comparison  value  is  configured  in  the  DEFVAL register. If enabled (via GPINTEN and
-     * INTCON) to compare against the DEFVAL register, an  opposite  value  on  the  associated  pin  will  cause  an
-     * interrupt to occur.
-     * @param port The port to set (A or B).
-     * @param pinNo The pin number to set the default value for (0-7).
-     * @param value The default value to set (true for high, false for low).
-     * @return sys_error_t
+     * @brief Enable or disable interrupt on change for a specific port or pin.
+     * @param value Use INTERRUPT_ON_CHANGE_ENABLED or INTERRUPT_ON_CHANGE_DISABLED
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    sys_error_t setDefaultValue(PORT port, uint8_t pinNo, bool value);
-    sys_error_t setGpio(PORT port, uint8_t pinNo, bool value);
-    sys_error_t getGpio(PORT port, uint8_t pinNo, bool& value);
-    sys_error_t getPortGPIO(PORT port, uint8_t& value);
-    sys_error_t setPortGPIO(PORT port, uint8_t value);
+    CPX_MCP23X17_REG_DECL(InterruptEnable);
+
+    /**
+     * @brief Set the default value for a specific port or pin.
+     * @param value Use LOGIC_HIGH or LOGIC_LOW
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    CPX_MCP23X17_REG_DECL(DefaultValue);
+
+    /**
+     * @brief Set the interrupt control for a specific port or pin.
+     * @param value Use COMPARE_AGAINST_DEFVAL_STATE or COMPARE_AGAINST_PREVIOUS_STATE
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    CPX_MCP23X17_REG_DECL(InterruptControl);
+
+    /**
+     * @brief Set the pull-up resistor for a specific port or pin.
+     * @param value Use PULL_UP_RESISTOR_ENABLED or PULL_UP_RESISTOR_DISABLED
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    CPX_MCP23X17_REG_DECL(PullUpResistor);
+
+    /**
+     * @brief Read the interrupt flag for a specific port or pin. Read-only register.
+     * The INTF register reflects the interrupt condition on the port pins of any pin that is enabled for interrupts via the
+     * GPINTEN register. A set bit indicates that the associated pin caused the interrupt.
+     * This register is read-only. Writes to this register will be ignored.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    CPX_MCP23X17_REG_DECL(InterruptFlag);
+
+    /**
+     * @brief Read the interrupt captured for a specific port or pin. Read-only register.
+     * The INTCAP register captures the GPIO port value at the time the interrupt occurred. The register is
+     * read-only and is updated only when an interrupt occurs. The register remains unchanged until the
+     * interrupt is cleared via a read of INTCAP or GPIO.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    CPX_MCP23X17_REG_DECL(InterruptCaptured);
+
+    /**
+     * @brief Read or write the GPIO port for a specific port or pin.
+     * @param value Use LOGIC_HIGH or LOGIC_LOW
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    CPX_MCP23X17_REG_DECL(Gpio);
+
+    /**
+     * @brief Read or write the latch for a specific port or pin.
+     * The OLAT register reflects the output latch state of the port pins. A write to this register will
+     * update the output latch and the GPIO register.
+     * @param value Use LOGIC_HIGH or LOGIC_LOW
+     * @return sys_error_t The error code indicating the success or failure of the operation.
+     */
+    CPX_MCP23X17_REG_DECL(Latch);
 
     // IOCON Register Methods
     sys_error_t setBankMode(REG_BANK_MODE bankMode);
@@ -323,7 +405,7 @@ private: // User-defined methods
      * @param port The port to update (A or B).
      * @param pinNo The pin number to update (0-7).
      * @param value The value to set in the register after applying the mask.
-     * @return sys_error_t
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     sys_error_t updateRegisterMasked(const uint8_t reg, const uint8_t mask, const uint8_t value, const bool verify);
     sys_error_t updateRegisterByTypePortMaskByte(const REG_TYPE regType, const PORT port, const uint8_t mask, const uint8_t value, const bool verify);

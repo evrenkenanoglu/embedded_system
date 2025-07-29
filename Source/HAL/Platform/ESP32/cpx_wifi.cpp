@@ -16,8 +16,8 @@
 #include <sstream>
 #include <string>
 
-#include "System/LogHandler.h"
 #include "Library/Common/helperConversions.h"
+#include "System/LogHandler.h"
 
 static void        wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static void        ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
@@ -28,7 +28,8 @@ constexpr uint16_t wifi_scan_get_result_timeout = WIFI_SCAN_TIMEOUT; // 1.5 seco
 
 } // namespace
 
-cpx_wifi::cpx_wifi(void* config) : _wifiMode(WIFI_MODE_NULL)
+cpx_wifi::cpx_wifi(void* config)
+    : _wifiMode(WIFI_MODE_NULL)
 {
     _wifiEventGroup  = xEventGroupCreate();
     _wifiInitialized = false;
@@ -52,7 +53,7 @@ sys_error_t cpx_wifi::start()
         {
             ESP_ERROR_CHECK(wifiInit());
             ESP_ERROR_CHECK(wifiStart());
-            SYS_LOG_I( "WiFi Started!");
+            SYS_LOG_I("WiFi Started!");
             return ERROR_SUCCESS;
         }
         break;
@@ -68,9 +69,11 @@ void* cpx_wifi::get()
     return &_wifiConfig;
 }
 
-void cpx_wifi::set(void* data)
+sys_error_t cpx_wifi::set(void* data)
 {
     _wifiConfig = *(wifi_config_t*)data;
+
+    return ERROR_SUCCESS;
 }
 
 sys_error_t cpx_wifi::stop()
@@ -126,7 +129,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI STA Initializing...!" << std::endl << "SSID: " << _wifiConfig.sta.ssid << std::endl << "PASSWORD: " << _wifiConfig.sta.password << std::endl;
-            SYS_LOG_I( ss.str());
+            SYS_LOG_I(ss.str());
             _espNetifSta = esp_netif_create_default_wifi_sta();
             std::cout << "DEBUG: Default WIFI STA Created!" << std::endl;
         }
@@ -136,7 +139,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT AP Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
-            SYS_LOG_I( ss.str());
+            SYS_LOG_I(ss.str());
             _espNetifAp = esp_netif_create_default_wifi_ap();
             std::cout << "DEBUG: Default AP Created!" << std::endl;
         }
@@ -146,7 +149,7 @@ sys_error_t cpx_wifi::wifiInit()
         {
             std::stringstream ss;
             ss << "WIFI SOFT APSTA Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
-            SYS_LOG_I( ss.str());
+            SYS_LOG_I(ss.str());
             _espNetifAp  = esp_netif_create_default_wifi_ap();
             _espNetifSta = esp_netif_create_default_wifi_sta();
 
@@ -189,7 +192,7 @@ sys_error_t cpx_wifi::wifiStart()
         // std::cout << _wifiConfig.password << std::endl;
 
         ESP_ERROR_CHECK(esp_wifi_start());
-        }
+    }
     else if (_wifiMode == WIFI_MODE_AP)
     {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &_wifiConfig));
@@ -251,7 +254,7 @@ sys_error_t cpx_wifi::getScanResults(QueueHandle_t apRecordsResult)
 
     std::stringstream ss;
     ss << "Total APs scanned = " << static_cast<int>(scanCountResult) << std::endl;
-    SYS_LOG_I( ss.str());
+    SYS_LOG_I(ss.str());
 
     for (int i = 0; (i < WIFI_SCAN_MAX_RECORDS) && (i < scanCountResult); i++)
     {
@@ -281,47 +284,47 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
         case WIFI_EVENT_WIFI_READY: /**< WiFi ready */
         {
-            SYS_LOG_I( "WIFI_EVENT_WIFI_READY: ");
+            SYS_LOG_I("WIFI_EVENT_WIFI_READY: ");
         }
         break;
 
         case WIFI_EVENT_SCAN_DONE: /**< Finished scanning AP */
         {
-            SYS_LOG_I( "WIFI_EVENT_SCAN_DONE: ");
+            SYS_LOG_I("WIFI_EVENT_SCAN_DONE: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_SCAN_DONE);
         }
         break;
 
         case WIFI_EVENT_STA_START: /**< Station start */
         {
-            SYS_LOG_I( "WIFI_EVENT_STA_START: ");
+            SYS_LOG_I("WIFI_EVENT_STA_START: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_STA_STARTED);
         }
         break;
 
         case WIFI_EVENT_STA_STOP: /**< Station stop */
         {
-            SYS_LOG_I( "WIFI_EVENT_STA_STOP: ");
+            SYS_LOG_I("WIFI_EVENT_STA_STOP: ");
         }
         break;
 
         case WIFI_EVENT_STA_CONNECTED: /**< Station connected to AP */
         {
-            SYS_LOG_I( "WIFI_EVENT_STA_CONNECTED: ");
+            SYS_LOG_I("WIFI_EVENT_STA_CONNECTED: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_CONNECTED);
         }
         break;
 
         case WIFI_EVENT_STA_DISCONNECTED: /**< Station disconnected from AP */
         {
-            SYS_LOG_I( "WIFI_EVENT_STA_DISCONNECTED: ");
+            SYS_LOG_I("WIFI_EVENT_STA_DISCONNECTED: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_DISCONNECTED);
         }
         break;
 
         case WIFI_EVENT_STA_AUTHMODE_CHANGE: /**< the auth mode of AP connected by device's station changed */
         {
-            SYS_LOG_I( "WIFI_EVENT_STA_AUTHMODE_CHANGE: ");
+            SYS_LOG_I("WIFI_EVENT_STA_AUTHMODE_CHANGE: ");
         }
         break;
             /***************************************************************
@@ -330,40 +333,40 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
         case WIFI_EVENT_AP_START: /**< Soft-AP start */
         {
-            SYS_LOG_I( "WIFI_EVENT_AP_START: ");
+            SYS_LOG_I("WIFI_EVENT_AP_START: ");
         }
         break;
 
         case WIFI_EVENT_AP_STOP: /**< Soft-AP stop */
         {
-            SYS_LOG_I( "WIFI_EVENT_AP_STOP: ");
+            SYS_LOG_I("WIFI_EVENT_AP_STOP: ");
         }
         break;
 
         case WIFI_EVENT_AP_STACONNECTED: /**< a station connected to Soft-AP */
         {
-            SYS_LOG_I( "WIFI_EVENT_AP_STACONNECTED: ");
+            SYS_LOG_I("WIFI_EVENT_AP_STACONNECTED: ");
             wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*)event_data;
 
             std::stringstream ss;
             ss << "Station " << mac::convertToMac(event->mac) << std::uppercase << " join, AID= " << event->aid;
-            SYS_LOG_I( ss.str());
+            SYS_LOG_I(ss.str());
         }
         break;
 
         case WIFI_EVENT_AP_STADISCONNECTED: /**< a station disconnected from Soft-AP */
         {
-            SYS_LOG_I( "WIFI_EVENT_AP_STADISCONNECTED: ");
+            SYS_LOG_I("WIFI_EVENT_AP_STADISCONNECTED: ");
             wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*)event_data;
 
             std::stringstream ss;
             ss << "Station " << mac::convertToMac(event->mac) << std::uppercase << " leave, AID= " << event->aid;
-            SYS_LOG_I( ss.str());
+            SYS_LOG_I(ss.str());
         }
         break;
 
         case WIFI_EVENT_AP_PROBEREQRECVED: /**< Receive probe request packet in soft-AP interface */
-            SYS_LOG_I( "WIFI_EVENT_AP_PROBEREQRECVED:");
+            SYS_LOG_I("WIFI_EVENT_AP_PROBEREQRECVED:");
             break;
 
         default:
@@ -381,11 +384,11 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
         {
             ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
 
-            SYS_LOG_I( "IP_EVENT_STA_GOT_IP: ");
+            SYS_LOG_I("IP_EVENT_STA_GOT_IP: ");
 
             char ipString[24] = "IP: ";
             sprintf(&ipString[4], IPSTR, IP2STR(&event->ip_info.ip));
-            SYS_LOG_I( std::string(ipString));
+            SYS_LOG_I(std::string(ipString));
 
             // Set Event Bit for Station Connected
             xEventGroupSetBits(wifiEventGroup, WIFI_CONNECTED);
@@ -395,7 +398,7 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
 
         case IP_EVENT_STA_LOST_IP: /*!< station lost IP and the IP is reset to 0 */
         {
-            SYS_LOG_I( "IP_EVENT_STA_LOST_IP: ");
+            SYS_LOG_I("IP_EVENT_STA_LOST_IP: ");
             xEventGroupSetBits(wifiEventGroup, WIFI_DISCONNECTED);
             xEventGroupClearBits(wifiEventGroup, WIFI_CONNECTED);
         }
@@ -403,7 +406,7 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
 
         case IP_EVENT_AP_STAIPASSIGNED: /*!< soft-AP assign an IP to a connected station */
         {
-            SYS_LOG_I( "IP_EVENT_AP_STAIPASSIGNED: ");
+            SYS_LOG_I("IP_EVENT_AP_STAIPASSIGNED: ");
         }
         break;
 

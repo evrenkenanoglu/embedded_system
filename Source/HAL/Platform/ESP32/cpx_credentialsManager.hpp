@@ -90,7 +90,7 @@ public: // Interface methods
      */
     void* get() override;
 
-    void set(void* data) override;
+    sys_error_t set(void* data) override;
 
     sys_error_t stop() override;
 
