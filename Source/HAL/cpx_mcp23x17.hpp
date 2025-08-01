@@ -100,7 +100,7 @@
 
 class cpx_mcp23x17 : public IHAL_CPX
 {
-private:
+public:
     enum class PORT : uint8_t
     {
         A = 0, // Port A
@@ -108,13 +108,20 @@ private:
         MAX,
     };
 
+    /**
+     * @brief Enumeration for the bank mode of the MCP23X17.
+     *
+     * The  16-bit  I/O  port  functionally  consists  of  two  8-bitports  (PORTA  and  PORTB).  
+     * The  MCP23X17  can  beconfigured  to  operate  in  the  8-bit  or  16-bit modes  via IOCON.BANK.
+     */
     enum class REG_BANK_MODE : uint8_t
     {
-        SEQUENTIAL     = 0, // Bank 0 (Sequential mode)
+        SEQUENTIAL     = 0, // Bank 0 (Sequential mode)  byte mode
         NON_SEQUENTIAL = 1, // Bank 1 (Non-sequential mode)
         MAX,
     };
 
+private:
     // Sequential mode  enables  automatic  address  pointer incrementing.
     // If IOCON.BANK is set to 0, the address pointer will increment after each read or write operation.
     enum class REG_BANK0 : uint8_t
@@ -269,8 +276,8 @@ private:
     uint8_t   _deviceAddress; // I2C address of the MCP23017
     // IOCON register bits
     REG_BANK_MODE _bankMode;                      // True if banked mode is enabled
-    bool          _isSequentialOperationDisabled; // True if sequential mode is disabled
     bool          _isMirrorEnabled;               // True if mirror mode is enabled
+    bool          _isSequentialOperationDisabled; // True if sequential mode is disabled
     bool          _isSlewRateDisabled;            // True if slew rate is disabled
     bool          _isHardwareAddressEnabled;      // True if hardware address is enabled (A0, A1, A2)
     bool          _isOpenDrainEnabled;            // True if open-drain output is enabled
@@ -288,7 +295,7 @@ public: // Interface methods
 
     sys_error_t stop() override;
 
-private: // User-defined methods
+public: // User-defined methods
     /**
      * @brief Initialize the MCP23017 I/O expander.
      *
@@ -376,6 +383,7 @@ private: // User-defined methods
     sys_error_t setBankMode(REG_BANK_MODE bankMode);
     sys_error_t setIOCONRegister();
 
+private: // Register operations
     /**
      * @brief Write a value to a specific register.
      *

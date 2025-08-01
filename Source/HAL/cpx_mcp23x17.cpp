@@ -35,13 +35,14 @@ cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode)
     : _started(false)
     , _comInterface(comInterface)
     , _deviceAddress(MCP23017_I2C_ADDRESS)
-    , _bankMode(bankMode)
-    , _isSequentialOperationDisabled(static_cast<bool>(SEQENTIAL_OPERATION_DISABLED))
-    , _isMirrorEnabled(static_cast<bool>(MIRROR_DISABLED))
-    , _isSlewRateDisabled(static_cast<bool>(SLEW_RATE_DISABLED))
-    , _isHardwareAddressEnabled(static_cast<bool>(HAEN_ENABLED))
-    , _isOpenDrainEnabled(static_cast<bool>(ODR_DISABLED))
-    , _isIntPolarityActiveHigh(static_cast<bool>(INTPOL_ACTIVE_HIGH))
+    , _bankMode(bankMode)                                                             // 7th bit
+    , _isMirrorEnabled(static_cast<bool>(MIRROR_DISABLED))                            // 6th bit
+    , _isSequentialOperationDisabled(static_cast<bool>(SEQENTIAL_OPERATION_DISABLED)) // 5th bit
+    , _isSlewRateDisabled(static_cast<bool>(SLEW_RATE_ENABLED))                       // 4th bit
+    , _isHardwareAddressEnabled(static_cast<bool>(HAEN_ENABLED))                      // 3rd bit
+    , _isOpenDrainEnabled(static_cast<bool>(ODR_DISABLED))                            // 2nd bit
+    , _isIntPolarityActiveHigh(static_cast<bool>(INTPOL_ACTIVE_LOW))                  // 1st bit ,
+// 0th bit no effect
 
 {
     // constructor implementation
@@ -59,10 +60,16 @@ sys_error_t cpx_mcp23x17::start()
     {
         return ERROR_SUCCESS; // Already started
     }
-
-    setIOCONRegister();
-
     _started = true; // Mark as started
+
+    uint8_t ioconValueA = 0;
+    uint8_t ioconValueB = 0;
+    SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
+    setIOCONRegister();
+    readRegisterByTypeByte(REG_TYPE::IOCON, PORT::A, ioconValueA);
+    readRegisterByTypeByte(REG_TYPE::IOCON, PORT::B, ioconValueB);
+
+    SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
 
     return ERROR_SUCCESS;
 }
@@ -107,7 +114,6 @@ sys_error_t cpx_mcp23x17::stop()
 sys_error_t cpx_mcp23x17::init()
 {
 
-
     return ERROR_SUCCESS;
 }
 
@@ -132,7 +138,10 @@ sys_error_t cpx_mcp23x17::setIOCONRegister()
                         (_isOpenDrainEnabled ? static_cast<uint8_t>(IOCON_BITS::ODR) : 0) |              // open-drain mode
                         (_isIntPolarityActiveHigh ? static_cast<uint8_t>(IOCON_BITS::INTPOL) : 0)        // interrupt polarity
         ;
+
+    SYS_LOG_D("Setting IOCON register with bits: 0x%02X", ioconBits);
     // Update the IOCON register with the provided bits
+
     return updateRegisterByTypePortMaskByte(REG_TYPE::IOCON, PORT::A, 0xFF, ioconBits, true);
 }
 
@@ -160,6 +169,7 @@ sys_error_t cpx_mcp23x17::writeRegister(const uint8_t reg, const uint8_t value)
 
     // Prepare the data to be sent
     const uint8_t data[2] = {static_cast<uint8_t>(reg), value}; // Register address and value to write
+    SYS_LOG_D("Writing to register: 0x%02X, value: 0x%02X", reg, value);
 
     // Send the data using the communication interface
     RETURN_ON_ERROR_WITH_LOG(
@@ -182,7 +192,7 @@ sys_error_t cpx_mcp23x17::readRegister(const uint8_t reg, uint8_t& value)
         _comInterface.writeRead(&_deviceAddress, &reg, sizeof(reg), &value, sizeof(value)), // Function Call
         "Failed to read register",                                                          // Error Message
     );
-
+    SYS_LOG_D("Read from register: 0x%02X, value: 0x%02X", reg, value);
     return ERROR_SUCCESS;
 }
 
@@ -224,15 +234,17 @@ sys_error_t cpx_mcp23x17::updateRegisterMasked(const uint8_t reg, const uint8_t 
 
     // Update the value with the mask
     currentValue = (currentValue & ~mask) | (value & mask);
-
+    SYS_LOG_D("Updating register: 0x%02X, current value: 0x%02X, mask: 0x%02X, new value: 0x%02X", reg, currentValue, mask, value);
     // Write the updated value back to the register
     RETURN_ON_ERROR_WITH_LOG(
         writeRegister(reg, currentValue),         // Function Call
         "Failed to write updated register value", // Error Message
     );
+    SYS_LOG_D("Register 0x%02X updated successfully", reg);
 
     if (verify)
     {
+        SYS_LOG_D("Verifying register: 0x%02X after update", reg);
         // Verify the register value if required
         RETURN_ON_ERROR_WITH_LOG(
             verifyRegister(reg, currentValue), // Function Call
@@ -250,12 +262,13 @@ sys_error_t cpx_mcp23x17::verifyRegister(const uint8_t reg, const uint8_t expect
         return ERROR_NOT_INITIALIZED; // Not started, cannot verify register
     }
 
+    SYS_LOG_D("Verifying register: 0x%02X, expected value: 0x%02X", reg, expectedValue);
     uint8_t currentValue;
     RETURN_ON_ERROR_WITH_LOG(
         readRegister(reg, currentValue),         // Function Call
         "Failed to read current register value", // Error Message
     );
-
+    SYS_LOG_D("Verifying register: 0x%02X, expected value: 0x%02X, current value: 0x%02X", reg, expectedValue, currentValue);
     if (currentValue != expectedValue)
     {
         return ERROR_READ_FAILED; // Verification failed, current value does not match expected value
