@@ -20,6 +20,7 @@ private:
     uint32_t          _clockSpeed;    // I2C clock speed
     i2c_port_t        _i2cPort;       // I2C port number
     SemaphoreHandle_t _i2cMutex;
+    bool              _isInitialized;
 
 public:
     com_i2c(i2c_port_t i2cPort, i2c_config_t& config);
