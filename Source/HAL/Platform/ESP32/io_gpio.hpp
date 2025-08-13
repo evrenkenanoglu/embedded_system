@@ -28,9 +28,10 @@ public:
     io_gpio(gpio_num_t gpioNo, void* config);
     ~io_gpio();
 
-    sys_error_t init();
+    sys_error_t init(void *params = nullptr) override;
     void        get(void* data) override;
     sys_error_t set(void* data) override;
+    sys_error_t deInit() override;
 
     QueueHandle_t getEventQueue();
     gpio_num_t    getGpioNumber();

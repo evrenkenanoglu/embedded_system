@@ -29,6 +29,18 @@
 class IHAL_IO
 {
 public:
+
+    /**
+     * @brief Initialize the I/O device.
+     *
+     * This method should be implemented to initialize the I/O device.
+     *
+     * @param params Pointer to initialization parameters if any.
+     * 
+     * @return sys_error_t The error code indicating the success or failure of the initialization.
+     */
+    virtual sys_error_t init(void *params = nullptr) = 0;
+
     /**
      * @brief Get data from the I/O device.
      *
@@ -45,6 +57,15 @@ public:
     virtual sys_error_t set(void* data) = 0;
 
     /**
+     * @brief Deinitialize the I/O device.
+     *
+     * This method should be implemented to deinitialize the I/O device.
+     *
+     * @return sys_error_t The error code indicating the success or failure of the deinitialization.
+     */ 
+    virtual sys_error_t deInit() = 0;
+
+    /**
      * @brief Destructor for IHAL_IO.
      */
     virtual ~IHAL_IO() {}
@@ -57,6 +78,15 @@ public:
 class IHAL_COM
 {
 public:
+
+    /**
+     * @brief Initialize the communication interface.
+     *
+     * @param params Pointer to initialization parameters if any.
+     * @return sys_error_t The error code indicating the success or failure of the initialization.
+     */
+    virtual sys_error_t init(void *params = nullptr) = 0;
+
     /**
      * @brief Connect to a remote device or network.
      *
@@ -100,6 +130,13 @@ public:
     virtual sys_error_t disconnect() = 0;
 
     /**
+     * @brief Deinitialize the communication interface.
+     * 
+     * @return sys_error_t 
+     */
+    virtual sys_error_t deInit() = 0;
+
+    /**
      * @brief Destructor for IHAL_COM.
      */
     virtual ~IHAL_COM() {}
@@ -117,7 +154,7 @@ public:
      *
      * @return sys_error_t True if initialization was successful, false otherwise.
      */
-    virtual sys_error_t init() = 0;
+    virtual sys_error_t init(void* params = nullptr) = 0;
 
     /**
      * @brief Read data from the memory device.
@@ -156,6 +193,13 @@ public:
     virtual sys_error_t getSize(uint32_t* size) = 0;
 
     /**
+     * @brief Deinitialize the memory device.
+     * 
+     * @return sys_error_t The error code indicating the success or failure of the deinitialization.
+     */
+    virtual sys_error_t deInit() = 0;
+
+    /**
      * @brief Destructor for IHAL_MEM.
      */
     virtual ~IHAL_MEM() {}
@@ -176,11 +220,12 @@ public:
     virtual sys_error_t start() = 0;
 
     /**
-     * @brief Get the data result from the complex operation.
+     * @brief Get data from the complex operation.
      *
-     * @return void* Pointer to the buffer containing the data result.
+     * @param data Pointer to the buffer where the data will be used or/and stored.
+     * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    virtual void* get() = 0;
+    virtual sys_error_t get(void* data) = 0;
 
     /**
      * @brief Set data for the complex operation.

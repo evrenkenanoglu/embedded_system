@@ -64,9 +64,15 @@ sys_error_t cpx_wifi::start()
     }
 }
 
-void* cpx_wifi::get()
+sys_error_t cpx_wifi::get(void* data)
 {
-    return &_wifiConfig;
+    if (data == nullptr)
+    {
+        SYS_LOG_E("Data pointer is null in get()");
+        return ERROR_INVALID_ARG;
+    }
+    data = reinterpret_cast<void*>(&_wifiConfig); // Cast to void pointer for return
+    return ERROR_SUCCESS;
 }
 
 sys_error_t cpx_wifi::set(void* data)

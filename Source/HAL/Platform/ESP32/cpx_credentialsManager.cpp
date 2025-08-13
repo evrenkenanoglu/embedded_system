@@ -129,8 +129,15 @@ sys_error_t cpx_credentialsManager::start()
     return result;
 }
 
-void* cpx_credentialsManager::get()
+sys_error_t cpx_credentialsManager::get(void* data)
 {
+
+    if (data == nullptr)
+    {
+        SYS_LOG_E("Invalid data pointer");
+        return ERROR_INVALID_ARG;
+    }
+    
     // Semaphore for thread safety
     xSemaphoreTake(_mutex, portMAX_DELAY);
 
@@ -157,7 +164,10 @@ void* cpx_credentialsManager::get()
 
     // Release the mutex
     xSemaphoreGive(_mutex);
-    return static_cast<void*>(&_charData);
+
+    *static_cast<void**>(data) = &_charData;
+
+    return ERROR_SUCCESS;
 }
 
 sys_error_t cpx_credentialsManager::set(void* data)

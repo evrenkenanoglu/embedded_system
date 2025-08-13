@@ -88,7 +88,7 @@ public: // Interface methods
      *
      * @return void* pointer to the stored credentials data.
      */
-    void* get() override;
+    sys_error_t get(void* data) override;
 
     sys_error_t set(void* data) override;
 

@@ -34,8 +34,9 @@ com_i2c::~com_i2c()
     // destructor implementation
 }
 
-sys_error_t com_i2c::init()
+sys_error_t com_i2c::init(void* params)
 {
+    UNUSED(params);
 
     if (_isInitialized)
     {
@@ -104,7 +105,7 @@ sys_error_t com_i2c::sendData(const void* deviceAddress, const uint8_t* data, si
     );
 
     xSemaphoreGive(_i2cMutex);
-    
+
     return ERROR_SUCCESS;
 }
 
@@ -158,5 +159,30 @@ sys_error_t com_i2c::setClockSpeed(uint32_t speed)
     RETURN_ON_ERROR_WITH_LOG(i2c_param_config(_i2cPort, &_config), "Failed to reconfigure I2C parameters", );
 
     SYS_LOG_D("I2C clock speed set to %d Hz", speed);
+    return ERROR_SUCCESS;
+}
+
+sys_error_t com_i2c::deInit()
+{
+    if (!_isInitialized)
+    {
+        return ERROR_SUCCESS; // Already deinitialized
+    }
+
+    xSemaphoreTake(_i2cMutex, portMAX_DELAY); // Take the mutex to ensure exclusive access
+
+    // Uninstall the I2C driver
+    RETURN_ON_ERROR_WITH_LOG(i2c_driver_delete(_i2cPort), "Failed to uninstall I2C driver", xSemaphoreGive(_i2cMutex));
+
+    if (_i2cMutex != nullptr)
+    {
+        vSemaphoreDelete(_i2cMutex); // Delete the mutex
+        _i2cMutex = nullptr;
+    }
+
+    _isInitialized = false; // Mark the I2C as deinitialized
+
+    SYS_LOG_D("I2C deinitialized on port %d", _i2cPort);
+
     return ERROR_SUCCESS;
 }

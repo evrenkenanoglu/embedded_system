@@ -8,7 +8,9 @@
 #include "mem_nvs.hpp"
 #include <string>
 
-mem_nvs::mem_nvs(const std::string& nvsNamespace) : _initialized(HAL_UNINITIALIZED), _namespace(nvsNamespace)
+mem_nvs::mem_nvs(const std::string& nvsNamespace)
+    : _initialized(HAL_UNINITIALIZED)
+    , _namespace(nvsNamespace)
 {
     // constructor implementation
 }
@@ -18,8 +20,10 @@ mem_nvs::~mem_nvs()
     // destructor implementation
 }
 
-sys_error_t mem_nvs::init()
+sys_error_t mem_nvs::init(void* params)
 {
+    UNUSED(params);
+
     if (_initialized == HAL_INITIALIZED)
     {
         return ERROR_SUCCESS;
@@ -40,7 +44,7 @@ sys_error_t mem_nvs::init()
     return ERROR_SUCCESS;
 }
 
-sys_error_t mem_nvs::readData(const void *addressOrKey, uint8_t* data, size_t length)
+sys_error_t mem_nvs::readData(const void* addressOrKey, uint8_t* data, size_t length)
 {
 
     if (_initialized == HAL_UNINITIALIZED)
@@ -171,4 +175,15 @@ sys_error_t mem_nvs::erase(const void* addressOrKey)
 sys_error_t mem_nvs::getSize(uint32_t* size)
 {
     return ERROR_NOT_IMPLEMENTED;
+}
+
+sys_error_t mem_nvs::deInit()
+{
+    if (_initialized == HAL_UNINITIALIZED)
+    {
+        return ERROR_NOT_INITIALIZED;
+    }
+
+    _initialized = HAL_UNINITIALIZED;
+    return ERROR_SUCCESS;
 }

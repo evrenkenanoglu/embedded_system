@@ -25,7 +25,7 @@ public:
     mem_nvs(const std::string& nvsNamespace);
     ~mem_nvs();
 
-    sys_error_t init() override;
+    sys_error_t init(void* params = nullptr) override;
 
     sys_error_t readData(const void *addressOrKey, uint8_t* data, size_t length) override;
 
@@ -34,6 +34,8 @@ public:
     sys_error_t erase(const void* addressOrKey) override;
 
     sys_error_t getSize(uint32_t* size) override;
+
+    sys_error_t deInit() override;
 };
 
 #endif /* MEM_NVS_HPP */

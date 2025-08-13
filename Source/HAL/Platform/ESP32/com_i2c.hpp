@@ -26,6 +26,8 @@ public:
     com_i2c(i2c_port_t i2cPort, i2c_config_t& config);
     ~com_i2c();
 
+    sys_error_t init(void *params = nullptr) override;
+
     sys_error_t connect() override;
 
     sys_error_t sendData(const void* deviceAddress, const uint8_t* data, size_t length) override;
@@ -36,13 +38,9 @@ public:
 
     sys_error_t disconnect() override;
 
+    sys_error_t deInit() override;
+
 public: // User-defined methods
-    /**
-     * @brief Initialize the I2C communication.
-     *
-     * @return sys_error_t The error code indicating the success or failure of the initialization.
-     */
-    sys_error_t init();
 
     /**
      * @brief Read data from an I2C device with a specified register address.
