@@ -64,10 +64,14 @@ ihal_header_file = ""
 ihal_classname = ""
 
 # IO Definitions
+io_init_definition = ""
+io_deInit_definition = ""
 get_definition = ""
 set_definition = ""
 
 # COM Definintions
+com_init_definition = ""
+com_deInit_definition = ""
 connect_definition = ""
 sendData_definition = ""
 receiveData_definition = ""
@@ -75,15 +79,16 @@ writeRead_definition = ""
 disconnect_definition = ""
 
 # MEM Definitions
-
-initialize_definition = ""
+mem_init_definition = ""
+mem_deInit_definition = ""
 readData_definition = ""
 writeData_definition = ""
 erase_definition = ""
 getSize_definition = ""
 
 # CPX Definitions
-
+cpx_init_definition = ""
+cpx_deInit_definition = ""
 start_definition = ""
 cpx_get_definition = ""
 cpx_set_definition = ""
@@ -101,12 +106,20 @@ pal_serv_restart_definition = ""
 if system_file_type == "IO":
     ihal_header_file = "IHal.h"
     ihal_classname = "IHAL_IO"
+    io_init_definition = (
+        "sys_error_t " + classname + "::init(void* params = nullptr) override;\n"
+    )
+    io_deInit_definition = "sys_error_t " + classname + "::deInit() override;\n"
     get_definition = "void " + classname + "::get(void* data) override;\n"
     set_definition = "sys_error_t " + classname + "::set(void* data) override;\n"
 
 elif system_file_type == "COM":
     ihal_header_file = "IHal.h"
     ihal_classname = "IHAL_COM"
+    com_init_definition = (
+        "sys_error_t " + classname + "::init(void* params = nullptr) override;\n"
+    )
+    com_deInit_definition = "sys_error_t " + classname + "::deInit() override;\n"
     connect_definition = "sys_error_t " + classname + "::connect() override;\n"
     disconnect_definition = "sys_error_t " + classname + "::disconnect() override;\n"
     sendData_definition = (
@@ -128,7 +141,11 @@ elif system_file_type == "COM":
 elif system_file_type == "MEM":
     ihal_header_file = "IHal.h"
     ihal_classname = "IHAL_MEM"
-    initialize_definition = "sys_error_t " + classname + "::init() override;\n"
+    mem_init_definition = (
+        "sys_error_t " + classname + "::init(void* params = nullptr) override;\n"
+    )
+    mem_deInit_definition = "sys_error_t " + classname + "::deInit() override;\n"
+    mem_init_definition = "sys_error_t " + classname + "::init() override;\n"
     readData_definition = (
         "sys_error_t "
         + classname
@@ -149,6 +166,10 @@ elif system_file_type == "MEM":
 elif system_file_type == "CPX":
     ihal_header_file = "IHal.h"
     ihal_classname = "IHAL_CPX"
+    cpx_init_definition = (
+        "sys_error_t " + classname + "::init(void* params = nullptr) override;\n"
+    )
+    cpx_deInit_definition = "sys_error_t " + classname + "::deInit() override;\n"
     start_definition = "sys_error_t " + classname + "::start() override;\n"
     cpx_get_definition = "void* " + classname + "::get() override;\n"
     cpx_set_definition = "sys_error_t " + classname + "::set(void* data) override;\n"
@@ -223,12 +244,16 @@ if system_file_type == "IO":
         brief,
         ihal_header_file,
         ihal_classname,
+        io_init_definition=io_init_definition,
+        io_deInit_definition=io_deInit_definition,
         get_definition=get_definition,
         set_definition=set_definition,
     )
     source_content = create_source_content(
         filename,
         classname,
+        io_init_definition=io_init_definition,
+        io_deInit_definition=io_deInit_definition,
         get_definition=get_definition,
         set_definition=set_definition,
     )
@@ -239,6 +264,8 @@ elif system_file_type == "COM":
         brief,
         ihal_header_file,
         ihal_classname,
+        com_init_definition=com_init_definition,
+        com_deInit_definition=com_deInit_definition,
         connect_definition=connect_definition,
         sendData_definition=sendData_definition,
         receiveData_definition=receiveData_definition,
@@ -248,6 +275,8 @@ elif system_file_type == "COM":
     source_content = create_source_content(
         filename,
         classname,
+        com_init_definition=com_init_definition,
+        com_deInit_definition=com_deInit_definition,
         connect_definition=connect_definition,
         sendData_definition=sendData_definition,
         receiveData_definition=receiveData_definition,
@@ -262,7 +291,8 @@ elif system_file_type == "MEM":
         brief,
         ihal_header_file,
         ihal_classname,
-        initialize_definition=initialize_definition,
+        mem_init_definition=mem_init_definition,
+        mem_deInit_definition=mem_deInit_definition,
         readData_definition=readData_definition,
         writeData_definition=writeData_definition,
         erase_definition=erase_definition,
@@ -271,7 +301,8 @@ elif system_file_type == "MEM":
     source_content = create_source_content(
         filename,
         classname,
-        initialize_definition=initialize_definition,
+        mem_init_definition=mem_init_definition,
+        mem_deInit_definition=mem_deInit_definition,
         readData_definition=readData_definition,
         writeData_definition=writeData_definition,
         erase_definition=erase_definition,
@@ -284,6 +315,8 @@ elif system_file_type == "CPX":
         brief,
         ihal_header_file,
         ihal_classname,
+        cpx_init_definition=cpx_init_definition,
+        cpx_deInit_definition=cpx_deInit_definition,
         start_definition=start_definition,
         cpx_get_definition=cpx_get_definition,
         cpx_set_definition=cpx_set_definition,
@@ -292,6 +325,8 @@ elif system_file_type == "CPX":
     source_content = create_source_content(
         filename,
         classname,
+        cpx_init_definition=cpx_init_definition,
+        cpx_deInit_definition=cpx_deInit_definition,
         start_definition=start_definition,
         cpx_get_definition=cpx_get_definition,
         cpx_set_definition=cpx_set_definition,
@@ -363,7 +398,7 @@ elif system_file_type == "SERV":
 #     receiveData_definition=receiveData_definition.replace(classname + "::", ""),
 #     disconnect_definition=disconnect_definition.replace(classname + "::", ""),
 
-#     initialize_definition=initialize_definition.replace(classname + "::", ""),
+#     mem_init_definition=mem_init_definition.replace(classname + "::", ""),
 #     readData_definition=readData_definition.replace(classname + "::", ""),
 #     writeData_definition=writeData_definition.replace(classname + "::", ""),
 #     erase_definition=erase_definition.replace(classname + "::", ""),
@@ -406,7 +441,7 @@ elif system_file_type == "SERV":
 #     sendData_definition=sendData_definition.replace("override", ""),
 #     receiveData_definition=receiveData_definition.replace("override", ""),
 #     disconnect_definition=disconnect_definition.replace("override", ""),
-#     initialize_definition=initialize_definition.replace("override", ""),
+#     mem_init_definition=mem_init_definition.replace("override", ""),
 #     readData_definition=readData_definition.replace("override", ""),
 #     writeData_definition=writeData_definition.replace("override", ""),
 #     erase_definition=erase_definition.replace("override", ""),
