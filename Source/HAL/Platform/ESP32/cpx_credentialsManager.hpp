@@ -81,6 +81,8 @@ public: // Interface methods
     cpx_credentialsManager(IHAL_MEM& memDevice);
     ~cpx_credentialsManager();
 
+    sys_error_t init(void* params = nullptr) override;
+
     sys_error_t start() override;
 
     /**
@@ -93,6 +95,8 @@ public: // Interface methods
     sys_error_t set(void* data) override;
 
     sys_error_t stop() override;
+
+    sys_error_t deInit() override;
 
 public: // User-defined methods
     sys_error_t        generateAndStoreKeys();

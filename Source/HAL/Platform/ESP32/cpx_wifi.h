@@ -49,6 +49,8 @@ public:
     cpx_wifi(void* config);
     ~cpx_wifi();
 
+    sys_error_t init(void *params = nullptr) override;
+
     sys_error_t start() override;
 
     sys_error_t get(void* data) override;
@@ -56,6 +58,8 @@ public:
     sys_error_t set(void* data) override;
 
     sys_error_t stop() override;
+
+    sys_error_t deInit() override;
 
 public:
     /**

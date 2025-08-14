@@ -43,6 +43,16 @@ cpx_wifi::~cpx_wifi()
     // destructor implementation
 }
 
+sys_error_t cpx_wifi::init(void* params)
+{
+    return wifiInit();
+}
+
+sys_error_t cpx_wifi::deInit()
+{
+    return ERROR_NOT_IMPLEMENTED;
+}
+
 sys_error_t cpx_wifi::start()
 {
     switch (_wifiMode)

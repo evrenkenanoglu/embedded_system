@@ -62,6 +62,16 @@ void cpx_credentialsManager::CleanupOnError()
     mbedtls_mpi_free(&_serial);
 }
 
+sys_error_t cpx_credentialsManager::init(void* params)
+{
+    return ERROR_NOT_IMPLEMENTED;
+}
+
+sys_error_t cpx_credentialsManager::deInit()
+{
+    return ERROR_NOT_IMPLEMENTED;
+}
+
 sys_error_t cpx_credentialsManager::start()
 {
     SYS_LOG_I("Starting cpx_credentialsManager...");
@@ -137,7 +147,7 @@ sys_error_t cpx_credentialsManager::get(void* data)
         SYS_LOG_E("Invalid data pointer");
         return ERROR_INVALID_ARG;
     }
-    
+
     // Semaphore for thread safety
     xSemaphoreTake(_mutex, portMAX_DELAY);
 

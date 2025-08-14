@@ -29,17 +29,16 @@
 class IHAL_IO
 {
 public:
-
     /**
      * @brief Initialize the I/O device.
      *
      * This method should be implemented to initialize the I/O device.
      *
      * @param params Pointer to initialization parameters if any.
-     * 
+     *
      * @return sys_error_t The error code indicating the success or failure of the initialization.
      */
-    virtual sys_error_t init(void *params = nullptr) = 0;
+    virtual sys_error_t init(void* params = nullptr) = 0;
 
     /**
      * @brief Get data from the I/O device.
@@ -62,7 +61,7 @@ public:
      * This method should be implemented to deinitialize the I/O device.
      *
      * @return sys_error_t The error code indicating the success or failure of the deinitialization.
-     */ 
+     */
     virtual sys_error_t deInit() = 0;
 
     /**
@@ -78,14 +77,13 @@ public:
 class IHAL_COM
 {
 public:
-
     /**
      * @brief Initialize the communication interface.
      *
      * @param params Pointer to initialization parameters if any.
      * @return sys_error_t The error code indicating the success or failure of the initialization.
      */
-    virtual sys_error_t init(void *params = nullptr) = 0;
+    virtual sys_error_t init(void* params = nullptr) = 0;
 
     /**
      * @brief Connect to a remote device or network.
@@ -131,8 +129,8 @@ public:
 
     /**
      * @brief Deinitialize the communication interface.
-     * 
-     * @return sys_error_t 
+     *
+     * @return sys_error_t
      */
     virtual sys_error_t deInit() = 0;
 
@@ -194,7 +192,7 @@ public:
 
     /**
      * @brief Deinitialize the memory device.
-     * 
+     *
      * @return sys_error_t The error code indicating the success or failure of the deinitialization.
      */
     virtual sys_error_t deInit() = 0;
@@ -212,6 +210,14 @@ public:
 class IHAL_CPX
 {
 public:
+    /**
+     * @brief Initialize the complex operation.
+     *
+     * @param params Pointer to initialization parameters if any.
+     * @return sys_error_t
+     */
+    virtual sys_error_t init(void* params = nullptr) = 0;
+
     /**
      * @brief Start the complex operation.
      *
@@ -241,6 +247,15 @@ public:
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t stop() = 0;
+
+    /**
+     * @brief Deinitialize the complex operation.
+     *
+     * This method should be implemented to deinitialize the complex operation.
+     *
+     * @return sys_error_t The error code indicating the success or failure of the deinitialization.
+     */
+    virtual sys_error_t deInit() = 0;
 
     /**
      * @brief Destructor for IHAL_CPX.
