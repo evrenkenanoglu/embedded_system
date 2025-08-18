@@ -1,0 +1,206 @@
+rules:
+  # CERT C++ Secure Coding Standards for Embedded Systems
+  
+  - id: cert-cpp-str31-bounded-string-copy
+    patterns:
+      - pattern-either:
+          - pattern: strcpy($DST, $SRC)
+          - pattern: strcat($DST, $SRC)
+          - pattern: gets($BUF)
+    message: "CERT STR31-C: Use bounded string functions (strncpy, strncat, fgets)"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-120: Buffer Overflow"
+      references:
+        - "CERT STR31-C"
+
+  - id: cert-cpp-mem31-free-null-pointer
+    patterns:
+      - pattern: |
+          free($PTR);
+          $...STMTS
+          free($PTR);
+    message: "CERT MEM31-C: Potential double-free vulnerability"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-415: Double Free"
+
+  - id: cert-cpp-mem30-memory-leak
+    patterns:
+      - pattern: |
+          $PTR = malloc($SIZE);
+          if ($COND) {
+            return $RET;
+          }
+      - pattern-not: |
+          $PTR = malloc($SIZE);
+          if ($COND) {
+            free($PTR);
+            return $RET;
+          }
+    message: "CERT MEM30-C: Memory allocated but not freed on error path"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: memory-safety
+      cwe: "CWE-401: Memory Leak"
+
+  - id: cert-cpp-int32-signed-overflow
+    patterns:
+      - pattern-either:
+          - pattern: $VAR + $EXPR
+          - pattern: $VAR * $EXPR
+          - pattern: $VAR - $EXPR
+      - metavariable-type:
+          metavariable: $VAR
+          types: [int, long, signed]
+    message: "CERT INT32-C: Check for signed integer overflow in arithmetic"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-190: Integer Overflow"
+
+  - id: cert-cpp-fio30-password-in-code
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const char* $VAR = "$PASSWORD";
+          - pattern: |
+              char $VAR[] = "$PASSWORD";
+          - pattern: |
+              #define $CONST "$PASSWORD"
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: .*(password|passwd|pwd|secret|key|token).*
+      - metavariable-regex:
+          metavariable: $PASSWORD
+          regex: .{6,}
+    message: "CERT FIO30-C: Do not store passwords or secrets in source code"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Hardcoded Credentials"
+
+  - id: cert-cpp-env33-system-call
+    patterns:
+      - pattern-either:
+          - pattern: system($CMD)
+          - pattern: exec($CMD, ...)
+          - pattern: popen($CMD, $MODE)
+    message: "CERT ENV33-C: system() calls can be dangerous, validate input"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+
+  - id: cert-cpp-err33-return-value-check
+    patterns:
+      - pattern-either:
+          - pattern: malloc($SIZE);
+          - pattern: fopen($FILE, $MODE);
+          - pattern: fread($PTR, $SIZE, $COUNT, $STREAM);
+          - pattern: fwrite($PTR, $SIZE, $COUNT, $STREAM);
+    message: "CERT ERR33-C: Check return values of library functions"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: reliability
+
+  - id: cert-cpp-sig30-signal-handler
+    patterns:
+      - pattern: |
+          void $HANDLER(int $SIG) {
+            $...STMTS
+            $UNSAFE_CALL(...);
+            $...STMTS
+          }
+      - metavariable-regex:
+          metavariable: $UNSAFE_CALL
+          regex: (printf|malloc|free|fopen|fclose)
+    message: "CERT SIG30-C: Avoid unsafe functions in signal handlers"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+
+  - id: cert-cpp-con34-race-condition
+    patterns:
+      - pattern: |
+          if ($CONDITION) {
+            $...STMTS
+          }
+      - pattern-inside: |
+          $...STMTS1
+          pthread_mutex_lock($MUTEX);
+          $...STMTS2
+          pthread_mutex_unlock($MUTEX);
+          $...STMTS3
+    message: "CERT CON34-C: Check for race conditions in threaded code"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: concurrency
+
+  - id: cert-cpp-arr30-array-bounds
+    patterns:
+      - pattern: |
+          $ARRAY[$INDEX]
+      - pattern-not-inside: |
+          if ($INDEX < $SIZE) {
+            $...STMTS
+          }
+    message: "CERT ARR30-C: Check array bounds before access"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-125: Out-of-bounds Read"
+
+  - id: cert-cpp-dcl30-const-correctness
+    patterns:
+      - pattern: |
+          $TYPE* $FUNC($...PARAMS) {
+            $...STMTS
+            return $PTR;
+          }
+      - pattern-not: |
+          const $TYPE* $FUNC($...PARAMS) {
+            $...STMTS
+            return $PTR;
+          }
+    message: "CERT DCL30-C: Use const-correctness for function parameters and return types"
+    languages: [cpp]
+    severity: INFO
+    metadata:
+      category: best-practice
+
+  - id: cert-cpp-exp12-null-pointer-check
+    patterns:
+      - pattern-either:
+          - pattern: |
+              *$PTR
+          - pattern: |
+              $PTR->$FIELD
+          - pattern: |
+              $PTR[$INDEX]
+      - pattern-not-inside: |
+          if ($PTR != NULL) {
+            $...STMTS
+          }
+      - pattern-not-inside: |
+          if ($PTR) {
+            $...STMTS
+          }
+    message: "CERT EXP12-C: Check pointers for NULL before dereferencing"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: reliability
+      cwe: "CWE-476: NULL Pointer Dereference"

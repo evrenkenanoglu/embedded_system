@@ -1,0 +1,238 @@
+rules:
+  # IoT and Embedded Systems Security Rules
+  
+  - id: iot-hardcoded-wifi-credentials
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const char* $VAR = "$VALUE";
+          - pattern: |
+              char $VAR[] = "$VALUE";
+          - pattern: |
+              #define $CONST "$VALUE"
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: .*(wifi_ssid|wifi_password|ssid|password|wpa_key|network_key).*
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: .{3,}
+    message: "IoT Security: Hardcoded WiFi credentials - use secure storage (NVS, EEPROM)"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: iot-security
+      cwe: "CWE-798: Hardcoded Credentials"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+
+  - id: iot-mqtt-credentials-hardcoded
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const char* $VAR = "$VALUE";
+          - pattern: |
+              #define $CONST "$VALUE"
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: .*(mqtt_user|mqtt_pass|broker_user|broker_pass|client_id).*
+    message: "IoT Security: Hardcoded MQTT credentials - use secure provisioning"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: iot-security
+
+  - id: iot-api-key-hardcoded
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const char* $VAR = "$KEY";
+          - pattern: |
+              #define $CONST "$KEY"
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: .*(api_key|apikey|access_token|auth_token|secret_key).*
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ^[A-Za-z0-9_-]{16,}$
+    message: "IoT Security: Hardcoded API key - use secure credential management"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: iot-security
+
+  - id: iot-weak-encryption
+    patterns:
+      - pattern-either:
+          - pattern: MD5($DATA)
+          - pattern: SHA1($DATA)
+          - pattern: DES_encrypt($DATA, $KEY)
+          - pattern: RC4_encrypt($DATA, $KEY)
+    message: "IoT Security: Weak encryption algorithm - use AES-256, SHA-256 or better"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: iot-security
+      cwe: "CWE-327: Broken Cryptography"
+
+  - id: iot-insecure-random
+    patterns:
+      - pattern-either:
+          - pattern: rand()
+          - pattern: srand($SEED)
+          - pattern: random()
+    message: "IoT Security: Insecure random number generation - use crypto-secure PRNG"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: iot-security
+      cwe: "CWE-338: Weak PRNG"
+
+  - id: iot-debug-info-leak
+    patterns:
+      - pattern-either:
+          - pattern: printf("$FORMAT", ..., $SENSITIVE, ...)
+          - pattern: Serial.print($SENSITIVE)
+          - pattern: Serial.println($SENSITIVE)
+          - pattern: ESP_LOGI($TAG, "$FORMAT", ..., $SENSITIVE, ...)
+      - metavariable-regex:
+          metavariable: $SENSITIVE
+          regex: .*(password|key|token|secret|credential).*
+    message: "IoT Security: Sensitive data in debug output - remove before production"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: iot-security
+      cwe: "CWE-532: Information Exposure Through Log Files"
+
+  - id: iot-http-plaintext
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $CLIENT.begin("http://$URL");
+          - pattern: |
+              WiFiClient $CLIENT;
+          - pattern: |
+              HTTPClient http;
+              http.begin("http://$URL");
+    message: "IoT Security: HTTP plaintext communication - use HTTPS/TLS"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: iot-security
+      cwe: "CWE-319: Cleartext Transmission"
+
+  - id: iot-buffer-overflow-sensor-data
+    patterns:
+      - pattern-either:
+          - pattern: |
+              char $BUFFER[$SIZE];
+              sprintf($BUFFER, $FORMAT, $SENSOR_DATA);
+          - pattern: |
+              strcpy($BUFFER, $SENSOR_DATA);
+    message: "IoT Security: Sensor data buffer overflow risk - use bounded functions"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: iot-security
+      cwe: "CWE-120: Buffer Overflow"
+
+  - id: iot-firmware-version-exposure
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const char* firmware_version = "$VERSION";
+          - pattern: |
+              #define FIRMWARE_VERSION "$VERSION"
+      - pattern-inside: |
+          $...STMTS
+          send($SOCKET, $DATA, $SIZE, $FLAGS);
+          $...STMTS
+    message: "IoT Security: Firmware version exposure in network communication"
+    languages: [c, cpp]
+    severity: INFO
+    metadata:
+      category: iot-security
+
+  - id: iot-ota-update-insecure
+    patterns:
+      - pattern-either:
+          - pattern: |
+              Update.begin($SIZE);
+          - pattern: |
+              Update.writeStream($STREAM);
+      - pattern-not-inside: |
+          if (Update.isFinished() && Update.hasError() == false) {
+            $...STMTS
+          }
+    message: "IoT Security: OTA update without integrity verification"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: iot-security
+
+  - id: iot-device-id-hardcoded
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const char* device_id = "$ID";
+          - pattern: |
+              #define DEVICE_ID "$ID"
+      - metavariable-regex:
+          metavariable: $ID
+          regex: ^[A-Za-z0-9_-]{8,}$
+    message: "IoT Security: Hardcoded device ID - use MAC address or secure generation"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: iot-security
+
+  - id: iot-watchdog-disabled
+    patterns:
+      - pattern-either:
+          - pattern: |
+              esp_task_wdt_delete($TASK);
+          - pattern: |
+              esp_task_wdt_deinit();
+    message: "IoT Reliability: Watchdog timer disabled - may cause system hang"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: iot-reliability
+
+  - id: iot-memory-fragmentation
+    patterns:
+      - pattern: |
+          for ($INIT; $COND; $UPDATE) {
+            $...STMTS
+            $PTR = malloc($SIZE);
+            $...STMTS
+          }
+      - pattern-not: |
+          for ($INIT; $COND; $UPDATE) {
+            $...STMTS
+            $PTR = malloc($SIZE);
+            $...STMTS
+            free($PTR);
+            $...STMTS
+          }
+    message: "IoT Performance: Potential memory fragmentation in loop"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: iot-performance
+
+  - id: iot-sensor-data-validation
+    patterns:
+      - pattern: |
+          $VALUE = analogRead($PIN);
+          $...STMTS
+          send($SOCKET, $DATA, $SIZE, $FLAGS);
+      - pattern-not: |
+          $VALUE = analogRead($PIN);
+          if ($VALUE >= $MIN && $VALUE <= $MAX) {
+            $...STMTS
+          }
+    message: "IoT Security: Sensor data sent without validation - validate ranges"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: iot-security
