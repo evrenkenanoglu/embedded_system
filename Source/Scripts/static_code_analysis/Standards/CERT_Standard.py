@@ -1,4 +1,4 @@
-import Analysis_Standard_Base
+from .Analysis_Standard_Base import Analysis_Standard_Base
 
 
 class Cert_Standard(Analysis_Standard_Base):

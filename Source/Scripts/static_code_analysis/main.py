@@ -5,13 +5,10 @@ from Analyzer.analyzer import Analyzer
 # Import standard classes
 from Standards.Analysis_Standard_Base import Analysis_Standard_Base
 from Standards.Simple_Test_Standard import SimpleTestStandard
-
-# from Standards.CERT_Standard import CERTStandard
-
-# Add more imports as you create more standards
-# from Standards.MISRA_Standard import MISRAStandard
-# from Standards.IoT_Standard import IoTStandard
-# from Standards.ESP32_Standard import ESP32Standard
+from Standards.MISRA_Standard import Misra_Standard
+from Standards.CERT_Standard import Cert_Standard
+from Standards.IoT_Standard import IoT_Standard
+from Standards.ESP32_Standard import ESP32_Standard
 
 
 def create_available_standards():
@@ -21,13 +18,11 @@ def create_available_standards():
     standards = []
 
     # Add Simple Test Standard
-    standards.append(SimpleTestStandard(rules_dir))
-
-    # Add more standards as you implement them
-    # standards.append(CERTStandard(script_dir))
-    # standards.append(MISRAStandard(script_dir))
-    # standards.append(IoTStandard(script_dir))
-    # standards.append(ESP32Standard(script_dir))
+    # standards.append(SimpleTestStandard(rules_dir))
+    # standards.append(CERTStandard(rules_dir))
+    standards.append(Misra_Standard(rules_dir))
+    # standards.append(IoTStandard(rules_dir))
+    # standards.append(ESP32Standard(rules_dir))
 
     return standards
 
@@ -42,7 +37,7 @@ def activate_standards(available_standards, requested_standards):
                 activated.append(standard.name)
                 print(f"🔵 Activated: {standard.name}")
                 break
-    
+
     if not activated:
         print(f"⚠️  No standards activated from: {requested_standards}")
 
@@ -55,7 +50,7 @@ def main():
         "-s",
         nargs="+",
         choices=["simple", "cert", "misra", "iot", "esp32"],
-        default=["simple"],
+        default=["misra"],
         help="Standards to activate (default: simple)",
     )
     parser.add_argument(
@@ -69,6 +64,7 @@ def main():
         print("⚠️ All files will be analyzed.")
         try:
             from sourcefiles import all_files
+
             # Convert all files to Path objects
             args.file = [Path(f) for f in all_files]
         except ImportError:
@@ -113,14 +109,14 @@ def main():
         print(f"\n🔍 Analyzing file: {file_path}")
         analyzer.print_status(file_path, available_standards)
         print()
-        
-        success = analyzer.run_analysis(file_path, available_standards)
-        
+
+        success = analyzer.run_analysis(file_path, available_standards, output_format='all')
+
         if success:
             print(f"✅ Analysis Complete for {file_path.name}")
         else:
             print(f"❌ Analysis Failed for {file_path.name}")
-        
+
         print("-" * 50)  # Separator between files
 
 

@@ -5,7 +5,8 @@ Embedded_System_Dir = (
 
 
 source_files = [
-    f'{Embedded_System_Dir}/Source/Scripts/static_code_analysis/test.cpp'
+    # f'{Embedded_System_Dir}/Source/Scripts/static_code_analysis/test.cpp'
+    f'{Embedded_System_Dir}/Source/System/error_macros.h'
 ]
 
 # Header files
