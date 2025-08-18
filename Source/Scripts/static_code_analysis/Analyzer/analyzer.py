@@ -3,53 +3,56 @@ import subprocess
 import json
 
 class Analyzer:
-    def __init__(self, target_file=None, standard_list=None):
+    def __init__(self):
         self.script_dir = Path(__file__).parent.parent  # Go up to static_code_analysis dir
         self.reports_dir = self.script_dir / "reports"
         self.reports_dir.mkdir(exist_ok=True)
 
-        # Handle standard_list - should contain Analysis_Standard_Base objects
-        if not standard_list:
-            standard_list = []
-        self.standard_list = standard_list
-
-        # Check target file exists, if no, throw error 
-        if target_file is None:
-            raise ValueError("Target file must be specified")
-        self.target_file = Path(target_file)
-
-    def get_active_standards(self):
+    def get_active_standards(self, standard_list):
         """Get list of active standards from standard_list"""
-        active = [std for std in self.standard_list if std.is_active]
-        print(f"🔍 Found {len(active)} active standards out of {len(self.standard_list)} total")
+        active = [std for std in standard_list if std.is_active]
+        print(f"🔍 Found {len(active)} active standards out of {len(standard_list)} total")
         return active
 
-    def print_status(self):
+    def print_status(self, target_file, standard_list):
         """Print current analysis configuration"""
-        print(f"🎯 Target: {self.target_file.name}")
-        print(f"📁 File exists: {self.target_file.exists()}")
-        print(f"📋 Standards: {len(self.standard_list)} loaded")
+        # Ensure target_file is a Path object
+        if not isinstance(target_file, Path):
+            target_file = Path(target_file)
+            
+        print(f"🎯 Target: {target_file.name}")
+        print(f"📁 File exists: {target_file.exists()}")
+        print(f"📋 Standards: {len(standard_list)} loaded")
         
         print("📏 Available Standards:")
-        for standard in self.standard_list:
+        for standard in standard_list:
             standard.print_status()
 
-    def run_analysis(self):
+    def run_analysis(self, target_file, standard_list):
         """Run semgrep analysis with active standards"""
-        if not self.target_file.exists():
-            print(f"❌ Target file not found: {self.target_file}")
+        # Validate inputs
+        if target_file is None:
+            raise ValueError("Target file must be specified")
+        
+        if not standard_list:
+            standard_list = []
+        
+        target_file = Path(target_file)
+        
+        if not target_file.exists():
+            print(f"❌ Target file not found: {target_file}")
             return False
 
-        active_standards = self.get_active_standards()
+        active_standards = self.get_active_standards(standard_list)
         if not active_standards:
             print("❌ No active standards found!")
             print("💡 Available standards:")
-            for i, std in enumerate(self.standard_list):
+            for i, std in enumerate(standard_list):
                 print(f"   {i+1}. {std.name} (Active: {std.is_active})")
             return False
 
         # Execute pre-analysis
-        self._execute_pre_analysis(active_standards)
+        self._execute_pre_analysis(active_standards, target_file)
 
         # Get rule files from active standards
         rule_files = []
@@ -73,20 +76,20 @@ class Analyzer:
         
         # Determine output format
         if len(active_standards) == 1 and "simple" in active_standards[0].name.lower():
-            cmd.append(str(self.target_file))
-            return self._run_simple_output(cmd, active_standards)
+            cmd.append(str(target_file))
+            return self._run_simple_output(cmd, active_standards, target_file)
         else:
             cmd.extend([
                 "--json",
                 "--output", str(self.reports_dir / "results.json"),
-                str(self.target_file)
+                str(target_file)
             ])
-            return self._run_json_output(cmd, active_standards)
+            return self._run_json_output(cmd, active_standards, target_file)
 
-    def activate_standards(self, standard_names):
+    def activate_standards(self, standard_list, standard_names):
         """Activate standards by name - improved matching"""
         activated = []
-        for standard in self.standard_list:
+        for standard in standard_list:
             for requested_std in standard_names:
                 # More flexible matching
                 if (requested_std.lower() in standard.name.lower() or 
@@ -99,20 +102,20 @@ class Analyzer:
         if not activated:
             print(f"⚠️  No standards activated from: {standard_names}")
             print("📋 Available standards:")
-            for std in self.standard_list:
+            for std in standard_list:
                 print(f"   • {std.name}")
 
-    def _execute_pre_analysis(self, active_standards):
+    def _execute_pre_analysis(self, active_standards, target_file):
         """Execute pre-analysis code from standard objects"""
         for standard in active_standards:
             if hasattr(standard, 'pre_analysis'):
                 try:
                     print(f"📝 Running {standard.name} pre-analysis...")
-                    standard.pre_analysis(self.target_file)
+                    standard.pre_analysis(target_file)
                 except Exception as e:
                     print(f"⚠️  Error in {standard.name} pre_analysis: {e}")
 
-    def _run_simple_output(self, cmd, active_standards):
+    def _run_simple_output(self, cmd, active_standards, target_file):
         """Run analysis with simple text output"""
         print(f"🚀 Running: {' '.join(cmd)}")
         print()
@@ -134,14 +137,14 @@ class Analyzer:
                 print(result.stderr)
             
             # Execute post-analysis
-            self._execute_post_analysis(active_standards, result)
+            self._execute_post_analysis(active_standards, result, target_file)
             return True
             
         except Exception as e:
             print(f"❌ Analysis failed: {e}")
             return False
 
-    def _run_json_output(self, cmd, active_standards):
+    def _run_json_output(self, cmd, active_standards, target_file):
         """Run analysis with JSON output"""
         print(f"🚀 Running: {' '.join(cmd)}")
         print()
@@ -157,20 +160,20 @@ class Analyzer:
                 print(result.stderr)
             
             self._show_summary(active_standards)
-            self._execute_post_analysis(active_standards, result)
+            self._execute_post_analysis(active_standards, result, target_file)
             return True
             
         except Exception as e:
             print(f"❌ Analysis failed: {e}")
             return False
 
-    def _execute_post_analysis(self, active_standards, result):
+    def _execute_post_analysis(self, active_standards, result, target_file):
         """Execute post-analysis code from standard objects"""
         for standard in active_standards:
             if hasattr(standard, 'post_analysis'):
                 try:
                     print(f"📊 Running {standard.name} post-analysis...")
-                    standard.post_analysis(self.target_file, result, self.reports_dir)
+                    standard.post_analysis(target_file, result, self.reports_dir)
                 except Exception as e:
                     print(f"⚠️  Error in {standard.name} post_analysis: {e}")
 

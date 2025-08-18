@@ -34,12 +34,17 @@ def create_available_standards():
 
 def activate_standards(available_standards, requested_standards):
     """Activate standards based on user input"""
+    activated = []
     for standard in available_standards:
         for requested_std in requested_standards:
             if requested_std.lower() in standard.name.lower():
                 standard.is_active = True
+                activated.append(standard.name)
                 print(f"🔵 Activated: {standard.name}")
                 break
+    
+    if not activated:
+        print(f"⚠️  No standards activated from: {requested_standards}")
 
 
 def main():
@@ -62,17 +67,20 @@ def main():
     # Check file args empty, if yes import all_files from sourcefiles.py
     if not args.file:
         print("⚠️ All files will be analyzed.")
-        from sourcefiles import all_files
-
-        args.file = all_files
+        try:
+            from sourcefiles import all_files
+            # Convert all files to Path objects
+            args.file = [Path(f) for f in all_files]
+        except ImportError:
+            print("❌ sourcefiles.py not found. Please specify a file with --file")
+            return
     else:
-        # Ensure the file exists
+        # Ensure the file exists and convert to Path
         target_file = Path(args.file)
         if not target_file.exists():
             print(f"❌ File '{args.file}' does not exist!")
             return
-
-        # If a single file is provided, convert it to a list
+        # Convert single file to list of Path objects
         args.file = [target_file]
 
     # Create all available standards
@@ -91,24 +99,29 @@ def main():
         print("   python analyze.py --standards cert misra --file code.cpp")
         return
 
-
-    # Create analyzer with all standards
-    analyzer = Analyzer(target_file=args.file, standard_list=available_standards)
+    # Create analyzer
+    analyzer = Analyzer()
 
     # Activate requested standards
     activate_standards(available_standards, args.standards)
 
     print("🚀 ESP32 IoT Static Code Analysis")
     print("=" * 50)
-    analyzer.print_status()
-    print()
 
-    success = analyzer.run_analysis()
-
-    if success:
-        print("\n✅ Analysis Complete!")
-    else:
-        print("\n❌ Analysis Failed!")
+    # Process each file
+    for file_path in args.file:
+        print(f"\n🔍 Analyzing file: {file_path}")
+        analyzer.print_status(file_path, available_standards)
+        print()
+        
+        success = analyzer.run_analysis(file_path, available_standards)
+        
+        if success:
+            print(f"✅ Analysis Complete for {file_path.name}")
+        else:
+            print(f"❌ Analysis Failed for {file_path.name}")
+        
+        print("-" * 50)  # Separator between files
 
 
 if __name__ == "__main__":
