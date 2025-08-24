@@ -29,4 +29,4 @@ print(f"The output has been written to {sys.argv[2]}")
 
 # Example command ->
 # python html_to_c.py input.html output.h
-# python ..\..\..\Scripts\html_to_c.py ui_welcome_wifi_connect.html ui_welcome_wifi_connect.h
+# python ..\..\..\Scripts\html_to_c_converter\html_to_c.py ui_welcome_wifi_connect.html ui_welcome_wifi_connect.h
