@@ -1,3 +1,4 @@
 clang-format >= 17.*
 clang-tidy >= 17.*
 cmake >= 3.25.*
+-r Source/Scripts/static_code_analysis/requirements.txt
