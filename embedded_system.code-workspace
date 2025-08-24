@@ -1,0 +1,55 @@
+{
+    "folders": [
+        {
+            "path": "../"
+        }
+    ],
+    "settings": {
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.detectIndentation": false,
+        // Change the color theme to your preference
+        "workbench.colorCustomizations": {
+            "activityBar.background": "#0066ff",
+            "titleBar.activeBackground": "#0066ff",
+            "titleBar.activeForeground": "#f5ffde"
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-vscode.cpptools",
+            "ms-vscode.cmake-tools",
+            "espressif.esp-idf-extension"
+        ]
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "Test Echo",
+                "type": "shell",
+                "command": "echo",
+                "args": [
+                    "Hello from VS Code task!"
+                ],
+                "group": "test"
+            },
+            {
+                "label": "ES: Run Static Analysis with Active File",
+                "type": "shell",
+                "windows": {
+                    "command": "cd ${workspaceFolder}\\embedded_system\\Source\\Scripts\\static_code_analysis && python main.py --file ${file}"
+                }
+            },
+            {
+                "label": "ES: Run Static Analysis",
+                "type": "shell",
+                "windows": {
+                    "command": "cd ${workspaceFolder}\\embedded_system\\Source\\Scripts\\static_code_analysis && python main.py"
+                },
+                "problemMatcher": []
+            }
+        ]
+    }
+}
