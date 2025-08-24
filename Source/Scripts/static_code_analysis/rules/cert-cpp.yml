@@ -18,10 +18,8 @@ rules:
 
   - id: cert-cpp-mem31-free-null-pointer
     patterns:
-      - pattern: |
-          free($PTR);
-          $...STMTS
-          free($PTR);
+      - pattern: free($PTR)
+      - pattern: free($PTR)
     message: "CERT MEM31-C: Potential double-free vulnerability"
     languages: [c, cpp]
     severity: ERROR
@@ -31,23 +29,18 @@ rules:
 
   - id: cert-cpp-mem30-memory-leak
     patterns:
-      - pattern: |
+      - pattern: $PTR = malloc($SIZE)
+      - pattern-not-inside: |
           $PTR = malloc($SIZE);
-          if ($COND) {
-            return $RET;
-          }
-      - pattern-not: |
-          $PTR = malloc($SIZE);
-          if ($COND) {
-            free($PTR);
-            return $RET;
-          }
-    message: "CERT MEM30-C: Memory allocated but not freed on error path"
+          $...STMTS
+          free($PTR);
+    message: "CERT MEM30-C: Free allocated memory to prevent leaks"
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: memory-safety
       cwe: "CWE-401: Memory Leak"
+
 
   - id: cert-cpp-int32-signed-overflow
     patterns:
@@ -115,15 +108,25 @@ rules:
 
   - id: cert-cpp-sig30-signal-handler
     patterns:
-      - pattern: |
-          void $HANDLER(int $SIG) {
-            $...STMTS
-            $UNSAFE_CALL(...);
-            $...STMTS
-          }
-      - metavariable-regex:
-          metavariable: $UNSAFE_CALL
-          regex: (printf|malloc|free|fopen|fclose)
+      - pattern-either:
+          - pattern-inside: |
+              void $HANDLER(int $SIG) {
+                $...STMTS
+                printf(...);
+                $...STMTS
+              }
+          - pattern-inside: |
+              void $HANDLER(int $SIG) {
+                $...STMTS
+                malloc(...);
+                $...STMTS
+              }
+          - pattern-inside: |
+              void $HANDLER(int $SIG) {
+                $...STMTS
+                free(...);
+                $...STMTS
+              }
     message: "CERT SIG30-C: Avoid unsafe functions in signal handlers"
     languages: [c, cpp]
     severity: ERROR
@@ -133,16 +136,14 @@ rules:
   - id: cert-cpp-con34-race-condition
     patterns:
       - pattern: |
-          if ($CONDITION) {
-            $...STMTS
-          }
-      - pattern-inside: |
-          $...STMTS1
           pthread_mutex_lock($MUTEX);
-          $...STMTS2
+          $...STMTS
           pthread_mutex_unlock($MUTEX);
-          $...STMTS3
-    message: "CERT CON34-C: Check for race conditions in threaded code"
+    message: "CERT CON34-C: Review threaded code for race conditions"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: concurrencyT CON34-C: Check for race conditions in threaded code"
     languages: [c, cpp]
     severity: WARNING
     metadata:
@@ -150,12 +151,9 @@ rules:
 
   - id: cert-cpp-arr30-array-bounds
     patterns:
-      - pattern: |
-          $ARRAY[$INDEX]
+      - pattern: $ARRAY[$INDEX]
       - pattern-not-inside: |
-          if ($INDEX < $SIZE) {
-            $...STMTS
-          }
+          if ($INDEX < $SIZE) { $...STMTS }
     message: "CERT ARR30-C: Check array bounds before access"
     languages: [c, cpp]
     severity: WARNING
@@ -170,12 +168,7 @@ rules:
             $...STMTS
             return $PTR;
           }
-      - pattern-not: |
-          const $TYPE* $FUNC($...PARAMS) {
-            $...STMTS
-            return $PTR;
-          }
-    message: "CERT DCL30-C: Use const-correctness for function parameters and return types"
+    message: "CERT DCL30-C: Consider const-correctness for return types"
     languages: [cpp]
     severity: INFO
     metadata:
@@ -184,23 +177,111 @@ rules:
   - id: cert-cpp-exp12-null-pointer-check
     patterns:
       - pattern-either:
-          - pattern: |
-              *$PTR
-          - pattern: |
-              $PTR->$FIELD
-          - pattern: |
-              $PTR[$INDEX]
+          - pattern: "*$PTR"
+          - pattern: "$PTR->$FIELD"
+          - pattern: "$PTR[$INDEX]"
       - pattern-not-inside: |
-          if ($PTR != NULL) {
-            $...STMTS
-          }
+          if ($PTR != NULL) { $...STMTS }
       - pattern-not-inside: |
-          if ($PTR) {
-            $...STMTS
-          }
+          if ($PTR) { $...STMTS }
     message: "CERT EXP12-C: Check pointers for NULL before dereferencing"
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: reliability
       cwe: "CWE-476: NULL Pointer Dereference"
+
+  # IoT/Embedded specific additions
+  - id: cert-cpp-fio47-io-validation
+    patterns:
+      - pattern-either:
+          - pattern: Serial.read()
+          - pattern: WiFi.begin($SSID, $PASS)
+          - pattern: client.connect($HOST, $PORT)
+    message: "CERT FIO47-C: Validate all input from external sources (WiFi, Serial, network)"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-20: Improper Input Validation"
+
+  - id: cert-cpp-msc30-random-seed
+    patterns:
+      - pattern-either:
+          - pattern: rand()
+          - pattern: random()
+    message: "CERT MSC30-C: Use cryptographically secure random number generation"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-338: Weak PRNG"
+
+  - id: cert-cpp-embedded-watchdog
+    patterns:
+      - pattern: |
+          while(1) {
+            $...STMTS
+          }
+    message: "Embedded: Add watchdog timer resets in infinite loops"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: reliability
+
+  - id: cert-cpp-embedded-stack-usage
+    patterns:
+      - pattern: |
+          $TYPE $ARRAY[$SIZE];
+      - metavariable-comparison:
+          metavariable: $SIZE
+          comparison: $SIZE > 1024
+    message: "Embedded: Large stack arrays may cause stack overflow"
+    languages: [c, cpp]
+    severity: WARNING
+    metadata:
+      category: memory-safety
+
+  - id: cert-cpp-iot-ssl-verification
+    patterns:
+      - pattern-either:
+          - pattern: client.setInsecure()
+          - pattern: WiFiClientSecure.setInsecure()
+          - pattern: client.setCACert(NULL)
+    message: "IoT: Always verify SSL/TLS certificates in production"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-295: Certificate Validation"
+
+  - id: cert-cpp-embedded-interrupt-safety
+    patterns:
+      - pattern-inside: |
+          IRAM_ATTR void $HANDLER() {
+            $...STMTS
+          }
+      - pattern-either:
+          - pattern: Serial.println(...)
+          - pattern: malloc(...)
+          - pattern: delay(...)
+    message: "Embedded: Avoid complex operations in interrupt handlers"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: reliability
+
+  - id: cert-cpp-iot-credential-storage
+    patterns:
+      - pattern-either:
+          - pattern: EEPROM.write($ADDR, $SECRET)
+          - pattern: preferences.putString($KEY, $SECRET)
+      - metavariable-regex:
+          metavariable: $SECRET
+          regex: .*(password|key|token|secret).*
+    message: "IoT: Encrypt sensitive data before storing in EEPROM/NVS"
+    languages: [c, cpp]
+    severity: ERROR
+    metadata:
+      category: security
+

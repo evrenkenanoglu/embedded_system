@@ -1,6 +1,6 @@
 rules:
   # IoT and Embedded Systems Security Rules
-  
+
   - id: iot-hardcoded-wifi-credentials
     patterns:
       - pattern-either:
@@ -143,31 +143,19 @@ rules:
           - pattern: |
               #define FIRMWARE_VERSION "$VERSION"
       - pattern-inside: |
-          $...STMTS
           send($SOCKET, $DATA, $SIZE, $FLAGS);
-          $...STMTS
     message: "IoT Security: Firmware version exposure in network communication"
     languages: [c, cpp]
     severity: INFO
-    metadata:
-      category: iot-security
 
   - id: iot-ota-update-insecure
     patterns:
       - pattern-either:
-          - pattern: |
-              Update.begin($SIZE);
-          - pattern: |
-              Update.writeStream($STREAM);
-      - pattern-not-inside: |
-          if (Update.isFinished() && Update.hasError() == false) {
-            $...STMTS
-          }
+          - pattern: Update.begin($SIZE);
+          - pattern: Update.writeStream($STREAM);
     message: "IoT Security: OTA update without integrity verification"
     languages: [c, cpp]
     severity: ERROR
-    metadata:
-      category: iot-security
 
   - id: iot-device-id-hardcoded
     patterns:
@@ -201,38 +189,56 @@ rules:
   - id: iot-memory-fragmentation
     patterns:
       - pattern: |
-          for ($INIT; $COND; $UPDATE) {
-            $...STMTS
+          for (...) {
+            ...
             $PTR = malloc($SIZE);
-            $...STMTS
+            ...
           }
       - pattern-not: |
-          for ($INIT; $COND; $UPDATE) {
-            $...STMTS
+          for (...) {
+            ...
             $PTR = malloc($SIZE);
-            $...STMTS
+            ...
             free($PTR);
-            $...STMTS
+            ...
           }
     message: "IoT Performance: Potential memory fragmentation in loop"
     languages: [c, cpp]
     severity: WARNING
-    metadata:
-      category: iot-performance
 
   - id: iot-sensor-data-validation
     patterns:
       - pattern: |
           $VALUE = analogRead($PIN);
-          $...STMTS
+          ...
           send($SOCKET, $DATA, $SIZE, $FLAGS);
-      - pattern-not: |
-          $VALUE = analogRead($PIN);
-          if ($VALUE >= $MIN && $VALUE <= $MAX) {
-            $...STMTS
-          }
     message: "IoT Security: Sensor data sent without validation - validate ranges"
     languages: [c, cpp]
     severity: WARNING
-    metadata:
-      category: iot-security
+# 🔴 Completely Missing Patterns (11 rules):
+# iot-weak-encryption - Missing patterns for weak crypto
+# iot-insecure-random - Missing patterns for bad RNG
+# iot-debug-info-leak - Missing patterns for debug leaks
+# iot-http-plaintext - Missing patterns for HTTP usage
+# iot-buffer-overflow-sensor-data - Missing patterns for buffer overflows
+# iot-firmware-version-exposure - Missing patterns for version exposure
+# iot-ota-update-insecure - Missing patterns for insecure OTA
+# iot-device-id-hardcoded - Missing patterns for hardcoded IDs
+# iot-watchdog-disabled - Missing patterns for watchdog
+# iot-memory-fragmentation - Missing patterns for memory issues
+# iot-sensor-data-validation - Missing patterns for validation
+# 🟡 Incomplete Patterns (4 rules):
+# iot-hardcoded-wifi-credentials - Has pattern-either: but no actual patterns
+# iot-mqtt-credentials-hardcoded - Has pattern-either: but no actual patterns
+# iot-api-key-hardcoded - Has pattern-either: but no actual patterns
+# 🟢 Additional IoT Security Rules You Should Consider:
+# iot-default-passwords - Default/weak passwords
+# iot-unencrypted-storage - Unencrypted sensitive data storage
+# iot-certificate-validation - Missing SSL/TLS certificate validation
+# iot-privilege-escalation - Unnecessary privileges
+# iot-session-management - Weak session handling
+# iot-dos-vulnerabilities - Denial of service vulnerabilities
+# iot-timing-attacks - Timing attack vulnerabilities
+# iot-side-channel-attacks - Side-channel vulnerabilities
+# iot-secure-boot - Missing secure boot validation
+# iot-hardware-debug - Hardware debug interfaces enabled
