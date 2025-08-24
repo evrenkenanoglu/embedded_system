@@ -111,7 +111,7 @@ public:
     /**
      * @brief Enumeration for the bank mode of the MCP23X17.
      *
-     * The  16-bit  I/O  port  functionally  consists  of  two  8-bitports  (PORTA  and  PORTB).  
+     * The  16-bit  I/O  port  functionally  consists  of  two  8-bitports  (PORTA  and  PORTB).
      * The  MCP23X17  can  beconfigured  to  operate  in  the  8-bit  or  16-bit modes  via IOCON.BANK.
      */
     enum class REG_BANK_MODE : uint8_t
@@ -270,9 +270,30 @@ private:
         uint8_t intEnableB; // Interrupt enable for port B
     } mcp23017_config_t;
 
+
+    typedef enum class get_command_type_t
+    {
+        GET_NUMBER_OF_PORTS,      // Get number of ports
+        GET_NUMBER_OF_PINS,       // Get number of pins
+
+        GET_DIRECTION,          // Get I/O direction
+        GET_POLARITY,          // Get input polarity
+        GET_INTERRUPT_ENABLE,   // Get interrupt enable status
+        GET_DEFAULT_VALUE,      // Get default value for pins
+        GET_INTERRUPT_CONTROL,  // Get interrupt control settings
+        GET_PULL_UP_RESISTOR,   // Get pull-up resistor status
+        GET_INTERRUPT_FLAG,     // Get interrupt flag status
+        GET_INTERRUPT_CAPTURED,  // Get captured interrupt value
+        GET_GPIO_PORT,          // Get GPIO port value
+        GET_OUTPUT_LATCH,       // Get output latch value
+    } get_command_type_t;
+
 private:
+    bool      _isInitialized; // True if the MCP23017 is initialized
     bool      _started;
     IHAL_COM& _comInterface;  // Reference to the communication interface
+    IHAL_IO*  _interruptPinA; // Reference to the interrupt pin A
+    IHAL_IO*  _interruptPinB; // Reference to the interrupt pin B
     uint8_t   _deviceAddress; // I2C address of the MCP23017
     // IOCON register bits
     REG_BANK_MODE _bankMode;                      // True if banked mode is enabled
@@ -284,16 +305,20 @@ private:
     bool          _isIntPolarityActiveHigh;       // True if interrupt polarity is active highF
 
 public: // Interface methods
-    cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode);
+    cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_IO* interruptPinA, IHAL_IO* interruptPinB);
     ~cpx_mcp23x17();
+
+    sys_error_t init(void* params) override;
 
     sys_error_t start() override;
 
-    void* get() override;
+    sys_error_t get(void* data) override;
 
     sys_error_t set(void* data) override;
 
     sys_error_t stop() override;
+
+    sys_error_t deInit() override;
 
 public: // User-defined methods
     /**
@@ -340,6 +365,8 @@ public: // User-defined methods
 
     /**
      * @brief Set the pull-up resistor for a specific port or pin.
+     * If a bit is set and the corresponding pin is configured as an input, the corresponding port pin is
+     * internally pulled up with a 100 kOhm resistor.
      * @param value Use PULL_UP_RESISTOR_ENABLED or PULL_UP_RESISTOR_DISABLED
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */

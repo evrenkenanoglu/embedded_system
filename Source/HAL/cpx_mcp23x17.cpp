@@ -31,10 +31,13 @@
         return readRegisterByTypeByte(REG_TYPE::REGTYPE, port, value);                       \
     }
 
-cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode)
-    : _started(false)
-    , _comInterface(comInterface)
-    , _deviceAddress(MCP23017_I2C_ADDRESS)
+cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_IO* interruptPinA, IHAL_IO* interruptPinB)
+    : _isInitialized(false)                                                           // Initialize as not initialized
+    , _started(false)                                                                 // Initialize started state
+    , _comInterface(comInterface)                                                     // Initialize communication interface
+    , _interruptPinA(interruptPinA)                                                   // Initialize interrupt pin A
+    , _interruptPinB(interruptPinB)                                                   // Initialize interrupt pin B
+    , _deviceAddress(MCP23017_I2C_ADDRESS)                                            // Default I2C address for MCP23017
     , _bankMode(bankMode)                                                             // 7th bit
     , _isMirrorEnabled(static_cast<bool>(MIRROR_DISABLED))                            // 6th bit
     , _isSequentialOperationDisabled(static_cast<bool>(SEQENTIAL_OPERATION_DISABLED)) // 5th bit
@@ -43,7 +46,6 @@ cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode)
     , _isOpenDrainEnabled(static_cast<bool>(ODR_DISABLED))                            // 2nd bit
     , _isIntPolarityActiveHigh(static_cast<bool>(INTPOL_ACTIVE_LOW))                  // 1st bit ,
 // 0th bit no effect
-
 {
     // constructor implementation
 }
@@ -53,14 +55,13 @@ cpx_mcp23x17::~cpx_mcp23x17()
     // destructor implementation
 }
 
-sys_error_t cpx_mcp23x17::start()
+sys_error_t cpx_mcp23x17::init(void* params)
 {
 
-    if (_started)
+    if (_isInitialized)
     {
-        return ERROR_SUCCESS; // Already started
+        return ERROR_SUCCESS; // Already initialized
     }
-    _started = true; // Mark as started
 
     uint8_t ioconValueA = 0;
     uint8_t ioconValueB = 0;
@@ -71,17 +72,61 @@ sys_error_t cpx_mcp23x17::start()
 
     SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
 
+    _isInitialized = true; // Mark as initialized
+
     return ERROR_SUCCESS;
 }
 
-void* cpx_mcp23x17::get()
+sys_error_t cpx_mcp23x17::deInit()
 {
-    if (!_started)
+    if (!_isInitialized)
     {
-        return nullptr; // Not started, return null
+        return ERROR_NOT_INITIALIZED; // Not initialized, cannot deinitialize
     }
 
-    return nullptr; // Placeholder, replace with actual data retrieval logic
+    _isInitialized = false; // Mark as not initialized
+
+    // Additional cleanup logic if necessary
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_mcp23x17::start()
+{
+
+    if (!_isInitialized)
+    {
+        return ERROR_NOT_INITIALIZED; // Already initialized
+    }
+
+    if (_started)
+    {
+        return ERROR_SUCCESS; // Already started
+    }
+    _started = true; // Mark as started
+
+    // Initialize interrupt pins if provided
+    if (_interruptPinA)
+    {
+        RETURN_ON_ERROR_WITH_LOG(
+            _interruptPinA->set(nullptr),   // Set the interrupt pin A
+            "Failed to set interrupt pin A" // Error Message
+        );
+    }
+
+    // create a task to handle interrupts if needed
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_mcp23x17::get(void* data)
+{
+    if (data == nullptr)
+    {
+        return ERROR_INVALID_ARG; // Invalid argument
+    }
+
+    return ERROR_NOT_IMPLEMENTED; // Placeholder, replace with actual data retrieval logic
 }
 
 sys_error_t cpx_mcp23x17::set(void* data)
