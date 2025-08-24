@@ -9,6 +9,39 @@ class Semgrep_Output_Handler:
     def __init__(self, reports_dir):
         self.reports_dir = Path(reports_dir)
         self.reports_dir.mkdir(exist_ok=True)
+
+    def _generate_report_filename(self, format_type, target_file=None, custom_prefix=None):
+        """Generate timestamped filename for different report formats"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Define format-specific patterns
+        format_patterns = {
+            "simple": ("simple_results", ".txt"),
+            "json": ("results", ".json"),
+            "sarif": ("results", ".sarif"),
+            "junit": ("results", ".xml"),
+            "gitlab": ("gl-sast-report", ".json")
+        }
+        
+        if custom_prefix:
+            base_name = custom_prefix
+        elif format_type in format_patterns:
+            base_name, _ = format_patterns[format_type]
+        else:
+            base_name = "results"
+        
+        if format_type in format_patterns:
+            _, extension = format_patterns[format_type]
+        else:
+            extension = ".txt"
+
+        if target_file:
+            target_file = target_file.stem
+        else:
+            target_file = "analysis"
+        
+        filename = f"{base_name}__{target_file}__{timestamp}{extension}"
+        return self.reports_dir / filename
     
     def run_by_format(self, cmd, active_standards, target_file, output_format):
         """Run analysis based on the specified output format"""
@@ -54,8 +87,7 @@ class Semgrep_Output_Handler:
                 print(result.stdout)
                 
                 # Save simple output to reports folder
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                simple_report_file = self.reports_dir / f"simple_results_{timestamp}.txt"
+                simple_report_file = self._generate_report_filename("simple", target_file)
                 with open(simple_report_file, "w", encoding="utf-8") as f:
                     f.write(f"Simple Analysis Results for {target_file.name}\n")
                     f.write("=" * 50 + "\n\n")
@@ -80,12 +112,11 @@ class Semgrep_Output_Handler:
 
     def run_json_output(self, cmd, active_standards, target_file):
         """Run analysis with JSON output"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        json_file = self.reports_dir / f"results_{timestamp}.json"
+        json_report_file = self._generate_report_filename("json", target_file)
         
         final_cmd = cmd + [
             "--json",
-            "--output", str(json_file),
+            "--output", str(json_report_file),
             str(target_file)
         ]
         
@@ -103,9 +134,9 @@ class Semgrep_Output_Handler:
                 print(result.stderr)
             
             # Show summary from the generated file
-            self.show_summary_from_file(json_file, active_standards)
+            self.show_summary_from_file(json_report_file, active_standards)
             
-            print(f"📄 JSON Report: {json_file}")
+            print(f"📄 JSON Report: {json_report_file}")
             return True, result
             
         except Exception as e:
@@ -114,12 +145,11 @@ class Semgrep_Output_Handler:
 
     def run_sarif_output(self, cmd, active_standards, target_file):
         """Run analysis with SARIF output"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        sarif_file = self.reports_dir / f"results_{timestamp}.sarif"
+        sarif_report_file = self._generate_report_filename("sarif", target_file)
         
         final_cmd = cmd + [
             "--sarif",
-            "--output", str(sarif_file),
+            "--output", str(sarif_report_file),
             str(target_file)
         ]
         
@@ -136,7 +166,7 @@ class Semgrep_Output_Handler:
                 print("📝 Messages:")
                 print(result.stderr)
             
-            print(f"📄 SARIF Report: {sarif_file}")
+            print(f"📄 SARIF Report: {sarif_report_file}")
             return True, result
             
         except Exception as e:
@@ -145,12 +175,11 @@ class Semgrep_Output_Handler:
 
     def run_junit_output(self, cmd, active_standards, target_file):
         """Run analysis with JUnit XML output"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        junit_file = self.reports_dir / f"results_{timestamp}.xml"
+        junit_report_file = self._generate_report_filename("junit", target_file)
         
         final_cmd = cmd + [
             "--junit-xml",
-            "--output", str(junit_file),
+            "--output", str(junit_report_file),
             str(target_file)
         ]
         
@@ -167,7 +196,7 @@ class Semgrep_Output_Handler:
                 print("📝 Messages:")
                 print(result.stderr)
             
-            print(f"📄 JUnit Report: {junit_file}")
+            print(f"📄 JUnit Report: {junit_report_file}")
             return True, result
             
         except Exception as e:
@@ -176,12 +205,11 @@ class Semgrep_Output_Handler:
 
     def run_gitlab_output(self, cmd, active_standards, target_file):
         """Run analysis with GitLab SAST output"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        gitlab_file = self.reports_dir / f"gl-sast-report_{timestamp}.json"
+        gitlab_report_file = self._generate_report_filename("gitlab", target_file)
         
         final_cmd = cmd + [
             "--gitlab-sast",
-            "--output", str(gitlab_file),
+            "--output", str(gitlab_report_file),
             str(target_file)
         ]
         
@@ -198,7 +226,7 @@ class Semgrep_Output_Handler:
                 print("📝 Messages:")
                 print(result.stderr)
             
-            print(f"📄 GitLab Report: {gitlab_file}")
+            print(f"📄 GitLab Report: {gitlab_report_file}")
             return True, result
             
         except Exception as e:
@@ -292,13 +320,3 @@ class Semgrep_Output_Handler:
             
         except Exception as e:
             print(f"⚠️  Error reading results: {e}")
-
-    def show_legacy_summary(self, active_standards):
-        """Show analysis summary from legacy results.json file"""
-        results_file = self.reports_dir / "results.json"
-        
-        if not results_file.exists():
-            print("⚠️  No results file generated")
-            return
-        
-        self.show_summary_from_file(results_file, active_standards)
