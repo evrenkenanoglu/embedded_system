@@ -18,11 +18,10 @@ def create_available_standards():
     standards = []
 
     # Add Simple Test Standard
-    # standards.append(SimpleTestStandard(rules_dir))
-    # standards.append(CERTStandard(rules_dir))
+    standards.append(Cert_Standard(rules_dir))
     standards.append(Misra_Standard(rules_dir))
-    # standards.append(IoTStandard(rules_dir))
-    # standards.append(ESP32Standard(rules_dir))
+    standards.append(IoT_Standard(rules_dir))
+    standards.append(ESP32_Standard(rules_dir))
 
     return standards
 
@@ -50,7 +49,7 @@ def main():
         "-s",
         nargs="+",
         choices=["simple", "cert", "misra", "iot", "esp32"],
-        default=["misra"],
+        default=["iot"],
         help="Standards to activate (default: simple)",
     )
     parser.add_argument(
@@ -91,8 +90,9 @@ def main():
         for standard in available_standards:
             standard.print_status()
         print("\nUsage:")
-        print("   python analyze.py --standards simple --file test.cpp")
-        print("   python analyze.py --standards cert misra --file code.cpp")
+        print("   python main.py --standards simple --file test.cpp")
+        print("   python main.py --standards cert misra --file code.cpp")
+        print("   python main.py")
         return
 
     # Create analyzer
@@ -110,7 +110,9 @@ def main():
         analyzer.print_status(file_path, available_standards)
         print()
 
-        success = analyzer.run_analysis(file_path, available_standards, output_format='all')
+        success = analyzer.run_analysis(
+            file_path, available_standards, output_format="sarif"
+        )
 
         if success:
             print(f"✅ Analysis Complete for {file_path.name}")
