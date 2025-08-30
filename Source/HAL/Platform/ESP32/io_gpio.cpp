@@ -170,7 +170,7 @@ static void gpioTimerCallback(TimerHandle_t xTimer)
         .timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS // Timestamp in ms
     };
 
-    printf("GPIO[%d] intr, val: %d\n", static_cast<int>(event.gpio_num), static_cast<int>(currentLevel));
+    // printf("GPIO[%d] intr, val: %d\n", static_cast<int>(event.gpio_num), static_cast<int>(currentLevel));
 
     // Send event to queue
     BaseType_t queueResult = xQueueSendFromISR(
@@ -304,10 +304,12 @@ io_gpio::~io_gpio()
 
 void io_gpio::get(void* data)
 {
-    if (data != nullptr)
-    {
-        *reinterpret_cast<int*>(data) = gpio_get_level(static_cast<gpio_num_t>(_halConfig.pinNumber));
-    }
+    RETURN_IF_ERROR(
+        data == nullptr, // Expression
+        void()           // Return value (void)
+    );
+
+    *reinterpret_cast<int*>(data) = gpio_get_level(static_cast<gpio_num_t>(_halConfig.pinNumber));
 }
 
 sys_error_t io_gpio::set(void* data)
@@ -354,31 +356,32 @@ sys_error_t io_gpio::getDirection(hal_gpio_direction_t& direction)
 
 sys_error_t io_gpio::setDirection(hal_gpio_direction_t direction)
 {
-    gpio_mode_t mode   = convertDirection(direction);
-    esp_err_t   result = gpio_set_direction(static_cast<gpio_num_t>(_halConfig.pinNumber), mode);
+    gpio_mode_t mode = convertDirection(direction);
 
-    if (result == ESP_OK)
-    {
-        _halConfig.direction = direction; // Update HAL config directly
-    }
+    RETURN_IF_ERROR_WITH_LOG(
+        gpio_set_direction(static_cast<gpio_num_t>(_halConfig.pinNumber), mode) != ESP_OK, // Expression
+        ERROR_FAIL,                                                                        // Error code
+        "Failed to set GPIO direction"                                                     // Log message
+    );
 
-    return (result == ESP_OK) ? ERROR_SUCCESS : ERROR_FAIL;
+    _halConfig.direction = direction; // Update HAL config directly
+
+    return ERROR_SUCCESS;
 }
 
 sys_error_t io_gpio::setPull(hal_gpio_pull_t pull)
 {
-    esp_err_t result = ESP_OK;
-
     gpio_pull_mode_t platformPull = convertPull(pull);
 
-    result = gpio_set_pull_mode(static_cast<gpio_num_t>(_halConfig.pinNumber), platformPull);
+    RETURN_IF_ERROR_WITH_LOG(
+        gpio_set_pull_mode(static_cast<gpio_num_t>(_halConfig.pinNumber), platformPull) != ESP_OK, // Expression
+        ERROR_FAIL,                                                                                // Error code
+        "Failed to set GPIO pull mode"                                                             // Log message
+    );
 
-    if (result == ESP_OK)
-    {
-        _halConfig.pull = pull; // Update HAL config, not cached variable
-    }
+    _halConfig.pull = pull; // Update HAL config, not cached variable
 
-    return (result == ESP_OK) ? ERROR_SUCCESS : ERROR_FAIL;
+    return ERROR_SUCCESS;
 }
 
 sys_error_t io_gpio::getPull(hal_gpio_pull_t& pull)
@@ -447,11 +450,11 @@ sys_error_t io_gpio::getLevel(hal_gpio_level_t& level)
 
 sys_error_t io_gpio::setLevel(hal_gpio_level_t level)
 {
-    if (_halConfig.direction == hal_gpio_direction_t::INPUT) // Use _halConfig, not _currentDirection
-    {
-        SYS_LOG_W("Cannot set level on input GPIO");
-        return ERROR_NOT_SUPPORTED;
-    }
+    RETURN_IF_ERROR_WITH_LOG(
+        (_halConfig.direction == hal_gpio_direction_t::INPUT), // Expression
+        ERROR_NOT_SUPPORTED,                                   // Error code
+        "Cannot set level on input GPIO"                       // Log message
+    );
 
     int       gpioLevel = (level == hal_gpio_level_t::HIGH) ? 1 : 0;
     esp_err_t result    = gpio_set_level(static_cast<gpio_num_t>(_halConfig.pinNumber), gpioLevel);
@@ -460,18 +463,14 @@ sys_error_t io_gpio::setLevel(hal_gpio_level_t level)
 
 sys_error_t io_gpio::toggleLevel()
 {
-    if (_halConfig.direction == hal_gpio_direction_t::INPUT) // Use _halConfig
-    {
-        SYS_LOG_W("Cannot toggle level on input GPIO");
-        return ERROR_NOT_SUPPORTED;
-    }
+    RETURN_IF_ERROR_WITH_LOG(
+        (_halConfig.direction == hal_gpio_direction_t::INPUT), // Expression
+        ERROR_NOT_SUPPORTED,                                   // Error code
+        "Cannot toggle level on input GPIO!"                   // Log message
+    );
 
     hal_gpio_level_t currentLevel;
-    sys_error_t      error = getLevel(currentLevel);
-    if (error != ERROR_SUCCESS)
-    {
-        return error;
-    }
+    RETURN_ON_ERROR(getLevel(currentLevel));
 
     hal_gpio_level_t newLevel = (currentLevel == hal_gpio_level_t::HIGH) ? hal_gpio_level_t::LOW : hal_gpio_level_t::HIGH;
     return setLevel(newLevel);
@@ -480,14 +479,16 @@ sys_error_t io_gpio::toggleLevel()
 sys_error_t io_gpio::setInterrupt(hal_gpio_interrupt_t interrupt)
 {
     gpio_int_type_t intType = convertInterrupt(interrupt);
-    esp_err_t       result  = gpio_set_intr_type(static_cast<gpio_num_t>(_halConfig.pinNumber), intType);
 
-    if (result == ESP_OK)
-    {
-        _halConfig.interrupt = interrupt;
-    }
+    RETURN_IF_ERROR_WITH_LOG(
+        gpio_set_intr_type(static_cast<gpio_num_t>(_halConfig.pinNumber), intType) != ESP_OK, // Expression
+        ERROR_FAIL,                                                                           // Error code
+        "Failed to set GPIO interrupt type"                                                   // Log message
+    );
 
-    return (result == ESP_OK) ? ERROR_SUCCESS : ERROR_FAIL;
+    _halConfig.interrupt = interrupt;
+
+    return ERROR_SUCCESS;
 }
 
 void* io_gpio::getEventQueue()
