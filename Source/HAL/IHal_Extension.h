@@ -67,9 +67,9 @@ enum class hal_gpio_level_t : uint8_t
  */
 typedef struct
 {
-    uint32_t     gpio_num;
+    uint32_t         gpio_num;
     hal_gpio_level_t level;
-    uint32_t     timestamp_ms;
+    uint32_t         timestamp_ms;
 } gpio_event_t;
 
 /**
@@ -77,12 +77,12 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t         pinNumber;         // GPIO pin number
+    uint32_t             pinNumber;        // GPIO pin number
     hal_gpio_direction_t direction;        // GPIO direction (input/output/bidirectional)
     hal_gpio_pull_t      pull;             // Pull resistor configuration
     hal_gpio_interrupt_t interrupt;        // Interrupt trigger type
     hal_gpio_level_t     initial_level;    // Initial level for output pins
-    bool             enable_interrupt; // Enable interrupt on initialization
+    bool                 enable_interrupt; // Enable interrupt on initialization
 } gpio_hal_config_t;
 
 /**
