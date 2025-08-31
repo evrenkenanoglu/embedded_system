@@ -40,7 +40,10 @@ static void toggle(Proc_Leds::ledData* led);
  */
 static void handleBlink(Proc_Leds::ledData* led, uint32_t timeoutRate);
 
-Proc_Leds::Proc_Leds(std::vector<ledData*>& leds, uint32_t stackSize, uint8_t taskPriority) : _leds(leds), _stackSize(stackSize), _taskPriority(taskPriority)
+Proc_Leds::Proc_Leds(std::vector<ledData*>& leds, uint32_t stackSize, uint8_t taskPriority)
+    : _leds(leds)
+    , _stackSize(stackSize)
+    , _taskPriority(taskPriority)
 {
     // constructor implementation
 }
@@ -55,12 +58,13 @@ sys_error_t Proc_Leds::start()
     // start the LED task
 
     // Create the Button Listener
-    BaseType_t result = xTaskCreate(procLedsTask,               // Task function
-                                    "Leds_Task",                // Task name
-                                    _stackSize,                 // Stack size
-                                    static_cast<void*>(&_leds), // Task parameter
-                                    _taskPriority,              // Task priority
-                                    &_taskHandle);              // Task handle
+    BaseType_t result = xTaskCreate(
+        procLedsTask,               // Task function
+        "Leds_Task",                // Task name
+        _stackSize,                 // Stack size
+        static_cast<void*>(&_leds), // Task parameter
+        _taskPriority,              // Task priority
+        &_taskHandle);              // Task handle
 
     if (result != pdPASS)
     {
@@ -154,13 +158,13 @@ void procLedsTask(void* arg)
             {
                 case LED_OFF:
                 {
-                    uint8_t off = GPIO_LOW;
+                    uint8_t off = static_cast<uint8_t>(hal_gpio_level_t::LOW);
                     led->gpio.set((void*)&off);
                 }
                 break;
                 case LED_ON:
                 {
-                    uint8_t on = GPIO_HIGH;
+                    uint8_t on = static_cast<uint8_t>(hal_gpio_level_t::HIGH);
                     led->gpio.set((void*)&on);
                 }
                 break;

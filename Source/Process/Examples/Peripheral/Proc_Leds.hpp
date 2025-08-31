@@ -8,7 +8,7 @@
 #ifndef PROC_LEDS_HPP
 #define PROC_LEDS_HPP
 
-#include "HAL/Platform/ESP32/io_gpio.hpp"
+#include "HAL/IHal_Extension.h"
 #include "Process/Process.hpp"
 #include <stdbool.h>
 #include <vector>
@@ -34,7 +34,7 @@ public:
     // private members
     typedef struct
     {
-        io_gpio&        gpio;
+        IHAL_IO_GPIO&   gpio;
         ledStateMachine state;
         uint8_t         onOff;
         uint32_t        counter;

@@ -8,6 +8,7 @@
 #ifndef PROC_BUTTON_HPP
 #define PROC_BUTTON_HPP
 
+#include "HAL/IHal_Extension.h"
 #include "HAL/Platform/ESP32/io_gpio.hpp"
 #include "Process/Process.hpp"
 #include <vector>
@@ -17,12 +18,12 @@ class Proc_Button : public Process
 public:
     typedef struct
     {
-        io_gpio&     gpio;
-        int          prevState;
-        int          currentState;
-        const int    pressedState;
-        uint32_t     changeTime;
-        TaskHandle_t taskHandle;
+        IHAL_IO_GPIO& gpio;
+        int           prevState;
+        int           currentState;
+        const int     pressedState;
+        uint32_t      changeTime;
+        TaskHandle_t  taskHandle;
     } buttonData;
 
 private:
@@ -32,7 +33,7 @@ private:
 
     /**
      * @brief Button Data Clear
-     * 
+     *
      * @param button button data struct to clear
      */
     void buttonDataClear(buttonData* button);

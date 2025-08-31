@@ -22,9 +22,9 @@ namespace
  * | prevState | currentState | pressedState | Description |
  * |-----------|--------------|--------------|-------------|
  * | 0         | 0            | 0            | The button was pressed and remains pressed. |
- * | 0         | 1            | 0            | The button was pressed and now it's not pressed. The `changeTime` is updated and the duration of the pressed state is calculated and printed. |
- * | 1         | 1            | 0            | The button was not pressed and remains not pressed. |
- * | 1         | 0            | 0            | The button was not pressed and now it's pressed. The `changeTime` is updated. |
+ * | 0         | 1            | 0            | The button was pressed and now it's not pressed. The `changeTime` is updated and the duration of the pressed state is calculated
+ * and printed. | | 1         | 1            | 0            | The button was not pressed and remains not pressed. | | 1         | 0            | 0            | The button was
+ * not pressed and now it's pressed. The `changeTime` is updated. |
  */
 static void buttonListener(void* arg);
 
@@ -35,7 +35,10 @@ static void buttonListener(void* arg);
  */
 static void clearQueue(QueueHandle_t xQueue);
 
-Proc_Button::Proc_Button(std::vector<buttonData*>& buttons, uint32_t stackSize, uint8_t taskPriority) : _buttons(buttons), _stackSize(stackSize), _taskPriority(taskPriority)
+Proc_Button::Proc_Button(std::vector<buttonData*>& buttons, uint32_t stackSize, uint8_t taskPriority)
+    : _buttons(buttons)
+    , _stackSize(stackSize)
+    , _taskPriority(taskPriority)
 {
     // constructor implementation
 }
@@ -51,12 +54,13 @@ sys_error_t Proc_Button::start()
     for (buttonData* button : _buttons)
     {
         // Create the Button Listener
-        xTaskCreate(buttonListener,             // Task function
-                    "button_listener_task",     // Task name
-                    _stackSize,                 // Stack size
-                    static_cast<void*>(button), // Task parameter
-                    _taskPriority,              // Task priority
-                    &(button->taskHandle));     // Task handle
+        xTaskCreate(
+            buttonListener,             // Task function
+            "button_listener_task",     // Task name
+            _stackSize,                 // Stack size
+            static_cast<void*>(button), // Task parameter
+            _taskPriority,              // Task priority
+            &(button->taskHandle));     // Task handle
     }
     return ERROR_SUCCESS;
 }
@@ -106,24 +110,25 @@ sys_error_t Proc_Button::resume()
 | prevState | currentState | pressedState | Description |
 |-----------|--------------|--------------|-------------|
 | 0         | 0            | 0            | The button was pressed and remains pressed. |
-| 0         | 1            | 0            | The button was pressed and now it's not pressed. The `changeTime` is updated and the duration of the pressed state is calculated and printed. |
-| 1         | 1            | 0            | The button was not pressed and remains not pressed. |
-| 1         | 0            | 0            | The button was not pressed and now it's pressed. The `changeTime` is updated. |
+| 0         | 1            | 0            | The button was pressed and now it's not pressed. The `changeTime` is updated and the duration of the pressed state is calculated
+and printed. | | 1         | 1            | 0            | The button was not pressed and remains not pressed. | | 1         | 0            | 0            | The button was not
+pressed and now it's pressed. The `changeTime` is updated. |
 */
 
 static void buttonListener(void* arg)
 {
     Proc_Button::buttonData& button = *static_cast<Proc_Button::buttonData*>(arg);
 
-    gpio_num_t gpioNumber = button.gpio.getGpioNumber();
-    button.changeTime     = xTaskGetTickCount(); // Get the current time
+    uint32_t gpioNumber = button.gpio.getGpioNumber();
+    button.changeTime   = xTaskGetTickCount(); // Get the current time
     button.gpio.get((static_cast<void*>(&button.prevState)));
-    QueueHandle_t gpioEventQueue = button.gpio.getEventQueue();
+    QueueHandle_t gpioEventQueue = reinterpret_cast<QueueHandle_t>(button.gpio.getEventQueue());
 
+    gpio_event_t event;
     printf("Waiting for button to be pressed!\n");
     for (;;)
     {
-        if (xQueueReceive(gpioEventQueue, &gpioNumber, portMAX_DELAY))
+        if (xQueueReceive(gpioEventQueue, &event, portMAX_DELAY))
         {
             button.gpio.get(static_cast<void*>(&button.currentState));
             printf("state: %d\n", button.currentState);
@@ -136,7 +141,7 @@ static void buttonListener(void* arg)
                 uint32_t now      = xTaskGetTickCount();
                 uint32_t duration = pdTICKS_TO_MS(now - button.changeTime); // Calculate the duration
 
-                printf("GPIO[%" PRIu32 "] intr, pressed state duration : %" PRIu32 "ms\n", (uint32_t)gpioNumber, duration);
+                printf("GPIO[%" PRIu32 "] intr, pressed state duration : %" PRIu32 "ms\n", (uint32_t)event.gpio_num, duration);
             }
 
             // Update the previous state if the current state is different from the previous state
@@ -154,10 +159,10 @@ static void buttonListener(void* arg)
 void Proc_Button::buttonDataClear(buttonData* button)
 {
     button->changeTime   = xTaskGetTickCount();
-    button->currentState = GPIO_LOW;
-    button->prevState    = GPIO_HIGH;
+    button->currentState = static_cast<int>(hal_gpio_level_t::LOW);
+    button->prevState    = static_cast<int>(hal_gpio_level_t::HIGH);
     // Clear the queue for unwanted events
-    clearQueue(button->gpio.getEventQueue());
+    clearQueue(reinterpret_cast<QueueHandle_t>(button->gpio.getEventQueue()));
 }
 
 static void clearQueue(QueueHandle_t xQueue)
