@@ -8,7 +8,8 @@
 #ifndef CPX_MCP23X17_HPP
 #define CPX_MCP23X17_HPP
 
-#include "IHal.h"
+#include "HAL\IHal_Extension.h"
+#include <map>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // MACRO DEFINITIONS
@@ -270,31 +271,30 @@ private:
         uint8_t intEnableB; // Interrupt enable for port B
     } mcp23017_config_t;
 
-
     typedef enum class get_command_type_t
     {
-        GET_NUMBER_OF_PORTS,      // Get number of ports
-        GET_NUMBER_OF_PINS,       // Get number of pins
+        GET_NUMBER_OF_PORTS, // Get number of ports
+        GET_NUMBER_OF_PINS,  // Get number of pins
 
         GET_DIRECTION,          // Get I/O direction
-        GET_POLARITY,          // Get input polarity
+        GET_POLARITY,           // Get input polarity
         GET_INTERRUPT_ENABLE,   // Get interrupt enable status
         GET_DEFAULT_VALUE,      // Get default value for pins
         GET_INTERRUPT_CONTROL,  // Get interrupt control settings
         GET_PULL_UP_RESISTOR,   // Get pull-up resistor status
         GET_INTERRUPT_FLAG,     // Get interrupt flag status
-        GET_INTERRUPT_CAPTURED,  // Get captured interrupt value
+        GET_INTERRUPT_CAPTURED, // Get captured interrupt value
         GET_GPIO_PORT,          // Get GPIO port value
         GET_OUTPUT_LATCH,       // Get output latch value
     } get_command_type_t;
 
 private:
-    bool      _isInitialized; // True if the MCP23017 is initialized
-    bool      _started;
-    IHAL_COM& _comInterface;  // Reference to the communication interface
-    IHAL_IO*  _interruptPinA; // Reference to the interrupt pin A
-    IHAL_IO*  _interruptPinB; // Reference to the interrupt pin B
-    uint8_t   _deviceAddress; // I2C address of the MCP23017
+    bool          _isInitialized; // True if the MCP23017 is initialized
+    bool          _started;
+    IHAL_COM&     _comInterface;  // Reference to the communication interface
+    IHAL_IO_GPIO* _interruptPinA; // Pointer to the interrupt pin A
+    IHAL_IO_GPIO* _interruptPinB; // Pointer to the interrupt pin B
+    uint8_t       _deviceAddress; // I2C address of the MCP23017
     // IOCON register bits
     REG_BANK_MODE _bankMode;                      // True if banked mode is enabled
     bool          _isMirrorEnabled;               // True if mirror mode is enabled
@@ -302,10 +302,12 @@ private:
     bool          _isSlewRateDisabled;            // True if slew rate is disabled
     bool          _isHardwareAddressEnabled;      // True if hardware address is enabled (A0, A1, A2)
     bool          _isOpenDrainEnabled;            // True if open-drain output is enabled
-    bool          _isIntPolarityActiveHigh;       // True if interrupt polarity is active highF
+    bool          _isIntPolarityActiveHigh;       // True if interrupt polarity is active high
+
+    std::map<std::pair<PORT, uint8_t>, void (*)(void*)> _inputPinInterruptHandlers;
 
 public: // Interface methods
-    cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_IO* interruptPinA, IHAL_IO* interruptPinB);
+    cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_IO_GPIO* interruptPinA, IHAL_IO_GPIO* interruptPinB);
     ~cpx_mcp23x17();
 
     sys_error_t init(void* params) override;
@@ -322,11 +324,20 @@ public: // Interface methods
 
 public: // User-defined methods
     /**
-     * @brief Initialize the MCP23017 I/O expander.
+     * @brief Register an interrupt handler for a specific input pin.
      *
-     * @return sys_error_t The error code indicating the success or failure of the initialization.
+     * @param port Port A or B
+     * @param pinNo Pin number
+     * @param handler Function pointer to the interrupt handler
+     * @return sys_error_t
      */
-    sys_error_t init();
+    sys_error_t registerInputPinInterruptHandler(PORT port, uint8_t pinNo, void (*handler)(void* params));
+
+    sys_error_t   handleInterruptA(void* params);
+    sys_error_t   handleInterruptB(void* params);
+    sys_error_t   handleInterrupt(PORT port, void* params);
+    IHAL_IO_GPIO* getGpioA();
+    IHAL_IO_GPIO* getGpioB();
 
     /**
      * @brief Set the I/O direction for a specific port or pin.

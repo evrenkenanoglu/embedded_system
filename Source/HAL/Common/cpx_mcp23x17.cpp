@@ -9,7 +9,15 @@
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
 
+
+/////////////////////////////////////////////////////////////////////////////////////////////////c
+// STATIC FUNCTION DECLARATIONS
 /////////////////////////////////////////////////////////////////////////////////////////////////
+
+void interruptListener(void* pvParameters);
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////c
 // MACRO DEFINITIONS
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -31,7 +39,11 @@
         return readRegisterByTypeByte(REG_TYPE::REGTYPE, port, value);                       \
     }
 
-cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_IO* interruptPinA, IHAL_IO* interruptPinB)
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// CONSTRUCTOR / DESTRUCTOR
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_IO_GPIO* interruptPinA, IHAL_IO_GPIO* interruptPinB)
     : _isInitialized(false)                                                           // Initialize as not initialized
     , _started(false)                                                                 // Initialize started state
     , _comInterface(comInterface)                                                     // Initialize communication interface
@@ -55,6 +67,10 @@ cpx_mcp23x17::~cpx_mcp23x17()
     // destructor implementation
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// INTERFACE METHODS
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
 sys_error_t cpx_mcp23x17::init(void* params)
 {
 
@@ -71,6 +87,9 @@ sys_error_t cpx_mcp23x17::init(void* params)
     readRegisterByTypeByte(REG_TYPE::IOCON, PORT::B, ioconValueB);
 
     SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
+
+    RETURN_ON_ERROR_WITH_LOG(_interruptPinA->init(), "Failed to initialize interrupt pin A");
+    RETURN_ON_ERROR_WITH_LOG(_interruptPinB->init(), "Failed to initialize interrupt pin B");
 
     _isInitialized = true; // Mark as initialized
 
@@ -156,11 +175,9 @@ sys_error_t cpx_mcp23x17::stop()
     return ERROR_SUCCESS;
 }
 
-sys_error_t cpx_mcp23x17::init()
-{
-
-    return ERROR_SUCCESS;
-}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CONFIGURATION METHODS
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 sys_error_t cpx_mcp23x17::setBankMode(REG_BANK_MODE bankMode)
 {
@@ -189,6 +206,118 @@ sys_error_t cpx_mcp23x17::setIOCONRegister()
 
     return updateRegisterByTypePortMaskByte(REG_TYPE::IOCON, PORT::A, 0xFF, ioconBits, true);
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// INTERRUPT HANDLING METHODS
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void interruptListener(void* pvParameters)
+{
+    // Cast the parameters to the appropriate type
+    cpx_mcp23x17* cpx_device = static_cast<cpx_mcp23x17*>(pvParameters);
+
+    QueueHandle_t eventQueueA = reinterpret_cast<QueueHandle_t>(cpx_device->getGpioA()->getEventQueue());
+    QueueHandle_t eventQueueB = reinterpret_cast<QueueHandle_t>(cpx_device->getGpioB()->getEventQueue());
+
+    // Create a queue set for interruptA and interruptB eventQueues
+    QueueSetHandle_t queueSet = xQueueCreateSet(2 * IHAL_GPIO_EVENT_QUEUE_LENGTH); // Create a queue set to monitor both queues
+
+    RETURN_IF_ERROR(queueSet == nullptr, );
+
+    // Add event queues to the queue set
+    RETURN_IF_ERROR(xQueueAddToSet(eventQueueA, queueSet) != pdTRUE, );
+    RETURN_IF_ERROR(xQueueAddToSet(eventQueueB, queueSet) != pdTRUE, );
+
+    hal_gpio_event_t event;
+
+    for (;;)
+    {
+        QueueSetMemberHandle_t activeMember = xQueueSelectFromSet(queueSet, portMAX_DELAY);
+
+        if (activeMember == eventQueueA)
+        {
+            if (xQueueReceive(eventQueueA, &event, 0) == pdTRUE)
+            {
+                cpx_device->handleInterruptA(static_cast<void*>(&event));
+            }
+        }
+        else if (activeMember == eventQueueB)
+        {
+            if (xQueueReceive(eventQueueB, &event, 0) == pdTRUE)
+            {
+                cpx_device->handleInterruptB(static_cast<void*>(&event));
+            }
+        }
+    }
+}
+
+sys_error_t cpx_mcp23x17::registerInputPinInterruptHandler(PORT port, uint8_t pinNo, void (*handler)(void* params))
+{
+    RETURN_IF_ERROR(
+        (pinNo > 7)                                 // Invalid pin number
+            || (port != PORT::A && port != PORT::B) // Invalid port
+            || (handler == nullptr),                // Invalid handler
+        ERROR_INVALID_ARG);                         // error code
+
+    _inputPinInterruptHandlers.at(std::make_pair(port, pinNo)) = handler; // Register the handler
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_mcp23x17::handleInterruptA(void* params)
+{
+    return handleInterrupt(PORT::A, params);
+}
+
+sys_error_t cpx_mcp23x17::handleInterruptB(void* params)
+{
+    return handleInterrupt(PORT::B, params);
+}
+
+sys_error_t cpx_mcp23x17::handleInterrupt(PORT port, void* params)
+{
+    RETURN_IF_ERROR((!_started), ERROR_NOT_INITIALIZED);
+
+    // Read the interrupt flags to determine which pins triggered the interrupt
+    uint8_t intFlags    = 0; // Read which pins triggered the interrupt
+    uint8_t intCaptured = 0; // Read the captured values at the time of the interrupt
+
+    RETURN_ON_ERROR_WITH_LOG(getInterruptFlag(port, intFlags), "Failed to read interrupt flags for Port A");
+    RETURN_ON_ERROR_WITH_LOG(getInterruptCaptured(port, intCaptured), "Failed to read interrupt captured values for Port A");
+
+    SYS_LOG_D("Interrupt flags for Port %d: 0x%02X", static_cast<int>(port), intFlags);
+    SYS_LOG_D("Interrupt captured values for Port %d: 0x%02X", static_cast<int>(port), intCaptured);
+
+    // Iterate through each pin and call the registered handler if the pin triggered the interrupt
+    for (uint8_t pinNo = 0; pinNo < 8; ++pinNo)
+    {
+        if (intFlags & (1 << pinNo)) // Check if this pin triggered the interrupt
+        {
+            auto it = _inputPinInterruptHandlers.find(std::make_pair(port, pinNo));
+            if (it != _inputPinInterruptHandlers.end() && it->second != nullptr)
+            {
+                SYS_LOG_D("Calling interrupt handler for Port A, Pin %d", pinNo);
+                it->second(params); // Call the registered handler
+            }
+        }
+    }
+
+    return ERROR_SUCCESS;
+}
+
+IHAL_IO_GPIO* cpx_mcp23x17::getGpioA()
+{
+    return _interruptPinA;
+}
+
+IHAL_IO_GPIO* cpx_mcp23x17::getGpioB()
+{
+    return _interruptPinB;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// REGISTER ACCESSOR METHODS
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 CPX_MCP23X17_REG_FUNCS(Direction, IODIR);
 CPX_MCP23X17_REG_FUNCS(Polarity, IPOL);
