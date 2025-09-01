@@ -164,7 +164,7 @@ static void gpioTimerCallback(TimerHandle_t xTimer)
     gpioClass->getLevel(currentLevel);
 
     // Create event structure
-    gpio_event_t event = {
+    hal_gpio_event_t event = {
         .gpio_num     = gpioClass->getGpioNumber(),              // Gpio Number
         .level        = currentLevel,                            // Current Level
         .timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS // Timestamp in ms
@@ -227,7 +227,7 @@ static void IRAM_ATTR isrHandler(void* arg)
 
 io_gpio::io_gpio(gpio_hal_config_t& config)
     : _halConfig(config)
-    , _gpioEventQueue(xQueueCreate(5, sizeof(gpio_event_t)))
+    , _gpioEventQueue(xQueueCreate(IHAL_GPIO_EVENT_QUEUE_LENGTH, sizeof(hal_gpio_event_t)))
     , _counter(0)
 {
 

@@ -14,11 +14,7 @@
 #include "IHal.h"
 #include "System/system.h"
 
-/** INCLUDES ******************************************************************/
-
-/** CONSTANTS *****************************************************************/
-
-/** TYPEDEFS ******************************************************************/
+#define IHAL_GPIO_EVENT_QUEUE_LENGTH 4
 
 /**
  * @brief GPIO direction enumeration
@@ -70,7 +66,7 @@ typedef struct
     uint32_t         gpio_num;
     hal_gpio_level_t level;
     uint32_t         timestamp_ms;
-} gpio_event_t;
+} hal_gpio_event_t;
 
 /**
  * @brief Platform-independent GPIO configuration structure
@@ -218,12 +214,6 @@ public:
      */
     virtual ~IHAL_IO_GPIO() = default;
 };
-
-/** MACROS ********************************************************************/
-
-/** VARIABLES *****************************************************************/
-
-/** FUNCTIONS *****************************************************************/
 
 #undef INTERFACE // Should not let this roam free
 

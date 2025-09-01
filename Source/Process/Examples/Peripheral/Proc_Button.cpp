@@ -124,7 +124,7 @@ static void buttonListener(void* arg)
     button.gpio.get((static_cast<void*>(&button.prevState)));
     QueueHandle_t gpioEventQueue = reinterpret_cast<QueueHandle_t>(button.gpio.getEventQueue());
 
-    gpio_event_t event;
+    hal_gpio_event_t event;
     printf("Waiting for button to be pressed!\n");
     for (;;)
     {
