@@ -8,7 +8,7 @@
 #ifndef COM_I2C_HPP
 #define COM_I2C_HPP
 
-#include "HAL/IHal.h"
+#include "HAL/IHal/IHal.h"
 #include "driver/i2c.h"
 
 class com_i2c : public IHAL_COM

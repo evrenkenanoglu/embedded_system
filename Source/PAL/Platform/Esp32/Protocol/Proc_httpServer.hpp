@@ -8,7 +8,7 @@
 #ifndef PROC_HTTPSERVER_HPP
 #define PROC_HTTPSERVER_HPP
 
-#include "HAL/IHal.h"
+#include "HAL/IHal/IHal.h"
 #include "HAL/Platform/ESP32/cpx_wifi.h"
 #include "Process/Process.hpp"
 #include <esp_http_server.h>

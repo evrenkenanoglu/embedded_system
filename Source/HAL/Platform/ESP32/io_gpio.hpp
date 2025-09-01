@@ -8,7 +8,7 @@
 #ifndef IO_GPIO_HPP
 #define IO_GPIO_HPP
 
-#include "HAL/IHal_Extension.h"
+#include "HAL/IHal/IHal_Io_Gpio.h"
 #include "driver/gpio.h"
 
 class io_gpio : public IHAL_IO_GPIO

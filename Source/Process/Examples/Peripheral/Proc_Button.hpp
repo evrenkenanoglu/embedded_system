@@ -8,7 +8,7 @@
 #ifndef PROC_BUTTON_HPP
 #define PROC_BUTTON_HPP
 
-#include "HAL/IHal_Extension.h"
+#include "HAL/IHal/IHal_Io_Gpio.h"
 #include "HAL/Platform/ESP32/io_gpio.hpp"
 #include "Process/Process.hpp"
 #include <vector>

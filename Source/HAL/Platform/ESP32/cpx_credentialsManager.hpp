@@ -8,7 +8,7 @@
 #ifndef CPX_CREDENTIALS_MANAGER_HPP
 #define CPX_CREDENTIALS_MANAGER_HPP
 
-#include "HAL/IHal.h"
+#include "HAL/IHal/IHal.h"
 #include <vector>
 
 // mbedTLS headers

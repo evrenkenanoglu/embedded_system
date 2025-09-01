@@ -1,4 +1,4 @@
-#include "HAL\IHal_Extension.h"
+#include "HAL\IHAL\IHal_Io_Gpio.h"
 
 /**
  * @brief GPIO configuration presets for common use cases

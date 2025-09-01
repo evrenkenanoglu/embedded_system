@@ -8,7 +8,7 @@
 #ifndef PAL_HTTP_SERVER_HPP
 #define PAL_HTTP_SERVER_HPP
 
-#include "HAL/IHal.h"
+#include "HAL/IHal/IHal.h"
 #include "HAL/Platform/ESP32/cpx_wifi.h"
 #include "PAL/Pal.h"
 #include "Process/Process.hpp"
