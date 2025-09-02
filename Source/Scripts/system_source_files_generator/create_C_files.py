@@ -84,8 +84,21 @@ today = date.today()
 current_year = today.strftime("%Y")
 
 # Generate the file contents using the templates and the user inputs
-header_content = header_template.format(filename=filename, filename_upper=filename.upper(), brief=brief, year=current_year, author="Evren Kenanoglu", date=today.strftime("%d %B %Y"))
-source_content = source_template.format(filename=filename, brief=brief, year=current_year, author="Evren Kenanoglu", date=today.strftime("%d %B %Y"))
+header_content = header_template.format(
+    filename=filename,
+    filename_upper=filename.upper(),
+    brief=brief,
+    year=current_year,
+    author="Evren Kenanoglu",
+    date=today.strftime("%d %B %Y"),
+)
+source_content = source_template.format(
+    filename=filename,
+    brief=brief,
+    year=current_year,
+    author="Evren Kenanoglu",
+    date=today.strftime("%d %B %Y"),
+)
 
 # Write the generated file contents to disk
 with open(filename + ".h", "w") as header_file:
