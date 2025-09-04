@@ -200,7 +200,7 @@ static void IRAM_ATTR isrHandler(void* arg)
     if (gpioClass == nullptr)
         return;
 
-    uint32_t gpioNumber = gpioClass->getGpioNumber();
+    uint16_t gpioNumber = gpioClass->getGpioNumber();
     gpio_intr_disable(static_cast<gpio_num_t>(gpioNumber));
 
     // Get timer handle for this GPIO
@@ -496,9 +496,14 @@ void* io_gpio::getEventQueue()
     return (void*)_gpioEventQueue;
 }
 
-uint32_t io_gpio::getGpioNumber() const
+uint16_t io_gpio::getGpioNumber() const
 {
-    return static_cast<uint32_t>(_halConfig.pinNumber);
+    return _halConfig.pinNumber;
+}
+
+uint8_t io_gpio::getPortNumber() const
+{
+    return _halConfig.portNumber;
 }
 
 bool io_gpio::hasCapability(uint32_t capability) const

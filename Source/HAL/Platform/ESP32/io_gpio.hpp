@@ -19,8 +19,8 @@ private:
     uint32_t           _counter;
     int                _prevState;
     void (*_interruptHandler)(void*) = nullptr;
-    void* _handlerParams             = nullptr;
-    TimerHandle_t timerHandle = nullptr;
+    void*         _handlerParams     = nullptr;
+    TimerHandle_t timerHandle        = nullptr;
 
 public:
     io_gpio(gpio_hal_config_t& config);
@@ -47,7 +47,8 @@ public:
     sys_error_t setLevel(hal_gpio_level_t level) override;
     sys_error_t toggleLevel() override;
     void*       getEventQueue() override;
-    uint32_t    getGpioNumber() const override;
+    uint16_t    getGpioNumber() const override;
+    uint8_t     getPortNumber() const override;
     bool        hasCapability(uint32_t capability) const override;
 };
 

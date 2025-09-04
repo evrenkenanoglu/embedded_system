@@ -63,7 +63,7 @@ enum class hal_gpio_level_t : uint8_t
  */
 typedef struct
 {
-    uint32_t         gpio_num;
+    uint16_t         gpio_num;
     hal_gpio_level_t level;
     uint32_t         timestamp_ms;
 } hal_gpio_event_t;
@@ -73,7 +73,8 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t             pinNumber;        // GPIO pin number
+    uint16_t             pinNumber;        // GPIO pin number
+    uint8_t              portNumber;       // GPIO port number (if applicable)
     hal_gpio_direction_t direction;        // GPIO direction (input/output/bidirectional)
     hal_gpio_pull_t      pull;             // Pull resistor configuration
     hal_gpio_interrupt_t interrupt;        // Interrupt trigger type
@@ -183,10 +184,16 @@ public:
     virtual void* getEventQueue() = 0;
 
     /**
-     * @brief Get GPIO number/identifier
-     * @return uint32_t GPIO number
+     * @brief Get GPIO pin number/identifier
+     * @return uint16_t GPIO number
      */
-    virtual uint32_t getGpioNumber() const = 0;
+    virtual uint16_t getGpioNumber() const = 0;
+
+    /**
+     * @brief Get GPIO port number/identifier
+     * @return uint16_t GPIO number
+     */
+    virtual uint8_t getPortNumber() const = 0;
 
     /**
      * @brief Check if GPIO supports specific capability
