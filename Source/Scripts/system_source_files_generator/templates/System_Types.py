@@ -174,6 +174,122 @@ SYSTEM_TYPES = {
             },
         },
     },
+    ##############################################################################################
+    "IO_GPIO": {
+        "layer": "HAL",
+        "description": "GPIO Input/Output",
+        "interface": {"header": "IHal_Io_Gpio.h", "class": "IHAL_IO_GPIO"},
+        "methods": {
+            "init": {
+                "return_type": "sys_error_t",
+                "parameters": "void* params = nullptr",
+                "override": True,
+            },
+            "deInit": {
+                "return_type": "sys_error_t",
+                "parameters": "",
+                "override": True,
+            },
+            "get": {
+                "return_type": "void",
+                "parameters": "void* data",
+                "override": True,
+            },
+            "set": {
+                "return_type": "sys_error_t",
+                "parameters": "void* data",
+                "override": True,
+            },
+            "setDirection": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_direction_t direction",
+                "override": True,
+            },
+            "getDirection": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_direction_t& direction",
+                "override": True,
+            },
+            "setPull": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_pull_t pull",
+                "override": True,
+            },
+            "getPull": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_pull_t& pull",
+                "override": True,
+            },
+            "setInterrupt": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_interrupt_t interrupt",
+                "override": True,
+            },
+            "getInterrupt": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_interrupt_t& interrupt",
+                "override": True,
+            },
+            "setInterruptHandler": {
+                "return_type": "sys_error_t",
+                "parameters": "void (*handler)(void* params), void* params",
+                "override": True,
+            },
+            "enableInterrupt": {
+                "return_type": "sys_error_t",
+                "parameters": "",
+                "override": True,
+            },
+            "disableInterrupt": {
+                "return_type": "sys_error_t",
+                "parameters": "",
+                "override": True,
+            },
+            "clearInterrupt": {
+                "return_type": "sys_error_t",
+                "parameters": "",
+                "override": True,
+            },
+            "getLevel": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_level_t& level",
+                "override": True,
+            },
+            "setLevel": {
+                "return_type": "sys_error_t",
+                "parameters": "hal_gpio_level_t level",
+                "override": True,
+            },
+            "toggleLevel": {
+                "return_type": "sys_error_t",
+                "parameters": "",
+                "override": True,
+            },
+            "getEventQueue": {
+                "return_type": "void*",
+                "parameters": "",
+                "override": True,
+            },
+            "getGpioNumber": {
+                "return_type": "uint16_t",
+                "parameters": "",
+                "override": True,
+                "const": True,
+            },
+            "getPortNumber": {
+                "return_type": "uint8_t",
+                "parameters": "",
+                "override": True,
+                "const": True,
+            },
+            "hasCapability": {
+                "return_type": "bool",
+                "parameters": "uint32_t capability",
+                "override": True,
+                "const": True,
+            },
+        },
+    },
 }
 
 
@@ -183,13 +299,24 @@ def get_method_definition(method_name, method_info, classname, for_header=True):
     return_type = method_info["return_type"]
     parameters = method_info["parameters"]
 
+    # Get function attributes
+    const_qualifier = " const" if method_info.get("const", False) else ""
+    virtual_qualifier = "virtual " if method_info.get("virtual", True) else ""
+    static_qualifier = "static " if method_info.get("static", False) else ""
+    inline_qualifier = "inline " if method_info.get("inline", False) else ""
+
     if for_header:
         override_keyword = " override" if method_info.get("override", False) else ""
-        return f"{return_type} {method_name}({parameters}){override_keyword};"
+        pure_virtual = " = 0" if method_info.get("pure_virtual", False) else ""
+
+        # Build the complete method signature
+        qualifiers = f"{static_qualifier}{inline_qualifier}{virtual_qualifier}"
+        return f"{qualifiers}{return_type} {method_name}({parameters}){const_qualifier}{override_keyword}{pure_virtual};"
     else:
-        # For source file - remove default parameters
+        # For source file - remove default parameters and virtual/override keywords
         params_clean = parameters.replace(" = nullptr", "").replace("= nullptr", "")
-        return f"{return_type} {classname}::{method_name}({params_clean})"
+        qualifiers = f"{static_qualifier}{inline_qualifier}"
+        return f"{qualifiers}{return_type} {classname}::{method_name}({params_clean}){const_qualifier}"
 
 
 def get_all_method_definitions(system_type, classname, for_header=True):

@@ -83,6 +83,7 @@ class File_Generator:
     {method_def.replace(';', '')}
     {{
         // TODO: Implement {method_name_clean}
+        return ;
     }}"""
             methods_impl.append(method_impl)
 
