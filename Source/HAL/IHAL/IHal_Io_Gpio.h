@@ -65,7 +65,7 @@ typedef struct
 {
     uint16_t         gpio_num;
     hal_gpio_level_t level;
-    uint32_t         timestamp_ms;
+    uint32_t         timestamp; // in ticks
 } hal_gpio_event_t;
 
 /**

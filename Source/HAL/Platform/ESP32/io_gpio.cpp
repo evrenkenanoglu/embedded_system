@@ -187,7 +187,7 @@ static void gpioTimerCallback(TimerHandle_t xTimer)
     hal_gpio_event_t event = {
         .gpio_num     = gpioClass->getGpioNumber(),              // Gpio Number
         .level        = currentLevel,                            // Current Level
-        .timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS // Timestamp in ms
+        .timestamp = xTaskGetTickCount() * portTICK_PERIOD_MS // Timestamp in ms
     };
 
     // printf("GPIO[%d] intr, val: %d\n", static_cast<int>(event.gpio_num), static_cast<int>(currentLevel));
