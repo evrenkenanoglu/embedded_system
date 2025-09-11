@@ -37,6 +37,16 @@ void interruptListener(void* pvParameters);
         return readRegisterByTypeByte(REG_TYPE::REGTYPE, port, value);                       \
     }
 
+#define CPX_MCP23X17_REG_FUNCS_READONLY(NAME, REGTYPE)                             \
+    sys_error_t cpx_mcp23x17::get##NAME##No(PORT port, uint8_t pinNo, bool& value) \
+    {                                                                              \
+        return readRegisterByTypeBit(REG_TYPE::REGTYPE, port, pinNo, value);       \
+    }                                                                              \
+    sys_error_t cpx_mcp23x17::get##NAME(PORT port, uint8_t& value)                 \
+    {                                                                              \
+        return readRegisterByTypeByte(REG_TYPE::REGTYPE, port, value);             \
+    }
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // CONSTRUCTOR / DESTRUCTOR
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,7 +64,8 @@ cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_
     , _isSlewRateDisabled(static_cast<bool>(SLEW_RATE_ENABLED))                       // 4th bit
     , _isHardwareAddressEnabled(static_cast<bool>(HAEN_ENABLED))                      // 3rd bit
     , _isOpenDrainEnabled(static_cast<bool>(ODR_DISABLED))                            // 2nd bit
-    , _isIntPolarityActiveHigh(static_cast<bool>(INTPOL_ACTIVE_LOW))                  // 1st bit ,
+    , _isIntPolarityActiveHigh(static_cast<bool>(INTPOL_ACTIVE_LOW))                  // 1st bit
+    , _interruptTaskHandle(nullptr)
 // 0th bit no effect
 {
     // constructor implementation
@@ -77,6 +88,35 @@ sys_error_t cpx_mcp23x17::init(void* params)
         return ERROR_SUCCESS; // Already initialized
     }
 
+    // Initialize _interruptPinA and _interruptPinB if provided
+    if (_interruptPinA)
+    {
+        hal_gpio_interrupt_t interruptType;
+        _interruptPinA->getInterrupt(interruptType);
+        if (interruptType != hal_gpio_interrupt_t::LOW_LEVEL && interruptType != hal_gpio_interrupt_t::HIGH_LEVEL)
+        {
+            SYS_LOG_E("Interrupt pin A must be configured for LOW_LEVEL, HIGH_LEVEL!");
+            return ERROR_INVALID_CONFIG;
+        }
+        _isIntPolarityActiveHigh = (interruptType == hal_gpio_interrupt_t::HIGH_LEVEL) ? INTPOL_ACTIVE_HIGH : INTPOL_ACTIVE_LOW;
+
+        RETURN_ON_ERROR(_interruptPinA->init());
+    }
+
+    if (_interruptPinB)
+    {
+        hal_gpio_interrupt_t interruptType;
+        _interruptPinB->getInterrupt(interruptType);
+        if (interruptType != hal_gpio_interrupt_t::LOW_LEVEL && interruptType != hal_gpio_interrupt_t::HIGH_LEVEL)
+        {
+            SYS_LOG_E("Interrupt pin B must be configured for LOW_LEVEL, HIGH_LEVEL!");
+            return ERROR_INVALID_CONFIG;
+        }
+        _isIntPolarityActiveHigh = (interruptType == hal_gpio_interrupt_t::HIGH_LEVEL) ? INTPOL_ACTIVE_HIGH : INTPOL_ACTIVE_LOW;
+
+        RETURN_ON_ERROR(_interruptPinB->init());
+    }
+
     uint8_t ioconValueA = 0;
     uint8_t ioconValueB = 0;
     SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
@@ -85,9 +125,6 @@ sys_error_t cpx_mcp23x17::init(void* params)
     readRegisterByTypeByte(REG_TYPE::IOCON, PORT::B, ioconValueB);
 
     SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
-
-    RETURN_ON_ERROR_WITH_LOG(_interruptPinA->init(), "Failed to initialize interrupt pin A");
-    RETURN_ON_ERROR_WITH_LOG(_interruptPinB->init(), "Failed to initialize interrupt pin B");
 
     _isInitialized = true; // Mark as initialized
 
@@ -120,18 +157,15 @@ sys_error_t cpx_mcp23x17::start()
     {
         return ERROR_SUCCESS; // Already started
     }
-    _started = true; // Mark as started
-
-    // Initialize interrupt pins if provided
-    if (_interruptPinA)
-    {
-        RETURN_ON_ERROR_WITH_LOG(
-            _interruptPinA->set(nullptr),   // Set the interrupt pin A
-            "Failed to set interrupt pin A" // Error Message
-        );
-    }
 
     // create a task to handle interrupts if needed
+    if (_interruptPinA || _interruptPinB)
+    {
+        BaseType_t taskCreated = xTaskCreate(interruptListener, "MCP23X17_InterruptListener", 4096, this, tskIDLE_PRIORITY + 1, &_interruptTaskHandle);
+        RETURN_IF_ERROR(taskCreated != pdPASS, ERROR_INIT_FAILED);
+    }
+
+    _started = true; // Mark as started
 
     return ERROR_SUCCESS;
 }
@@ -232,6 +266,8 @@ void interruptListener(void* pvParameters)
     {
         QueueSetMemberHandle_t activeMember = xQueueSelectFromSet(queueSet, portMAX_DELAY);
 
+        printf("Interrupt detected on MCP23X17\n");
+
         if (activeMember == eventQueueA)
         {
             if (xQueueReceive(eventQueueA, &event, 0) == pdTRUE)
@@ -257,7 +293,7 @@ sys_error_t cpx_mcp23x17::registerInputPinInterruptHandler(PORT port, uint8_t pi
             || (handler == nullptr),                // Invalid handler
         ERROR_INVALID_ARG);                         // error code
 
-    _inputPinInterruptHandlers.at(std::make_pair(port, pinNo)) = handler; // Register the handler
+    _inputPinInterruptHandlers[std::make_pair(port, pinNo)] = handler; // Register the handler
 
     return ERROR_SUCCESS;
 }
@@ -294,8 +330,12 @@ sys_error_t cpx_mcp23x17::handleInterrupt(PORT port, void* params)
             auto it = _inputPinInterruptHandlers.find(std::make_pair(port, pinNo));
             if (it != _inputPinInterruptHandlers.end() && it->second != nullptr)
             {
-                SYS_LOG_D("Calling interrupt handler for Port A, Pin %d", pinNo);
+                SYS_LOG_D("Calling interrupt handler for Port %d, Pin %d", static_cast<int>(port), pinNo);
                 it->second(params); // Call the registered handler
+            }
+            else
+            {
+                SYS_LOG_W("No interrupt handler registered for Port %d, Pin %d", static_cast<int>(port), pinNo);
             }
         }
     }
@@ -323,8 +363,8 @@ CPX_MCP23X17_REG_FUNCS(InterruptEnable, GPINTEN);
 CPX_MCP23X17_REG_FUNCS(DefaultValue, DEFVAL);
 CPX_MCP23X17_REG_FUNCS(InterruptControl, INTCON);
 CPX_MCP23X17_REG_FUNCS(PullUpResistor, GPPU);
-CPX_MCP23X17_REG_FUNCS(InterruptFlag, INTF);
-CPX_MCP23X17_REG_FUNCS(InterruptCaptured, INTCAP);
+CPX_MCP23X17_REG_FUNCS_READONLY(InterruptFlag, INTF);
+CPX_MCP23X17_REG_FUNCS_READONLY(InterruptCaptured, INTCAP);
 CPX_MCP23X17_REG_FUNCS(Gpio, GPIO);
 CPX_MCP23X17_REG_FUNCS(Latch, OLAT);
 

@@ -48,6 +48,27 @@
     sys_error_t set##NAME(PORT port, uint8_t value);                  \
     sys_error_t get##NAME(PORT port, uint8_t& value);
 
+/**
+ * @brief Macro for Read-Only Register access functions for MCP23X17.
+ *
+ * These functions allow you to get the value of a read-only register or a specific pin in a read-only register.
+ *
+ * @param port The port to access (A or B).
+ * @param pinNo The pin number to access (0-7). Used for No-suffix functions.
+ * @param value The value to get. For get functions, this is a reference to store the read value.
+ *       - For pinNo functions: bool (true/false)
+ *      - For port functions: uint8_t (bitmask for all pins in the port)
+ * @return sys_error_t The error code indicating the success or failure of the operation.
+ * * Functions declared:
+ *  - get<RegisterName>No(PORT port, uint8_t pinNo, bool& value)
+ *  - get<RegisterName>(PORT port, uint8_t& value)
+ *
+ *
+ */
+#define CPX_MCP23X17_REG_DECL_READONLY(NAME)                          \
+    sys_error_t get##NAME##No(PORT port, uint8_t pinNo, bool& value); \
+    sys_error_t get##NAME(PORT port, uint8_t& value);
+
 // IOCON Register Definitions
 #define SEQENTIAL_OPERATION_ENABLED    0x00 // Sequential operation enabled
 #define SEQENTIAL_OPERATION_DISABLED   0x01 // Sequential operation disabled
@@ -304,6 +325,8 @@ private:
     bool          _isOpenDrainEnabled;            // True if open-drain output is enabled
     bool          _isIntPolarityActiveHigh;       // True if interrupt polarity is active high
 
+    TaskHandle_t _interruptTaskHandle;         // Task handle for interrupt handling task
+
     std::map<std::pair<PORT, uint8_t>, void (*)(void*)> _inputPinInterruptHandlers;
 
 public: // Interface methods
@@ -390,7 +413,7 @@ public: // User-defined methods
      * This register is read-only. Writes to this register will be ignored.
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    CPX_MCP23X17_REG_DECL(InterruptFlag);
+    CPX_MCP23X17_REG_DECL_READONLY(InterruptFlag);
 
     /**
      * @brief Read the interrupt captured for a specific port or pin. Read-only register.
@@ -399,7 +422,7 @@ public: // User-defined methods
      * interrupt is cleared via a read of INTCAP or GPIO.
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    CPX_MCP23X17_REG_DECL(InterruptCaptured);
+    CPX_MCP23X17_REG_DECL_READONLY(InterruptCaptured);
 
     /**
      * @brief Read or write the GPIO port for a specific port or pin.
