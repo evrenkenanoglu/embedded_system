@@ -1,3 +1,4 @@
+#pragma once
 #include "HAL\IHAL\IHal_Io_Gpio.h"
 
 /**
@@ -83,19 +84,40 @@ static constexpr gpio_hal_config_t INPUT_INTERRUPT(uint16_t pin, uint8_t port, h
         .enable_interrupt = true};
 }
 
+static constexpr gpio_hal_config_t INPUT_INTERRUPT_PULLUP(uint16_t pin, uint8_t port, hal_gpio_interrupt_t int_type, hal_gpio_pull_t pull = hal_gpio_pull_t::PULL_UP)
+{
+    return INPUT_INTERRUPT(pin, port, int_type, pull);
+}
+
+static constexpr gpio_hal_config_t INPUT_INTERRUPT_PULLDOWN(uint16_t pin, uint8_t port, hal_gpio_interrupt_t int_type, hal_gpio_pull_t pull = hal_gpio_pull_t::PULL_DOWN)
+{
+    return INPUT_INTERRUPT(pin, port, int_type, pull);
+}
+
+static constexpr gpio_hal_config_t INPUT_INTERRUPT_EXTERNAL_PULLUP(uint16_t pin, uint8_t port, hal_gpio_interrupt_t int_type)
+{
+    return INPUT_INTERRUPT(pin, port, int_type);
+}
+
+static constexpr gpio_hal_config_t INPUT_INTERRUPT_DETECT_BOTH(uint16_t pin, uint8_t port, hal_gpio_pull_t pull = hal_gpio_pull_t::PULL_UP)
+{
+    return INPUT_INTERRUPT(pin, port, hal_gpio_interrupt_t::BOTH_EDGES, pull);
+}
+
+// ========== Button Configurations ==========
 static constexpr gpio_hal_config_t BUTTON_PULLUP(uint16_t pin, uint8_t port = 0)
 {
-    return INPUT_INTERRUPT(pin, port, hal_gpio_interrupt_t::FALLING_EDGE, hal_gpio_pull_t::PULL_UP);
+    return INPUT_INTERRUPT_PULLUP(pin, port, hal_gpio_interrupt_t::FALLING_EDGE);
 }
 
 static constexpr gpio_hal_config_t BUTTON_PULLDOWN(uint16_t pin, uint8_t port = 0)
 {
-    return INPUT_INTERRUPT(pin, port, hal_gpio_interrupt_t::RISING_EDGE, hal_gpio_pull_t::PULL_DOWN);
+    return INPUT_INTERRUPT_PULLDOWN(pin, port, hal_gpio_interrupt_t::RISING_EDGE);
 }
 
 static constexpr gpio_hal_config_t BUTTON_EXTERNAL_PULLUP(uint16_t pin, uint8_t port = 0)
 {
-    return INPUT_INTERRUPT(pin, port, hal_gpio_interrupt_t::FALLING_EDGE, hal_gpio_pull_t::NONE);
+    return INPUT_INTERRUPT_EXTERNAL_PULLUP(pin, port, hal_gpio_interrupt_t::FALLING_EDGE);
 }
 
 static constexpr gpio_hal_config_t SWITCH_DETECT(uint16_t pin, uint8_t port = 0, hal_gpio_pull_t pull = hal_gpio_pull_t::PULL_UP)
