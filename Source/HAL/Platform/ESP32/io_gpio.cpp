@@ -148,6 +148,26 @@ gpio_config_t convertToESP32Config(const gpio_hal_config_t& halConfig)
 
     return esp32Config;
 }
+
+// Add this to your main initialization (e.g., in main() or device init)
+static sys_error_t initGpioIsrService()
+{
+    static bool isrServiceInitialized = false;
+
+    RETURN_IF_ERROR(isrServiceInitialized != false, ERROR_SUCCESS);
+
+    esp_err_t result = gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
+    if (result == ESP_OK || result == ESP_ERR_INVALID_STATE)
+    {
+        isrServiceInitialized = true;
+        SYS_LOG_I("GPIO ISR service initialized successfully");
+        return ERROR_SUCCESS;
+    }
+
+    SYS_LOG_E("Failed to initialize GPIO ISR service: %s", esp_err_to_name(result));
+    return ERROR_INIT_FAILED;
+}
+
 } // namespace
 
 /**
@@ -281,7 +301,8 @@ sys_error_t io_gpio::init(void* params)
     {
 
         SYS_LOG_D("Configuring interrupt for GPIO %d", _halConfig.pinNumber);
-        gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
+        // Initialize ISR service if not already done
+        RETURN_ON_ERROR(initGpioIsrService(), );
         if (_interruptHandler != nullptr)
         {
             gpio_isr_handler_add(static_cast<gpio_num_t>(_halConfig.pinNumber), _interruptHandler, _handlerParams);
