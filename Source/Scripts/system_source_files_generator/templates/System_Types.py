@@ -3,7 +3,7 @@ SYSTEM_TYPES = {
     "IO": {
         "layer": "HAL",
         "description": "Input/Output",
-        "interface": {"header": "IHal.h", "class": "IHAL_IO"},
+        "interface": {"header": "HAL/IHAL/IHal.h", "class": "IHAL_IO"},
         "methods": {
             "init": {
                 "return_type": "sys_error_t",
@@ -31,7 +31,7 @@ SYSTEM_TYPES = {
     "COM": {
         "layer": "HAL",
         "description": "Communication",
-        "interface": {"header": "IHal.h", "class": "IHAL_COM"},
+        "interface": {"header": "HAL/IHAL/IHal.h", "class": "IHAL_COM"},
         "methods": {
             "init": {
                 "return_type": "sys_error_t",
@@ -74,7 +74,7 @@ SYSTEM_TYPES = {
     "MEM": {
         "layer": "HAL",
         "description": "Memory",
-        "interface": {"header": "IHal.h", "class": "IHAL_MEM"},
+        "interface": {"header": "HAL/IHAL/IHal.h", "class": "IHAL_MEM"},
         "methods": {
             "init": {
                 "return_type": "sys_error_t",
@@ -112,7 +112,7 @@ SYSTEM_TYPES = {
     "CPX": {
         "layer": "HAL",
         "description": "Complex",
-        "interface": {"header": "IHal.h", "class": "IHAL_CPX"},
+        "interface": {"header": "HAL/IHAL/IHal.h", "class": "IHAL_CPX"},
         "methods": {
             "init": {
                 "return_type": "sys_error_t",
@@ -178,7 +178,11 @@ SYSTEM_TYPES = {
     "IO_GPIO": {
         "layer": "HAL",
         "description": "GPIO Input/Output",
-        "interface": {"header": "IHal_Io_Gpio.h", "class": "IHAL_IO_GPIO"},
+        "interface": {
+            "path": "IHAL",
+            "header": "IHal_Io_Gpio.h",
+            "class": "IHAL_IO_GPIO",
+        },
         "methods": {
             "init": {
                 "return_type": "sys_error_t",

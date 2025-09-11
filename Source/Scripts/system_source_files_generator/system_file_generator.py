@@ -41,6 +41,8 @@ class UserInterface:
             filename = filename.lower()
             # Update classname to use lowercase system_type for HAL
             classname = f"{system_type.lower()}_{filename}"
+        else:
+            classname = f"{system_type.capitalize()}_{filename}"
 
         # Create file spec
         file_spec = FileSpec()

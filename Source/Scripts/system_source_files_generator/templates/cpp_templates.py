@@ -12,7 +12,7 @@ def get_header_template():
 #ifndef {header_guard}
 #define {header_guard}
 
-#include "HAL/IHAL/{interface_header}"
+#include "{interface_header}"
 
 /** INCLUDES ******************************************************************/
 
