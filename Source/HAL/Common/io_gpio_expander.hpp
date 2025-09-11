@@ -33,6 +33,21 @@ private:
     bool               _initialized;
     QueueHandle_t      _eventQueue;
 
+private:
+    // user interrupt handler parameters
+    void* _userInterruptParams;
+
+private:
+    // user interrupt handler function pointer
+    void (*_userInterruptHandler)(void* params);
+
+    /**
+     * @brief Internal interrupt handler
+     *
+     * @param context
+     */
+    static void internalInterruptHandler(void* context);
+
 public:
     io_gpio_expander(cpx_mcp23x17& expander, gpio_hal_config_t& config);
     ~io_gpio_expander();
