@@ -325,9 +325,17 @@ private:
     bool          _isOpenDrainEnabled;            // True if open-drain output is enabled
     bool          _isIntPolarityActiveHigh;       // True if interrupt polarity is active high
 
-    TaskHandle_t _interruptTaskHandle;         // Task handle for interrupt handling task
+    TaskHandle_t _interruptTaskHandle; // Task handle for interrupt handling task
 
-    std::map<std::pair<PORT, uint8_t>, void (*)(void*)> _inputPinInterruptHandlers;
+    /**
+     * @brief Map to store interrupt handlers for input pins.
+     *
+     * The key is a pair of PORT and pin number.
+     * The value is a pair of function pointer and parameters.
+     * The function pointer is of type void (*)(void*, bool) where the first parameter
+     * is a void* for user-defined parameters and the second parameter is a bool indicating the pin state will be passed to the handler.
+     */
+    std::map<std::pair<PORT, uint8_t>, std::pair<void (*)(void*, bool), void*>> _inputPinInterruptHandlers;
 
 public: // Interface methods
     cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_IO_GPIO* interruptPinA, IHAL_IO_GPIO* interruptPinB);
@@ -352,9 +360,10 @@ public: // User-defined methods
      * @param port Port A or B
      * @param pinNo Pin number
      * @param handler Function pointer to the interrupt handler
+     * @param params Parameters to pass to the handler
      * @return sys_error_t
      */
-    sys_error_t registerInputPinInterruptHandler(PORT port, uint8_t pinNo, void (*handler)(void* params));
+    sys_error_t registerInputPinInterruptHandler(PORT port, uint8_t pinNo, void (*handler)(void* params, bool capturedLevel), void* params);
 
     sys_error_t   handleInterruptA(void* params);
     sys_error_t   handleInterruptB(void* params);

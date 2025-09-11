@@ -44,9 +44,10 @@ private:
     /**
      * @brief Internal interrupt handler
      *
-     * @param context
+     * @param params Pointer to io_gpio_expander instance
+     * @param capturedLevel The captured level at interrupt time (optional)
      */
-    static void internalInterruptHandler(void* context);
+    static void internalInterruptHandler(void* params, bool capturedLevel = false);
 
 public:
     io_gpio_expander(cpx_mcp23x17& expander, gpio_hal_config_t& config);

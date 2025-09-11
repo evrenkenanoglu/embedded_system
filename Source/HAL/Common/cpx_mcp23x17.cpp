@@ -285,7 +285,7 @@ void interruptListener(void* pvParameters)
     }
 }
 
-sys_error_t cpx_mcp23x17::registerInputPinInterruptHandler(PORT port, uint8_t pinNo, void (*handler)(void* params))
+sys_error_t cpx_mcp23x17::registerInputPinInterruptHandler(PORT port, uint8_t pinNo, void (*handler)(void* params, bool capturedLevel), void* params)
 {
     RETURN_IF_ERROR(
         (pinNo > 7)                                 // Invalid pin number
@@ -293,7 +293,7 @@ sys_error_t cpx_mcp23x17::registerInputPinInterruptHandler(PORT port, uint8_t pi
             || (handler == nullptr),                // Invalid handler
         ERROR_INVALID_ARG);                         // error code
 
-    _inputPinInterruptHandlers[std::make_pair(port, pinNo)] = handler; // Register the handler
+    _inputPinInterruptHandlers[std::make_pair(port, pinNo)] = std::make_pair(handler, params); // Register the handler
 
     return ERROR_SUCCESS;
 }
@@ -316,11 +316,11 @@ sys_error_t cpx_mcp23x17::handleInterrupt(PORT port, void* params)
     uint8_t intFlags    = 0; // Read which pins triggered the interrupt
     uint8_t intCaptured = 0; // Read the captured values at the time of the interrupt
 
-    RETURN_ON_ERROR_WITH_LOG(getInterruptFlag(port, intFlags), "Failed to read interrupt flags for Port A");
-    RETURN_ON_ERROR_WITH_LOG(getInterruptCaptured(port, intCaptured), "Failed to read interrupt captured values for Port A");
+    RETURN_ON_ERROR_WITH_LOG(getInterruptFlag(port, intFlags), "Failed to read interrupt flags");
+    RETURN_ON_ERROR_WITH_LOG(getInterruptCaptured(port, intCaptured), "Failed to read interrupt captured values");
 
-    SYS_LOG_D("Interrupt flags for Port %d: 0x%02X", static_cast<int>(port), intFlags);
-    SYS_LOG_D("Interrupt captured values for Port %d: 0x%02X", static_cast<int>(port), intCaptured);
+    // SYS_LOG_D("Interrupt flags for Port %d: 0x%02X", static_cast<int>(port), intFlags);
+    // SYS_LOG_D("Interrupt captured values for Port %d: 0x%02X", static_cast<int>(port), intCaptured);
 
     // Iterate through each pin and call the registered handler if the pin triggered the interrupt
     for (uint8_t pinNo = 0; pinNo < 8; ++pinNo)
@@ -328,10 +328,11 @@ sys_error_t cpx_mcp23x17::handleInterrupt(PORT port, void* params)
         if (intFlags & (1 << pinNo)) // Check if this pin triggered the interrupt
         {
             auto it = _inputPinInterruptHandlers.find(std::make_pair(port, pinNo));
-            if (it != _inputPinInterruptHandlers.end() && it->second != nullptr)
+            // if found and handler is not null, call the handler with params
+            if (it != _inputPinInterruptHandlers.end() && it->second.first != nullptr)
             {
-                SYS_LOG_D("Calling interrupt handler for Port %d, Pin %d", static_cast<int>(port), pinNo);
-                it->second(params); // Call the registered handler
+                // SYS_LOG_D("Calling interrupt handler for Port %d, Pin %d", static_cast<int>(port), pinNo);
+                it->second.first(it->second.second, (intCaptured & (1 << pinNo)) != 0); // Call the handler with params and captured level
             }
             else
             {
@@ -381,7 +382,8 @@ sys_error_t cpx_mcp23x17::writeRegister(const uint8_t reg, const uint8_t value)
 
     // Prepare the data to be sent
     const uint8_t data[2] = {static_cast<uint8_t>(reg), value}; // Register address and value to write
-    SYS_LOG_D("Writing to register: 0x%02X, value: 0x%02X", reg, value);
+
+    // SYS_LOG_D("Writing to register: 0x%02X, value: 0x%02X", reg, value);
 
     // Send the data using the communication interface
     RETURN_ON_ERROR_WITH_LOG(
@@ -404,7 +406,7 @@ sys_error_t cpx_mcp23x17::readRegister(const uint8_t reg, uint8_t& value)
         _comInterface.writeRead(&_deviceAddress, &reg, sizeof(reg), &value, sizeof(value)), // Function Call
         "Failed to read register",                                                          // Error Message
     );
-    SYS_LOG_D("Read from register: 0x%02X, value: 0x%02X", reg, value);
+    // SYS_LOG_D("Read from register: 0x%02X, value: 0x%02X", reg, value);
     return ERROR_SUCCESS;
 }
 
@@ -446,17 +448,21 @@ sys_error_t cpx_mcp23x17::updateRegisterMasked(const uint8_t reg, const uint8_t 
 
     // Update the value with the mask
     currentValue = (currentValue & ~mask) | (value & mask);
-    SYS_LOG_D("Updating register: 0x%02X, current value: 0x%02X, mask: 0x%02X, new value: 0x%02X", reg, currentValue, mask, value);
+
+    // SYS_LOG_D("Updating register: 0x%02X, current value: 0x%02X, mask: 0x%02X, new value: 0x%02X", reg, currentValue, mask, value);
+
     // Write the updated value back to the register
     RETURN_ON_ERROR_WITH_LOG(
         writeRegister(reg, currentValue),         // Function Call
         "Failed to write updated register value", // Error Message
     );
-    SYS_LOG_D("Register 0x%02X updated successfully", reg);
+
+    // SYS_LOG_D("Register 0x%02X updated successfully", reg);
 
     if (verify)
     {
-        SYS_LOG_D("Verifying register: 0x%02X after update", reg);
+        // SYS_LOG_D("Verifying register: 0x%02X after update", reg);
+
         // Verify the register value if required
         RETURN_ON_ERROR_WITH_LOG(
             verifyRegister(reg, currentValue), // Function Call
@@ -474,13 +480,16 @@ sys_error_t cpx_mcp23x17::verifyRegister(const uint8_t reg, const uint8_t expect
         return ERROR_NOT_INITIALIZED; // Not started, cannot verify register
     }
 
-    SYS_LOG_D("Verifying register: 0x%02X, expected value: 0x%02X", reg, expectedValue);
+    // SYS_LOG_D("Verifying register: 0x%02X, expected value: 0x%02X", reg, expectedValue);
+
     uint8_t currentValue;
     RETURN_ON_ERROR_WITH_LOG(
         readRegister(reg, currentValue),         // Function Call
         "Failed to read current register value", // Error Message
     );
-    SYS_LOG_D("Verifying register: 0x%02X, expected value: 0x%02X, current value: 0x%02X", reg, expectedValue, currentValue);
+
+    // SYS_LOG_D("Verifying register: 0x%02X, expected value: 0x%02X, current value: 0x%02X", reg, expectedValue, currentValue);
+
     if (currentValue != expectedValue)
     {
         return ERROR_READ_FAILED; // Verification failed, current value does not match expected value

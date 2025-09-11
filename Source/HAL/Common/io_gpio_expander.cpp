@@ -134,12 +134,21 @@ sys_error_t io_gpio_expander::init(void* params)
     }
     else if (_halConfig.direction == hal_gpio_direction_t::INPUT)
     {
-        SYS_LOG_D("Configuring GPIO Expander Pin: %d on Port: %d as INPUT", _halConfig.pinNumber, _halConfig.portNumber);
+        SYS_LOG_I("Configuring GPIO Expander Pin: %d on Port: %d as INPUT", _halConfig.pinNumber, _halConfig.portNumber);
+
+        _eventQueue = xQueueCreate(IHAL_GPIO_EVENT_QUEUE_LENGTH, sizeof(hal_gpio_event_t)); // Create event queue for interrupts
+
+        RETURN_IF_ERROR_WITH_LOG(
+            _eventQueue == nullptr,                             // Expression
+            ERROR_MEMORY,                                       // Error Code
+            ("Failed to create event queue for GPIO Expander"), // Error Message
+        );
+
         setDirection(hal_gpio_direction_t::INPUT);
         setPull(_halConfig.pull);
         if (_halConfig.enable_interrupt)
         {
-            SYS_LOG_D("Enabling interrupt for GPIO Expander Pin: %d on Port: %d", _halConfig.pinNumber, _halConfig.portNumber);
+            SYS_LOG_I("Enabling interrupt for GPIO Expander Pin: %d on Port: %d", _halConfig.pinNumber, _halConfig.portNumber);
             setInterrupt(_halConfig.interrupt);
             enableInterrupt();
         }
@@ -328,13 +337,13 @@ sys_error_t io_gpio_expander::setInterruptHandler(void (*handler)(void* params),
 
     // Register with the expander's interrupt handler system
     return _expander.registerInputPinInterruptHandler(
-        static_cast<cpx_mcp23x17::PORT>(_halConfig.portNumber), _halConfig.pinNumber, &io_gpio_expander::internalInterruptHandler);
+        static_cast<cpx_mcp23x17::PORT>(_halConfig.portNumber), _halConfig.pinNumber, &io_gpio_expander::internalInterruptHandler, this);
 }
 
 // Internal interrupt handler using INTCAP for edge detection
-void io_gpio_expander::internalInterruptHandler(void* context)
+void io_gpio_expander::internalInterruptHandler(void* params, bool capturedLevel)
 {
-    io_gpio_expander* _io_gpio = static_cast<io_gpio_expander*>(context);
+    io_gpio_expander* _io_gpio = reinterpret_cast<io_gpio_expander*>(params);
 
     if (!_io_gpio)
     {
@@ -343,33 +352,22 @@ void io_gpio_expander::internalInterruptHandler(void* context)
 
     bool shouldTrigger = false;
 
+    // Determine if the interrupt should be triggered based on the configured type
     switch (_io_gpio->_halConfig.interrupt)
     {
         case hal_gpio_interrupt_t::RISING_EDGE:
         {
-            // Read the captured value when interrupt occurred
-            bool capturedValue = false;
-            if (_io_gpio->_expander.getInterruptCapturedNo(static_cast<cpx_mcp23x17::PORT>(_io_gpio->_halConfig.portNumber), _io_gpio->_halConfig.pinNumber, capturedValue) ==
-                ERROR_SUCCESS)
-            {
-                // Rising edge: captured value should be HIGH
-                shouldTrigger = capturedValue;
-                SYS_LOG_D("RISING_EDGE: captured=%d, trigger=%d", capturedValue, shouldTrigger);
-            }
+            // Rising edge: captured value should be HIGH
+            shouldTrigger = capturedLevel;
+            SYS_LOG_D("RISING_EDGE: captured=%d, trigger=%d", capturedLevel, shouldTrigger);
         }
         break;
 
         case hal_gpio_interrupt_t::FALLING_EDGE:
         {
-            // Read the captured value when interrupt occurred
-            bool capturedValue = false;
-            if (_io_gpio->_expander.getInterruptCapturedNo(static_cast<cpx_mcp23x17::PORT>(_io_gpio->_halConfig.portNumber), _io_gpio->_halConfig.pinNumber, capturedValue) ==
-                ERROR_SUCCESS)
-            {
-                // Falling edge: captured value should be LOW
-                shouldTrigger = !capturedValue;
-                SYS_LOG_D("FALLING_EDGE: captured=%d, trigger=%d", capturedValue, shouldTrigger);
-            }
+            // Falling edge: captured value should be LOW
+            shouldTrigger = !capturedLevel;
+            SYS_LOG_D("FALLING_EDGE: captured=%d, trigger=%d", capturedLevel, shouldTrigger);
         }
         break;
 
@@ -391,6 +389,17 @@ void io_gpio_expander::internalInterruptHandler(void* context)
     {
         SYS_LOG_D("Triggering user interrupt handler for pin %d", _io_gpio->_halConfig.pinNumber);
 
+        RETURN_IF_ERROR(_io_gpio->_eventQueue == nullptr, );
+
+        hal_gpio_event_t event;
+        event.gpio_num  = _io_gpio->_halConfig.pinNumber;
+        event.level     = capturedLevel ? hal_gpio_level_t::HIGH : hal_gpio_level_t::LOW;
+        event.timestamp = xTaskGetTickCount();
+
+        // Non-blocking send to the queue
+        xQueueSend(_io_gpio->_eventQueue, &event, 0); // Send event to queue
+
+        // Call user-defined interrupt handler if set
         if (_io_gpio->_userInterruptHandler)
             _io_gpio->_userInterruptHandler(_io_gpio->_userInterruptParams);
     }
