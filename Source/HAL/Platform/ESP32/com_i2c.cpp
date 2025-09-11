@@ -129,7 +129,7 @@ sys_error_t com_i2c::writeRead(const void* deviceAddress, const uint8_t* writeBu
     // Cast deviceAddress to uint8_t (I2C address)
     uint8_t deviceAddr = *static_cast<const uint8_t*>(deviceAddress);
 
-    SYS_LOG_D("Writing and reading data from device at address: %p", deviceAddress);
+    // SYS_LOG_D("Writing and reading data from device at address: %p", deviceAddress);
     // Write register address and read data from the register address
     RETURN_ON_ERROR_WITH_LOG(
         i2c_master_write_read_device(_i2cPort, deviceAddr, writeBuffer, writeSize, readBuffer, readSize, COM_TIMEOUT_MS), // Function Call
