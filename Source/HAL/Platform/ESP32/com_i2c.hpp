@@ -8,25 +8,30 @@
 #ifndef COM_I2C_HPP
 #define COM_I2C_HPP
 
-#include "HAL/IHal/IHal.h"
+#include "HAL/IHal/IHal_Com_i2c.h"
 #include "driver/i2c.h"
 
-class com_i2c : public IHAL_COM
+typedef struct platformSpecificConfig_t
+{
+    uint8_t clock_flags; // Clock flags specific to ESP32 platform
+} platformSpecificConfig_t;
+
+constexpr platformSpecificConfig_t platformSpecificConfig = {I2C_SCLK_SRC_FLAG_FOR_NOMAL};
+
+class com_i2c : public IHAL_COM_I2C
 {
 private:
-    // private members
-    i2c_config_t&     _config;        // Reference to the I2C configuration
-    uint8_t           _deviceAddress; // I2C device address
-    uint32_t          _clockSpeed;    // I2C clock speed
-    i2c_port_t        _i2cPort;       // I2C port number
-    SemaphoreHandle_t _i2cMutex;
-    bool              _isInitialized;
+    hal_com_i2c_config_t& _halConfig;
+    i2c_port_t            _i2cPort;
+    i2c_config_t          _i2cConfig;
+    SemaphoreHandle_t     _i2cMutex;
+    bool                  _isInitialized;
 
 public:
-    com_i2c(i2c_port_t i2cPort, i2c_config_t& config);
+    com_i2c(hal_com_i2c_config_t& config);
     ~com_i2c();
 
-    sys_error_t init(void *params = nullptr) override;
+    sys_error_t init(void* params = nullptr) override;
 
     sys_error_t connect() override;
 
@@ -41,7 +46,6 @@ public:
     sys_error_t deInit() override;
 
 public: // User-defined methods
-
     /**
      * @brief Read data from an I2C device with a specified register address.
      *

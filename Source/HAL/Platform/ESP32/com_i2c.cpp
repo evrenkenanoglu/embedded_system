@@ -13,16 +13,63 @@
 #define I2C_MASTER_TX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
 
-#define I2C_MASTER_TIMEOUT_MS     1000
-#define COM_TIMEOUT_MS            I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS
+#define COM_TIMEOUT_MS            (_halConfig.timeout_ms / portTICK_PERIOD_MS)
 
 #define I2C_ADDRESS_SIZE          1                                      /*!< I2C address size in bytes */
 #define I2C_REGISTER_SIZE         1                                      /*!< I2C register size in bytes */
 #define I2C_WRITE_SIZE            (I2C_ADDRESS_SIZE + I2C_REGISTER_SIZE) /*!< I2C write size in bytes */
 
-com_i2c::com_i2c(i2c_port_t i2cPort, i2c_config_t& config)
-    : _config(config)
-    , _i2cPort(i2cPort)
+namespace
+{
+
+i2c_port_t convertI2cPort(uint8_t port)
+{
+    switch (port)
+    {
+        case 0:
+            return I2C_NUM_0;
+        case 1:
+            return I2C_NUM_1;
+        default:
+            return I2C_NUM_0; // Default to I2C_NUM_0 if invalid port is provided
+    }
+}
+
+i2c_config_t convertI2cConfig(const hal_com_i2c_config_t& config)
+{
+    i2c_config_t i2cConfig  = {};
+    i2cConfig.mode          = (config.mode == HAL_I2C_MODE_MASTER) ? I2C_MODE_MASTER : I2C_MODE_SLAVE;
+    i2cConfig.sda_io_num    = config.sda_config.pin_number;
+    i2cConfig.scl_io_num    = config.scl_config.pin_number;
+    i2cConfig.sda_pullup_en = config.sda_config.pullup_enable;
+    i2cConfig.scl_pullup_en = config.scl_config.pullup_enable;
+
+    if (config.mode == HAL_I2C_MODE_MASTER)
+    {
+        i2cConfig.master.clk_speed = config.clk_speed;
+    }
+    // Note: Slave mode configuration can be added here if needed
+
+    // Handle platform-specific configuration if provided
+    if (config.platform_config != nullptr)
+    {
+        const auto* platformConfig = static_cast<const platformSpecificConfig_t*>(config.platform_config);
+        i2cConfig.clk_flags        = platformConfig->clock_flags;
+    }
+    else
+    {
+        i2cConfig.clk_flags = 0; // Default clock flags
+    }
+
+    return i2cConfig;
+}
+
+} // namespace
+
+com_i2c::com_i2c(hal_com_i2c_config_t& config)
+    : _halConfig(config)
+    , _i2cPort(convertI2cPort(config.port_id))
+    , _i2cConfig(convertI2cConfig(config))
     , _i2cMutex(nullptr)
     , _isInitialized(false)
 {
@@ -54,22 +101,22 @@ sys_error_t com_i2c::init(void* params)
 
     xSemaphoreTake(_i2cMutex, portMAX_DELAY); // Take the mutex to ensure exclusive access
 
-    SYS_LOG_D("Initializing I2C on port %d with clock speed %d", _i2cPort, _config.master.clk_speed);
+    SYS_LOG_D("Initializing I2C on port %d with clock speed %d", _i2cPort, _i2cConfig.master.clk_speed);
     // Check if the mutex was created successfully
     RETURN_IF_ERROR_WITH_LOG((_i2cMutex == nullptr), ERROR_MEMORY, "Failed to create I2C mutex", xSemaphoreGive(_i2cMutex));
 
     SYS_LOG_D("I2C mutex created successfully");
     // Initialize I2C with the provided configuration
-    RETURN_ON_ERROR_WITH_LOG(i2c_param_config(_i2cPort, &_config), "Failed to configure I2C parameters", xSemaphoreGive(_i2cMutex));
+    RETURN_ON_ERROR_WITH_LOG(i2c_param_config(_i2cPort, &_i2cConfig), "Failed to configure I2C parameters", xSemaphoreGive(_i2cMutex));
 
     SYS_LOG_D("I2C parameters configured successfully");
     // Install the I2C driver
     RETURN_ON_ERROR_WITH_LOG(
-        i2c_driver_install(_i2cPort, _config.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0), "Failed to install I2C driver", xSemaphoreGive(_i2cMutex));
+        i2c_driver_install(_i2cPort, _i2cConfig.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0), "Failed to install I2C driver", xSemaphoreGive(_i2cMutex));
 
     xSemaphoreGive(_i2cMutex); // Release the mutex after initialization
 
-    SYS_LOG_D("I2C initialized on port %d with clock speed %d", _i2cPort, _config.master.clk_speed);
+    SYS_LOG_D("I2C initialized on port %d with clock speed %d", _i2cPort, _i2cConfig.master.clk_speed);
 
     _isInitialized = true; // Mark the I2C as initialized
 
@@ -148,15 +195,18 @@ sys_error_t com_i2c::disconnect()
 
 sys_error_t com_i2c::setClockSpeed(uint32_t speed)
 {
-    if (speed == 0)
+    // if speed doesn't match any of the supported speeds
+    if (speed != HAL_I2C_SPEED_STANDARD && speed != HAL_I2C_SPEED_FAST && speed != HAL_I2C_SPEED_FAST_PLUS && speed != HAL_I2C_SPEED_HIGH)
     {
         return ERROR_INVALID_ARG; // Invalid clock speed
     }
 
-    _config.master.clk_speed = speed;
+    _i2cConfig.master.clk_speed = speed;
 
     // Reconfigure I2C with the new clock speed
-    RETURN_ON_ERROR_WITH_LOG(i2c_param_config(_i2cPort, &_config), "Failed to reconfigure I2C parameters", );
+    RETURN_ON_ERROR_WITH_LOG(i2c_param_config(_i2cPort, &_i2cConfig), "Failed to reconfigure I2C parameters", );
+
+    _halConfig.clk_speed = speed; // Update the stored clock speed
 
     SYS_LOG_D("I2C clock speed set to %d Hz", speed);
     return ERROR_SUCCESS;
