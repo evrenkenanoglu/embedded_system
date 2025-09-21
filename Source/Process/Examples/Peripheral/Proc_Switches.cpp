@@ -6,6 +6,7 @@
  */
 
 #include "Proc_Switches.hpp"
+// #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
 namespace
@@ -13,15 +14,15 @@ namespace
 constexpr uint16_t SwitchesTaskStackSize   = 4096; // bytes
 constexpr uint8_t  SwitchesTaskPriority    = 5;
 constexpr char     SwitchesTaskName[]      = "SwitchesTask";
-constexpr uint16_t programRoutineTaskDelay = 20;                                   // milliseconds
-constexpr uint8_t  SwitchesQueueSize       = sizeof(Proc_Switches::SwitchQueue_t); // Size of each item in the queue
-constexpr uint8_t  SwitchesQueueLength     = 32;                                   // Number of items in the queue
+constexpr uint16_t programRoutineTaskDelay = 20;                          // milliseconds
+constexpr uint8_t  SwitchesQueueSize       = sizeof(SWITCH::EventData_t); // Size of each item in the queue
+constexpr uint8_t  SwitchesQueueLength     = 32;                          // Number of items in the queue
 } // namespace
 
-Proc_Switches::Proc_Switches(std::unique_ptr<std::vector<Switch_t>> Switches, QueueHandle_t SwitchesQueue)
+Proc_Switches::Proc_Switches(std::map<uint16_t, SWITCH::Instance_t>& switches, QueueHandle_t switchesQueue)
     : _xHandleSwitches(nullptr)
-    , _switches(std::move(Switches))
-    , _SwitchesQueue(SwitchesQueue)
+    , _switches(switches)
+    , _SwitchesQueue(switchesQueue)
 {
     setState(State::INITIALIZED);
 }
@@ -34,8 +35,6 @@ sys_error_t Proc_Switches::start()
         getState() != State::INITIALIZED && getState() != State::STOPPED, // Expression
         ERROR_INVALID_STATE,                                              // Error Code
         "Process not in INITIALIZED state");                              // Error Message
-
-    RETURN_IF_ERROR(_switches == nullptr, ERROR_INVALID_ARG);
 
     BaseType_t result = pdFAIL;
 
@@ -103,56 +102,67 @@ sys_error_t Proc_Switches::resume()
     vTaskResume(_xHandleSwitches);
 
     setState(State::RUNNING);
-    
+
     return ERROR_SUCCESS;
 }
 
-void Proc_Switches::setSwitchState(uint8_t switchNo, bool state)
+sys_error_t Proc_Switches::processSwitchEvent(SWITCH::EventData_t eventData)
 {
-    if (switchNo == ALL_SWITCHES)
+    RETURN_IF_ERROR(eventData.event != SWITCH::Event::STATE_CHANGED, ERROR_NOT_SUPPORTED); // Unsupported event
+
+    if (eventData.index == ALL_SWITCHES) // All switches event
     {
-        for (auto& switchData : *_switches)
+        SYS_LOG_D("Processing event for all switches");
+        for (auto const& [key, val] : _switches)
         {
-            switchData.ioGpio.set(reinterpret_cast<void*>(&state));
-            switchData.state = state;
+            RETURN_ON_ERROR(setSwitchState(key, eventData.state));
         }
-        return;
     }
-
-    if (switchNo >= _switches->size())
-    {
-        SYS_LOG_E("Invalid switch number");
-        return;
-    }
-
-    _switches->at(switchNo).ioGpio.set(reinterpret_cast<void*>(&state));
-    _switches->at(switchNo).state = state;
-    _switches->at(switchNo).state = state;
+    else // Single switch event
+        RETURN_ON_ERROR(setSwitchState(eventData.index, eventData.state));
 
     // Notify the switch state change
-    notifySwitchStateChange(switchNo, state);
+    notifySwitchStateChange(static_cast<uint8_t>(eventData.index), eventData.state);
+
+    return ERROR_SUCCESS;
 }
 
-bool Proc_Switches::getSwitchState(uint8_t switchNo)
+sys_error_t Proc_Switches::setSwitchState(uint16_t switchIdx, SWITCH::State state)
 {
-    return _switches->at(switchNo).state;
+    SYS_LOG_D("Setting switch %d to state %d", switchIdx, static_cast<int>(state));
+
+    RETURN_IF_ERROR(_switches.find(switchIdx) == _switches.end(), ERROR_INVALID_ARG); // Switch index not found
+
+    auto& switchInstance = _switches.at(switchIdx);
+
+    bool             isInverted = switchInstance.isInverted;
+    hal_gpio_level_t newState   = isInverted ? (state == SWITCH::State::ON ? hal_gpio_level_t::LOW : hal_gpio_level_t::HIGH)
+                                             : (state == SWITCH::State::ON ? hal_gpio_level_t::HIGH : hal_gpio_level_t::LOW);
+
+    RETURN_ON_ERROR(switchInstance.gpio.set(reinterpret_cast<void*>(&newState)));
+
+    switchInstance.state = state;
+
+    return ERROR_SUCCESS;
 }
 
-QueueHandle_t Proc_Switches::getSwitchesQueue()
+SWITCH::State Proc_Switches::getSwitchState(uint16_t switchIdx)
 {
-    return _SwitchesQueue;
+    RETURN_IF_ERROR(_switches.find(switchIdx) == _switches.end(), SWITCH::State::MAX); // Switch index not found
+
+    return _switches.at(switchIdx).state;
 }
 
-void Proc_Switches::registerSwitchStateChangeCb(std::function<void(uint8_t, bool)> cb)
+void Proc_Switches::registerSwitchStateChangeCb(std::function<void(uint16_t, SWITCH::State)> cb)
 {
     _switchStateChangeCbs.push_back(cb);
 }
 
-void Proc_Switches::notifySwitchStateChange(uint8_t switchNo, bool state)
+void Proc_Switches::notifySwitchStateChange(uint16_t switchIdx, SWITCH::State state)
 {
     for (auto& cb : _switchStateChangeCbs)
     {
-        cb(switchNo, state);
+        cb(switchIdx, state);
     }
 }
 
@@ -165,18 +175,16 @@ void Proc_Switches::SwitchesTask(void* pvParameters)
     for (;;)
     {
         // Check if there is anything in the queue
-        Proc_Switches::SwitchQueue_t Switch;
-        if (xQueueReceive(proc->_SwitchesQueue, &Switch, portMAX_DELAY))
+        SWITCH::EventData_t eventData;
+        if (xQueueReceive(proc->_SwitchesQueue, &eventData, portMAX_DELAY))
         {
-            // Set the switch state
-            proc->setSwitchState(Switch.switchNo, Switch.state);
-        }
-        // Safety delay
-        std::this_thread::sleep_for(std::chrono::milliseconds(programRoutineTaskDelay));
-    }
-}
+            SYS_LOG_D("\nSwitch Event: Index=%d\n, Event=%d\n, State=%d\n", eventData.index, static_cast<int>(eventData.event), static_cast<int>(eventData.state));
 
-std::vector<Proc_Switches::Switch_t>* Proc_Switches::getSwitches()
-{
-    return _switches.get();
+            // Process the switch event
+            proc->processSwitchEvent(eventData);
+
+            // Safety delay
+            std::this_thread::sleep_for(std::chrono::milliseconds(programRoutineTaskDelay));
+        }
+    }
 }

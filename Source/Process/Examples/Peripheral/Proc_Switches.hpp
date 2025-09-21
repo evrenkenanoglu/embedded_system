@@ -9,44 +9,54 @@
 #define PROC_SWITCHES_HPP
 
 #include "HAL/IHal/IHal.h"
+#include "Library/Utility/switch.hpp"
 #include "Process/Process.hpp"
 #include <functional>
-#include <vector>
+#include <map>
 
 #define ALL_SWITCHES 0xFF
 
 class Proc_Switches : public Process
 {
-
-public:
-    // Structure for the switches
-    typedef struct
-    {
-        IHAL_IO& ioGpio;
-        bool     state;
-    } Switch_t;
-
-    // Queue structure for the switches
-    typedef struct
-    {
-        uint8_t switchNo;
-        bool    state;
-    } SwitchQueue_t;
-
 private:
-    TaskHandle_t                           _xHandleSwitches; // Task handle for the switches
-    std::unique_ptr<std::vector<Switch_t>> _switches;        // States of the switches
-    QueueHandle_t                          _SwitchesQueue;   // Queue to handle the switches
+    TaskHandle_t                            _xHandleSwitches; // Task handle for the switches
+    std::map<uint16_t, SWITCH::Instance_t>& _switches;        // Reference to the map of switch instances
+    QueueHandle_t                           _SwitchesQueue;   // Queue to handle the switches
 
     // Vector of Register cbs for notification of switch state changes
-    std::vector<std::function<void(uint8_t, bool)>> _switchStateChangeCbs;
+    std::vector<std::function<void(uint16_t, SWITCH::State)>> _switchStateChangeCbs;
 
 private:
     // Private member functions
     static void SwitchesTask(void* pvParameters);
 
+    /**
+     * @brief Set the state of the switch
+     *
+     * @param switchIdx Index of the switch
+     * @param state State to set
+     * @return sys_error_t
+     */
+    sys_error_t setSwitchState(uint16_t switchIdx, SWITCH::State state);
+
+    /**
+     * @brief Process the switch event
+     *
+     * @param switchData Switch event data
+     * @return sys_error_t
+     */
+    sys_error_t processSwitchEvent(SWITCH::EventData_t switchData);
+
+    /**
+     * @brief Notify the switch state change
+     *
+     * @param switchIdx Index of the switch
+     * @param state State of the switch
+     */
+    void notifySwitchStateChange(uint16_t switchIdx, SWITCH::State state);
+
 public:
-    Proc_Switches(std::unique_ptr<std::vector<Switch_t>> Switches, QueueHandle_t SwitchesQueue);
+    Proc_Switches(std::map<uint16_t, SWITCH::Instance_t>& switches, QueueHandle_t switchesQueue = nullptr);
     ~Proc_Switches();
 
     sys_error_t start() override;
@@ -60,41 +70,19 @@ public:
     QueueHandle_t getSwitchesQueue();
 
     /**
-     * @brief Set the state of the switch
-     *
-     * @param switchNo Switch number
-     * @param state State of the switch
-     */
-    void setSwitchState(uint8_t switchNo, bool state);
-
-    /**
      * @brief Get the state of the switch
      *
-     * @param switchNo Switch number
+     * @param switchIdx Switch number
      * @return bool State of the switch
      */
-    bool getSwitchState(uint8_t switchNo);
+    SWITCH::State getSwitchState(uint16_t switchIdx);
 
     /**
      * @brief Register a callback function for switch state change
      *
      * @param cb Callback function
      */
-    void registerSwitchStateChangeCb(std::function<void(uint8_t, bool)> cb);
-
-    /**
-     * @brief Notify the switch state change
-     *
-     * @param switchNo Switch number
-     * @param state State of the switch
-     */
-    void notifySwitchStateChange(uint8_t switchNo, bool state);
-
-    /**
-     * @brief Get the list of switches
-     * @return std::vector<Switch_t>* Pointer to the vector of switches
-     */
-    std::vector<Switch_t>* getSwitches();
+    void registerSwitchStateChangeCb(std::function<void(uint16_t, SWITCH::State)> cb);
 };
 
 #endif /* PROC_SWITCHES_HPP */
