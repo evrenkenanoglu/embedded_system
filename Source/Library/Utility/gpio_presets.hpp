@@ -105,6 +105,11 @@ static constexpr gpio_hal_config_t INPUT_INTERRUPT_DETECT_BOTH(uint16_t pin, uin
 }
 
 // ========== Button Configurations ==========
+static constexpr gpio_hal_config_t BUTTON_FULL_DETECTION(uint16_t pin, uint8_t port = 0, hal_gpio_pull_t pull = hal_gpio_pull_t::PULL_UP)
+{
+    return INPUT_INTERRUPT(pin, port, hal_gpio_interrupt_t::BOTH_EDGES, pull);
+}
+
 static constexpr gpio_hal_config_t BUTTON_PULLUP(uint16_t pin, uint8_t port = 0)
 {
     return INPUT_INTERRUPT_PULLUP(pin, port, hal_gpio_interrupt_t::FALLING_EDGE);
