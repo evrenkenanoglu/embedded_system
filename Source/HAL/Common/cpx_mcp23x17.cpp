@@ -7,6 +7,8 @@
 
 #include "cpx_mcp23x17.hpp"
 #include "System/LogHandler.h"
+
+// #define ENABLE_SYS_LOG_D
 #include "System/errorTranslateHandler.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////c
@@ -266,7 +268,7 @@ void interruptListener(void* pvParameters)
     {
         QueueSetMemberHandle_t activeMember = xQueueSelectFromSet(queueSet, portMAX_DELAY);
 
-        printf("Interrupt detected on MCP23X17\n");
+        SYS_LOG_D("Interrupt detected on MCP23X17\n");
 
         if (activeMember == eventQueueA)
         {

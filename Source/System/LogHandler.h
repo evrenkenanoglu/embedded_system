@@ -9,7 +9,11 @@
 #define SYS_LOG_I(message, ...) SYS_LOGGER().log(ILog::LogLevel::INFO, message, ##__VA_ARGS__)
 #define SYS_LOG_W(message, ...) SYS_LOGGER().log(ILog::LogLevel::WARNING, message, ##__VA_ARGS__)
 #define SYS_LOG_E(message, ...) SYS_LOGGER().log(ILog::LogLevel::ERROR, message, ##__VA_ARGS__)
-#define SYS_LOG_D(message, ...) SYS_LOGGER().log(ILog::LogLevel::DEBUG, message, ##__VA_ARGS__)
+#ifdef ENABLE_SYS_LOG_D
+    #define SYS_LOG_D(message, ...) SYS_LOGGER().log(ILog::LogLevel::DEBUG, message, ##__VA_ARGS__)
+#else
+    #define SYS_LOG_D(message, ...) ((void)0)
+#endif
 
 /**
  * @brief The LogHandler class is a wrapper for the ILog class to log messages with different severity levels.
