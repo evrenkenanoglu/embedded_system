@@ -1,32 +1,10 @@
-/**
- * @file Proc_Button.cpp
- * @brief Source file for Proc_Button
- *
- * This file contains definitions for the Proc_Button class and related data types and functions.
- */
-
 #include "Proc_Button.hpp"
-#include <inttypes.h>
+#define ENABLE_SYS_LOG_D
+#include "System/LogHandler.h"
 
 namespace
 {
 } // namespace
-
-/**
- * @brief Button Listener
- * This task is responsible for processing the GPIO events
- * It reads the GPIO input and calculates the duration of the button press
- * @param arg
- *
- * @details
- * | prevState | currentState | pressedState | Description |
- * |-----------|--------------|--------------|-------------|
- * | 0         | 0            | 0            | The button was pressed and remains pressed. |
- * | 0         | 1            | 0            | The button was pressed and now it's not pressed. The `changeTime` is updated and the duration of the pressed state is calculated
- * and printed. | | 1         | 1            | 0            | The button was not pressed and remains not pressed. | | 1         | 0            | 0            | The button was
- * not pressed and now it's pressed. The `changeTime` is updated. |
- */
-static void buttonListener(void* arg);
 
 /**
  * @brief Clear the queue for unwanted events
@@ -35,12 +13,10 @@ static void buttonListener(void* arg);
  */
 static void clearQueue(QueueHandle_t xQueue);
 
-Proc_Button::Proc_Button(std::vector<buttonData*>& buttons, uint32_t stackSize, uint8_t taskPriority)
-    : _buttons(buttons)
-    , _stackSize(stackSize)
-    , _taskPriority(taskPriority)
+Proc_Button::Proc_Button(std::unique_ptr<std::vector<Button::Instance_t*>> buttons)
+    : _buttons(std::move(buttons))
 {
-    // constructor implementation
+    setState(State::INITIALIZED);
 }
 
 Proc_Button::~Proc_Button()
@@ -50,28 +26,38 @@ Proc_Button::~Proc_Button()
 
 sys_error_t Proc_Button::start()
 {
+    SYS_LOG_D("STATE: %d", static_cast<int>(getState()));
+
+    RETURN_IF_ERROR_WITH_LOG(
+        getState() != State::INITIALIZED && getState() != State::STOPPED, // Expression
+        ERROR_INVALID_STATE,                                              // Error Code
+        "Process not in INITIALIZED state");                              // Error Message
+
     // Start the Button Listener
-    for (buttonData* button : _buttons)
+    for (Button::Instance_t* button : *_buttons)
     {
         // Create the Button Listener
-        xTaskCreate(
-            buttonListener,             // Task function
-            "button_listener_task",     // Task name
-            _stackSize,                 // Stack size
-            static_cast<void*>(button), // Task parameter
-            _taskPriority,              // Task priority
-            &(button->taskHandle));     // Task handle
+        BaseType_t result = xTaskCreate(
+            buttonListener,                    // Task function
+            "button_listener_task",            // Task name
+            button->taskConfig.stackSize,      // Stack size
+            static_cast<void*>(button),        // Task parameter
+            button->taskConfig.taskPriority,   // Task priority
+            &(button->taskConfig.taskHandle)); // Task handle
+
+        RETURN_IF_ERROR_WITH_LOG(result != pdPASS, ERROR_FAIL, "Failed to create button listener task");
     }
+
     return ERROR_SUCCESS;
 }
 sys_error_t Proc_Button::stop()
 {
     // Stop the Button Listener
-    for (buttonData* button : _buttons)
+    for (Button::Instance_t* button : *_buttons)
     {
         // Delete the Button Listener
-        vTaskDelete(button->taskHandle);
-        button->taskHandle = NULL;
+        vTaskDelete(button->taskConfig.taskHandle);
+        button->taskConfig.taskHandle = nullptr;
         buttonDataClear(button);
     }
 
@@ -80,87 +66,117 @@ sys_error_t Proc_Button::stop()
 
 sys_error_t Proc_Button::pause()
 {
+    RETURN_IF_ERROR_WITH_LOG(getState() != State::RUNNING, ERROR_INVALID_STATE, "Process not in RUNNING state");
+
     // Pause the Button Listener
-    for (buttonData* button : _buttons)
+    for (Button::Instance_t* button : *_buttons)
     {
         // Suspend the Button Listener
-        vTaskSuspend(button->taskHandle);
+        vTaskSuspend(button->taskConfig.taskHandle);
     }
     return ERROR_SUCCESS;
 }
 
 sys_error_t Proc_Button::resume()
 {
-    for (buttonData* button : _buttons)
+    RETURN_IF_ERROR_WITH_LOG(getState() != State::PAUSED, ERROR_INVALID_STATE, "Process not in PAUSED state");
+
+    for (Button::Instance_t* button : *_buttons)
     {
         // Clear the Button Data
         buttonDataClear(button);
 
         // Resume the Button Listener
-        vTaskResume(button->taskHandle);
+        vTaskResume(button->taskConfig.taskHandle);
     }
     return ERROR_SUCCESS;
 }
 
-// Button Listener
-// This task is responsible for processing the GPIO events
-// It reads the GPIO input and calculates the duration of the button press
-// The duration is printed to the console
-/*
-| prevState | currentState | pressedState | Description |
-|-----------|--------------|--------------|-------------|
-| 0         | 0            | 0            | The button was pressed and remains pressed. |
-| 0         | 1            | 0            | The button was pressed and now it's not pressed. The `changeTime` is updated and the duration of the pressed state is calculated
-and printed. | | 1         | 1            | 0            | The button was not pressed and remains not pressed. | | 1         | 0            | 0            | The button was not
-pressed and now it's pressed. The `changeTime` is updated. |
-*/
-
-static void buttonListener(void* arg)
+void Proc_Button::buttonListener(void* arg)
 {
-    Proc_Button::buttonData& button = *static_cast<Proc_Button::buttonData*>(arg);
+    RETURN_IF_ERROR(arg == nullptr, );
 
-    uint32_t gpioNumber = button.gpio.getGpioNumber();
-    button.changeTime   = xTaskGetTickCount(); // Get the current time
-    button.gpio.get((static_cast<void*>(&button.prevState)));
-    QueueHandle_t gpioEventQueue = reinterpret_cast<QueueHandle_t>(button.gpio.getEventQueue());
+    Button::Instance_t* button           = static_cast<Button::Instance_t*>(arg);
+    QueueHandle_t       gpioEventQueue   = reinterpret_cast<QueueHandle_t>(button->gpio.getEventQueue());
+    QueueHandle_t       buttonEventQueue = reinterpret_cast<QueueHandle_t>(button->eventQueue);
+    hal_gpio_event_t    event;
+    Button::EventData_t eventData;
+    eventData.index = button->index;
+    uint32_t now    = 0;
 
-    hal_gpio_event_t event;
-    printf("Waiting for button to be pressed!\n");
+    RETURN_IF_ERROR(gpioEventQueue == nullptr || buttonEventQueue == nullptr, );
+
+    SYS_LOG_D("Waiting for button to be pressed!\n");
     for (;;)
     {
         if (xQueueReceive(gpioEventQueue, &event, portMAX_DELAY))
         {
-            button.gpio.get(static_cast<void*>(&button.currentState));
-            printf("state: %d\n", button.currentState);
+            now = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
-            // If the button is pressed and the previous state is not pressed
-            // Record the time when the button is pressed
-            // PrevState = 0, currentState = 1
-            if (button.prevState == button.pressedState && button.currentState != button.pressedState)
+            // Button pressed and was not already pressed
+            if (event.level == button->config.pressedState && !button->state.isPressed)
             {
-                uint32_t now      = xTaskGetTickCount();
-                uint32_t duration = pdTICKS_TO_MS(now - button.changeTime); // Calculate the duration
+                button->state.isPressed = true;
+                button->state.pressTime = now;
 
-                printf("GPIO[%" PRIu32 "] intr, pressed state duration : %" PRIu32 "ms\n", (uint32_t)event.gpio_num, duration);
+                // Double click detection
+                if (button->state.waitingForSecondClick && (now - button->state.firstClickTime <= button->config.doubleClickWindowMs))
+                {
+                    eventData.event             = Button::Event::DOUBLE_CLICK;
+                    eventData.pressedDurationMs = 0; // Duration is not relevant for double click
+                    xQueueSend(buttonEventQueue, &eventData, 0);
+                    button->state.waitingForSecondClick = false;
+                }
+                else // First click
+                {
+                    button->state.firstClickTime        = now;
+                    button->state.waitingForSecondClick = true;
+                }
+
+                eventData.event             = Button::Event::PRESSED;
+                eventData.pressedDurationMs = 0; // Duration is not relevant for press event
+                xQueueSend(buttonEventQueue, &eventData, 0);
             }
-
-            // Update the previous state if the current state is different from the previous state
-            // Update the change time
-            // PrevState = 1, currentState = 0
-            if (button.prevState != button.currentState)
+            // Button released and was previously pressed
+            else if (event.level != button->config.pressedState && button->state.isPressed)
             {
-                button.prevState  = button.currentState; // Update the previous state
-                button.changeTime = xTaskGetTickCount(); // Update the change time
+                button->state.isPressed   = false;
+                button->state.releaseTime = now;
+                uint32_t duration         = button->state.releaseTime - button->state.pressTime;
+
+                eventData.event             = Button::Event::RELEASED;
+                eventData.pressedDurationMs = duration;
+                xQueueSend(buttonEventQueue, &eventData, 0);
+
+                if (duration < button->config.shortPressThresholdMs)
+                {
+
+                    eventData.event = Button::Event::SHORT_PRESS;
+                    xQueueSend(buttonEventQueue, &eventData, 0);
+                }
+                else if (duration < button->config.longPressThresholdMs)
+                {
+                    eventData.event = Button::Event::LONG_PRESS;
+                    xQueueSend(buttonEventQueue, &eventData, 0);
+                }
+                // else: ignore very long presses
+
+                // If no double click detected after window, reset
+                if (button->state.waitingForSecondClick && (now - button->state.firstClickTime > button->config.doubleClickWindowMs))
+                {
+                    button->state.waitingForSecondClick = false;
+                }
             }
         }
     }
 }
 
-void Proc_Button::buttonDataClear(buttonData* button)
+void Proc_Button::buttonDataClear(Button::Instance_t* button)
 {
-    button->changeTime   = xTaskGetTickCount();
-    button->currentState = static_cast<int>(hal_gpio_level_t::LOW);
-    button->prevState    = static_cast<int>(hal_gpio_level_t::HIGH);
+    RETURN_IF_ERROR(button == nullptr, );
+
+    button->state = Button::State_t{}; // Reset the button state
+
     // Clear the queue for unwanted events
     clearQueue(reinterpret_cast<QueueHandle_t>(button->gpio.getEventQueue()));
 }
