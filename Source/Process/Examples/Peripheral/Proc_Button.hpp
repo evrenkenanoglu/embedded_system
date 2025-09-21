@@ -18,12 +18,12 @@
 class Proc_Button : public Process
 {
 private:
-    void buttonDataClear(Button::Instance_t* button);
+    void buttonDataClear(BUTTON::Instance_t* button);
 
 private:
     static void buttonListener(void* arg);
 
-    std::unique_ptr<std::vector<Button::Instance_t*>> _buttons;
+    std::unique_ptr<std::vector<BUTTON::Instance_t*>> _buttons;
 
 public:
     /**
@@ -31,7 +31,7 @@ public:
      *
      * @param buttons A unique pointer to a vector of button instances
      */
-    Proc_Button(std::unique_ptr<std::vector<Button::Instance_t*>> buttons);
+    Proc_Button(std::unique_ptr<std::vector<BUTTON::Instance_t*>> buttons);
     ~Proc_Button();
 
     sys_error_t start() override;
@@ -43,7 +43,7 @@ public:
     sys_error_t resume() override;
 
 public:
-    void buttonEventCallback(uint16_t buttonIndex, Button::Event event, uint32_t duration);
+    void buttonEventCallback(uint16_t buttonIndex, BUTTON::Event event, uint32_t duration);
     void processButtonEvents();
 };
 

@@ -3,7 +3,7 @@
 #include "HAL/IHAL/IHal_Io_Gpio.h"
 #include "System/system.h"
 
-namespace Button
+namespace BUTTON
 {
 
 constexpr uint32_t LONG_PRESS_THRESHOLD_MS  = 1000; // 2 seconds

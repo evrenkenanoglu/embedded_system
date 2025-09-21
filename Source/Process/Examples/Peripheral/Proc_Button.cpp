@@ -13,7 +13,7 @@ namespace
  */
 static void clearQueue(QueueHandle_t xQueue);
 
-Proc_Button::Proc_Button(std::unique_ptr<std::vector<Button::Instance_t*>> buttons)
+Proc_Button::Proc_Button(std::unique_ptr<std::vector<BUTTON::Instance_t*>> buttons)
     : _buttons(std::move(buttons))
 {
     setState(State::INITIALIZED);
@@ -34,7 +34,7 @@ sys_error_t Proc_Button::start()
         "Process not in INITIALIZED state");                              // Error Message
 
     // Start the Button Listener
-    for (Button::Instance_t* button : *_buttons)
+    for (BUTTON::Instance_t* button : *_buttons)
     {
         // Create the Button Listener
         BaseType_t result = xTaskCreate(
@@ -53,7 +53,7 @@ sys_error_t Proc_Button::start()
 sys_error_t Proc_Button::stop()
 {
     // Stop the Button Listener
-    for (Button::Instance_t* button : *_buttons)
+    for (BUTTON::Instance_t* button : *_buttons)
     {
         // Delete the Button Listener
         vTaskDelete(button->taskConfig.taskHandle);
@@ -69,7 +69,7 @@ sys_error_t Proc_Button::pause()
     RETURN_IF_ERROR_WITH_LOG(getState() != State::RUNNING, ERROR_INVALID_STATE, "Process not in RUNNING state");
 
     // Pause the Button Listener
-    for (Button::Instance_t* button : *_buttons)
+    for (BUTTON::Instance_t* button : *_buttons)
     {
         // Suspend the Button Listener
         vTaskSuspend(button->taskConfig.taskHandle);
@@ -81,7 +81,7 @@ sys_error_t Proc_Button::resume()
 {
     RETURN_IF_ERROR_WITH_LOG(getState() != State::PAUSED, ERROR_INVALID_STATE, "Process not in PAUSED state");
 
-    for (Button::Instance_t* button : *_buttons)
+    for (BUTTON::Instance_t* button : *_buttons)
     {
         // Clear the Button Data
         buttonDataClear(button);
@@ -96,11 +96,11 @@ void Proc_Button::buttonListener(void* arg)
 {
     RETURN_IF_ERROR(arg == nullptr, );
 
-    Button::Instance_t* button           = static_cast<Button::Instance_t*>(arg);
+    BUTTON::Instance_t* button           = static_cast<BUTTON::Instance_t*>(arg);
     QueueHandle_t       gpioEventQueue   = reinterpret_cast<QueueHandle_t>(button->gpio.getEventQueue());
     QueueHandle_t       buttonEventQueue = reinterpret_cast<QueueHandle_t>(button->eventQueue);
     hal_gpio_event_t    event;
-    Button::EventData_t eventData;
+    BUTTON::EventData_t eventData;
     eventData.index = button->index;
     uint32_t now    = 0;
 
@@ -122,7 +122,7 @@ void Proc_Button::buttonListener(void* arg)
                 // Double click detection
                 if (button->state.waitingForSecondClick && (now - button->state.firstClickTime <= button->config.doubleClickWindowMs))
                 {
-                    eventData.event             = Button::Event::DOUBLE_CLICK;
+                    eventData.event             = BUTTON::Event::DOUBLE_CLICK;
                     eventData.pressedDurationMs = 0; // Duration is not relevant for double click
                     xQueueSend(buttonEventQueue, &eventData, 0);
                     button->state.waitingForSecondClick = false;
@@ -133,7 +133,7 @@ void Proc_Button::buttonListener(void* arg)
                     button->state.waitingForSecondClick = true;
                 }
 
-                eventData.event             = Button::Event::PRESSED;
+                eventData.event             = BUTTON::Event::PRESSED;
                 eventData.pressedDurationMs = 0; // Duration is not relevant for press event
                 xQueueSend(buttonEventQueue, &eventData, 0);
             }
@@ -144,19 +144,19 @@ void Proc_Button::buttonListener(void* arg)
                 button->state.releaseTime = now;
                 uint32_t duration         = button->state.releaseTime - button->state.pressTime;
 
-                eventData.event             = Button::Event::RELEASED;
+                eventData.event             = BUTTON::Event::RELEASED;
                 eventData.pressedDurationMs = duration;
                 xQueueSend(buttonEventQueue, &eventData, 0);
 
                 if (duration < button->config.shortPressThresholdMs)
                 {
 
-                    eventData.event = Button::Event::SHORT_PRESS;
+                    eventData.event = BUTTON::Event::SHORT_PRESS;
                     xQueueSend(buttonEventQueue, &eventData, 0);
                 }
                 else if (duration < button->config.longPressThresholdMs)
                 {
-                    eventData.event = Button::Event::LONG_PRESS;
+                    eventData.event = BUTTON::Event::LONG_PRESS;
                     xQueueSend(buttonEventQueue, &eventData, 0);
                 }
                 // else: ignore very long presses
@@ -171,11 +171,11 @@ void Proc_Button::buttonListener(void* arg)
     }
 }
 
-void Proc_Button::buttonDataClear(Button::Instance_t* button)
+void Proc_Button::buttonDataClear(BUTTON::Instance_t* button)
 {
     RETURN_IF_ERROR(button == nullptr, );
 
-    button->state = Button::State_t{}; // Reset the button state
+    button->state = BUTTON::State_t{}; // Reset the button state
 
     // Clear the queue for unwanted events
     clearQueue(reinterpret_cast<QueueHandle_t>(button->gpio.getEventQueue()));
