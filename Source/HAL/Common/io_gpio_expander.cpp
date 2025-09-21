@@ -126,16 +126,22 @@ sys_error_t io_gpio_expander::init(void* params)
     UNUSED(params);
     RETURN_ON_ERROR(_expander.init(nullptr));
 
+    RETURN_IF_ERROR(_initialized == true, ERROR_SUCCESS); // Already initialized
+
+    SYS_LOG_I(
+        "Configuring GPIO Expander Pin: %d on Port: %d as %s",
+        _halConfig.pinNumber,
+        _halConfig.portNumber,
+        (_halConfig.direction == hal_gpio_direction_t::OUTPUT) ? "OUTPUT" : "INPUT");
+
     // Configure pin based on halConfig
     if (_halConfig.direction == hal_gpio_direction_t::OUTPUT)
     {
-        setDirection(hal_gpio_direction_t::OUTPUT);
-        setLevel(_halConfig.initial_level);
+        RETURN_ON_ERROR(setDirection(hal_gpio_direction_t::OUTPUT));
+        RETURN_ON_ERROR(setLevel(_halConfig.initial_level));
     }
     else if (_halConfig.direction == hal_gpio_direction_t::INPUT)
     {
-        SYS_LOG_I("Configuring GPIO Expander Pin: %d on Port: %d as INPUT", _halConfig.pinNumber, _halConfig.portNumber);
-
         _eventQueue = xQueueCreate(IHAL_GPIO_EVENT_QUEUE_LENGTH, sizeof(hal_gpio_event_t)); // Create event queue for interrupts
 
         RETURN_IF_ERROR_WITH_LOG(
@@ -144,13 +150,13 @@ sys_error_t io_gpio_expander::init(void* params)
             ("Failed to create event queue for GPIO Expander"), // Error Message
         );
 
-        setDirection(hal_gpio_direction_t::INPUT);
-        setPull(_halConfig.pull);
+        RETURN_ON_ERROR(setDirection(hal_gpio_direction_t::INPUT));
+        RETURN_ON_ERROR(setPull(_halConfig.pull));
         if (_halConfig.enable_interrupt)
         {
             SYS_LOG_I("Enabling interrupt for GPIO Expander Pin: %d on Port: %d", _halConfig.pinNumber, _halConfig.portNumber);
-            setInterrupt(_halConfig.interrupt);
-            enableInterrupt();
+            RETURN_ON_ERROR(setInterrupt(_halConfig.interrupt));
+            RETURN_ON_ERROR(enableInterrupt());
         }
     }
     else
@@ -335,9 +341,7 @@ sys_error_t io_gpio_expander::setInterruptHandler(void (*handler)(void* params),
     _userInterruptHandler = handler;
     _userInterruptParams  = params;
 
-    // Register with the expander's interrupt handler system
-    return _expander.registerInputPinInterruptHandler(
-        static_cast<cpx_mcp23x17::PORT>(_halConfig.portNumber), _halConfig.pinNumber, &io_gpio_expander::internalInterruptHandler, this);
+    return ERROR_SUCCESS;
 }
 
 // Internal interrupt handler using INTCAP for edge detection
@@ -411,6 +415,9 @@ void io_gpio_expander::internalInterruptHandler(void* params, bool capturedLevel
 
 sys_error_t io_gpio_expander::enableInterrupt()
 {
+    RETURN_ON_ERROR(_expander.registerInputPinInterruptHandler(
+        static_cast<cpx_mcp23x17::PORT>(_halConfig.portNumber), _halConfig.pinNumber, &io_gpio_expander::internalInterruptHandler, this));
+
     return _expander.setInterruptEnableNo(static_cast<cpx_mcp23x17::PORT>(_halConfig.portNumber), _halConfig.pinNumber, INTERRUPT_ON_CHANGE_ENABLED);
 }
 
