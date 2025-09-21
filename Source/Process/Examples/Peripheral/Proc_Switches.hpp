@@ -15,7 +15,7 @@
 
 #define ALL_SWITCHES 0xFF
 
-class Proc_Switches : public IProcess
+class Proc_Switches : public Process
 {
 
 public:
@@ -43,9 +43,10 @@ private:
 
 private:
     // Private member functions
+    static void SwitchesTask(void* pvParameters);
 
 public:
-    Proc_Switches(std::unique_ptr<std::vector<Switch_t>> Switches);
+    Proc_Switches(std::unique_ptr<std::vector<Switch_t>> Switches, QueueHandle_t SwitchesQueue);
     ~Proc_Switches();
 
     sys_error_t start() override;

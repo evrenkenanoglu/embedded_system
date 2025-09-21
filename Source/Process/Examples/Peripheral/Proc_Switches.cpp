@@ -13,49 +13,54 @@ namespace
 constexpr uint16_t SwitchesTaskStackSize   = 4096; // bytes
 constexpr uint8_t  SwitchesTaskPriority    = 5;
 constexpr char     SwitchesTaskName[]      = "SwitchesTask";
-constexpr uint16_t programRoutineTaskDelay = 20; // milliseconds
-constexpr uint8_t  SwitchesQueueSize       = sizeof(Proc_Switches::SwitchQueue_t);
+constexpr uint16_t programRoutineTaskDelay = 20;                                   // milliseconds
+constexpr uint8_t  SwitchesQueueSize       = sizeof(Proc_Switches::SwitchQueue_t); // Size of each item in the queue
+constexpr uint8_t  SwitchesQueueLength     = 32;                                   // Number of items in the queue
 } // namespace
 
-static void SwitchesTask(void* pvParameters);
-
-Proc_Switches::Proc_Switches(std::unique_ptr<std::vector<Switch_t>> Switches)
+Proc_Switches::Proc_Switches(std::unique_ptr<std::vector<Switch_t>> Switches, QueueHandle_t SwitchesQueue)
     : _xHandleSwitches(nullptr)
     , _switches(std::move(Switches))
-    , _SwitchesQueue(nullptr)
+    , _SwitchesQueue(SwitchesQueue)
 {
+    setState(State::INITIALIZED);
 }
 
 Proc_Switches::~Proc_Switches() {}
 
 sys_error_t Proc_Switches::start()
 {
-    if (_switches == nullptr)
-    {
-        SYS_LOG_E("Invalid Switches");
-        return ERROR_FAIL;
-    }
+    RETURN_IF_ERROR_WITH_LOG(
+        getState() != State::INITIALIZED && getState() != State::STOPPED, // Expression
+        ERROR_INVALID_STATE,                                              // Error Code
+        "Process not in INITIALIZED state");                              // Error Message
+
+    RETURN_IF_ERROR(_switches == nullptr, ERROR_INVALID_ARG);
 
     BaseType_t result = pdFAIL;
 
-    // create a queue to handle the switches
-    _SwitchesQueue = xQueueCreate(SwitchesQueueSize, SwitchesQueueSize);
-
-    // create a task to handle the switches
-    result = xTaskCreate(SwitchesTask,          // Task function
-                         SwitchesTaskName,      // Task name
-                         SwitchesTaskStackSize, // Stack size
-                         this,                  // Task parameters
-                         SwitchesTaskPriority,  // Task priority
-                         &_xHandleSwitches);    // Task handle
-
-    if (result != pdPASS)
+    if (_SwitchesQueue == nullptr)
     {
-        SYS_LOG_I( " Task Failed to Start");
-        return ERROR_FAIL;
+        // create a queue to handle the switches
+        _SwitchesQueue = xQueueCreate(SwitchesQueueLength, SwitchesQueueSize);
+        RETURN_IF_ERROR(_SwitchesQueue == nullptr, ERROR_FAIL);
     }
 
-    SYS_LOG_I( " Task Started");
+    // create a task to handle the switches
+    result = xTaskCreate(
+        SwitchesTask,          // Task function
+        SwitchesTaskName,      // Task name
+        SwitchesTaskStackSize, // Stack size
+        this,                  // Task parameters
+        SwitchesTaskPriority,  // Task priority
+        &_xHandleSwitches);    // Task handle
+
+    RETURN_IF_ERROR_WITH_LOG(result != pdPASS, ERROR_FAIL, "Failed to create Switches task");
+
+    SYS_LOG_I("Switches task created successfully");
+
+    setState(State::RUNNING);
+
     return ERROR_SUCCESS;
 }
 
@@ -71,6 +76,8 @@ sys_error_t Proc_Switches::stop()
     vQueueDelete(_SwitchesQueue);
     _SwitchesQueue = nullptr;
 
+    setState(State::STOPPED);
+
     return ERROR_SUCCESS;
 }
 
@@ -81,6 +88,9 @@ sys_error_t Proc_Switches::pause()
         return ERROR_FAIL;
     }
     vTaskSuspend(_xHandleSwitches);
+
+    setState(State::PAUSED);
+
     return ERROR_SUCCESS;
 }
 
@@ -91,6 +101,9 @@ sys_error_t Proc_Switches::resume()
         return ERROR_FAIL;
     }
     vTaskResume(_xHandleSwitches);
+
+    setState(State::RUNNING);
+    
     return ERROR_SUCCESS;
 }
 
@@ -129,6 +142,7 @@ QueueHandle_t Proc_Switches::getSwitchesQueue()
 {
     return _SwitchesQueue;
 }
+
 void Proc_Switches::registerSwitchStateChangeCb(std::function<void(uint8_t, bool)> cb)
 {
     _switchStateChangeCbs.push_back(cb);
@@ -142,21 +156,17 @@ void Proc_Switches::notifySwitchStateChange(uint8_t switchNo, bool state)
     }
 }
 
-static void SwitchesTask(void* pvParameters)
+void Proc_Switches::SwitchesTask(void* pvParameters)
 {
     Proc_Switches* proc = static_cast<Proc_Switches*>(pvParameters);
 
-    if (proc == nullptr)
-    {
-        SYS_LOG_E(" Task: Invalid parameters");
-        return;
-    }
+    RETURN_IF_ERROR(proc == nullptr, );
 
     for (;;)
     {
         // Check if there is anything in the queue
         Proc_Switches::SwitchQueue_t Switch;
-        if (xQueueReceive(proc->getSwitchesQueue(), &Switch, portMAX_DELAY))
+        if (xQueueReceive(proc->_SwitchesQueue, &Switch, portMAX_DELAY))
         {
             // Set the switch state
             proc->setSwitchState(Switch.switchNo, Switch.state);
@@ -165,7 +175,6 @@ static void SwitchesTask(void* pvParameters)
         std::this_thread::sleep_for(std::chrono::milliseconds(programRoutineTaskDelay));
     }
 }
-
 
 std::vector<Proc_Switches::Switch_t>* Proc_Switches::getSwitches()
 {
