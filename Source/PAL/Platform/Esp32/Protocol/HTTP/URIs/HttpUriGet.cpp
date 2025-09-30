@@ -1,41 +1,34 @@
 #include "HttpUriGet.hpp"
-#include "System/LogHandler.h"
+#include <cstring>
 
-/**
- * @brief Default HTTP GET handler for the app interface
- *
- * @param req HTTP request
- * @return error_t
- */
-static error_t default_app_interface_get_handler(httpd_req_t* req);
-
-HttpUriGet::HttpUriGet(const char* uriName, esp_err_t (*handler)(httpd_req_t*), void* user_ctx, const char* htmlContent)
-    : HttpUri(uriName, HTTP_GET, handler ? handler : default_app_interface_get_handler, user_ctx)
+HttpUriGet::HttpUriGet(const char* uriName, Handler handler, void* user_ctx, const char* htmlContent) noexcept
+    : HttpUri(
+          uriName,                                               //
+          HttpMethod::GET,                                       //
+          handler ? handler : &HttpUriGet::default_html_handler, //
+          handler ? user_ctx : static_cast<void*>(this)          //
+          )
     , _htmlContent(htmlContent)
+    , _htmlContentLen(htmlContent ? std::strlen(htmlContent) : 0)
 {
 }
-/**
- * @brief Default HTTP GET handler for the app interface
- *
- * @param req HTTP request
- * @return error_t
- */
-static error_t default_app_interface_get_handler(httpd_req_t* req)
+
+int HttpUriGet::default_html_handler(const char* /*req_ptr*/, std::size_t /*req_len*/, char* resp_buf, std::size_t resp_buf_len, void* user_ctx) noexcept
 {
-    HttpUriGet* htmlPage = static_cast<HttpUriGet*>(req->user_ctx);
+    if (!resp_buf || resp_buf_len == 0)
+        return 500;
 
-    if (htmlPage == nullptr)
-    {
-        return ESP_FAIL;
-    }
+    const HttpUriGet* self     = static_cast<const HttpUriGet*>(user_ctx);
+    const char*       body     = (self && self->_htmlContent) ? self->_htmlContent : "";
+    std::size_t       body_len = (self) ? self->_htmlContentLen : 0;
 
-    /* Send response with custom headers and body set as the string passed in user context */
-    esp_err_t err = httpd_resp_send(req, htmlPage->getHtmlContent(), HTTPD_RESP_USE_STRLEN);
-    if (err != ESP_OK) {
-        SYS_LOG_E("Failed to send response: " + std::to_string(err));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send response");
-        return err;
-    }
-    
-    return ESP_OK;
+    // leave space for NUL
+    std::size_t max_copy = (resp_buf_len > 0) ? (resp_buf_len - 1) : 0;
+    std::size_t to_copy  = (body_len < max_copy) ? body_len : max_copy;
+
+    if (to_copy)
+        std::memcpy(resp_buf, body, to_copy);
+    resp_buf[to_copy] = '\0';
+
+    return 200;
 }
