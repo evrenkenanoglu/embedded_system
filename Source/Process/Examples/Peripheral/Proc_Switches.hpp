@@ -21,7 +21,7 @@ class Proc_Switches : public Process
 private:
     TaskHandle_t                            _xHandleSwitches; // Task handle for the switches
     std::map<uint16_t, SWITCH::Instance_t>& _switches;        // Reference to the map of switch instances
-    QueueHandle_t                           _SwitchesQueue;   // Queue to handle the switches
+    QueueHandle_t                           _switchesQueue;   // Queue to handle the switches
 
     // Vector of Register cbs for notification of switch state changes
     std::vector<std::function<void(uint16_t, SWITCH::State)>> _switchStateChangeCbs;
@@ -67,7 +67,7 @@ public:
 
     sys_error_t resume() override;
 
-    QueueHandle_t getSwitchesQueue();
+    QueueHandle_t getSwitchesQueue() const;
 
     /**
      * @brief Get the state of the switch

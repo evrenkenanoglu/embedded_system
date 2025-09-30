@@ -22,7 +22,7 @@ constexpr uint8_t  SwitchesQueueLength     = 32;                          // Num
 Proc_Switches::Proc_Switches(std::map<uint16_t, SWITCH::Instance_t>& switches, QueueHandle_t switchesQueue)
     : _xHandleSwitches(nullptr)
     , _switches(switches)
-    , _SwitchesQueue(switchesQueue)
+    , _switchesQueue(switchesQueue)
 {
     setState(State::INITIALIZED);
 }
@@ -38,11 +38,11 @@ sys_error_t Proc_Switches::start()
 
     BaseType_t result = pdFAIL;
 
-    if (_SwitchesQueue == nullptr)
+    if (_switchesQueue == nullptr)
     {
         // create a queue to handle the switches
-        _SwitchesQueue = xQueueCreate(SwitchesQueueLength, SwitchesQueueSize);
-        RETURN_IF_ERROR(_SwitchesQueue == nullptr, ERROR_FAIL);
+        _switchesQueue = xQueueCreate(SwitchesQueueLength, SwitchesQueueSize);
+        RETURN_IF_ERROR(_switchesQueue == nullptr, ERROR_FAIL);
     }
 
     // create a task to handle the switches
@@ -72,8 +72,8 @@ sys_error_t Proc_Switches::stop()
 
     vTaskDelete(_xHandleSwitches);
     _xHandleSwitches = nullptr;
-    vQueueDelete(_SwitchesQueue);
-    _SwitchesQueue = nullptr;
+    vQueueDelete(_switchesQueue);
+    _switchesQueue = nullptr;
 
     setState(State::STOPPED);
 
@@ -146,9 +146,14 @@ sys_error_t Proc_Switches::setSwitchState(uint16_t switchIdx, SWITCH::State stat
     return ERROR_SUCCESS;
 }
 
+QueueHandle_t Proc_Switches::getSwitchesQueue() const
+{
+    return _switchesQueue;
+}
+
 SWITCH::State Proc_Switches::getSwitchState(uint16_t switchIdx)
 {
-    RETURN_IF_ERROR(_switches.find(switchIdx) == _switches.end(), SWITCH::State::MAX); // Switch index not found
+    RETURN_IF_ERROR(_switches.find(switchIdx) == _switches.end(), SWITCH::State::UNKNOWN); // Switch index not found
 
     return _switches.at(switchIdx).state;
 }
@@ -176,7 +181,7 @@ void Proc_Switches::SwitchesTask(void* pvParameters)
     {
         // Check if there is anything in the queue
         SWITCH::EventData_t eventData;
-        if (xQueueReceive(proc->_SwitchesQueue, &eventData, portMAX_DELAY))
+        if (xQueueReceive(proc->_switchesQueue, &eventData, portMAX_DELAY))
         {
             SYS_LOG_D("\nSwitch Event: Index=%d\n, Event=%d\n, State=%d\n", eventData.index, static_cast<int>(eventData.event), static_cast<int>(eventData.state));
 
