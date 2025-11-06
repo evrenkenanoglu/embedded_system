@@ -6,12 +6,12 @@
 
 namespace
 {
-constexpr std::size_t REQ_BUF_SZ  = 512;  // Request Buffer Size
-constexpr std::size_t RESP_BUF_SZ = 1024; // Response Buffer Size
+constexpr size_t REQ_BUF_SZ  = 512;  // Request Buffer Size
+constexpr size_t RESP_BUF_SZ = 1024; // Response Buffer Size
 } // namespace
 
 // Map portable HttpMethod to esp-idf httpd_method_t
-httpd_method_t HttpUri::to_httpd_method(HttpMethod m) noexcept
+httpd_method_t HttpUri::to_httpd_method(HttpMethod m)
 {
     switch (m)
     {
@@ -35,7 +35,7 @@ httpd_method_t HttpUri::to_httpd_method(HttpMethod m) noexcept
 }
 
 // Map esp-idf httpd_method_t back to portable HttpMethod
-IHttpUri::HttpMethod HttpUri::from_httpd_method(httpd_method_t m) noexcept
+IHttpUri::HttpMethod HttpUri::from_httpd_method(httpd_method_t m)
 {
     switch (m)
     {
@@ -59,7 +59,7 @@ IHttpUri::HttpMethod HttpUri::from_httpd_method(httpd_method_t m) noexcept
 }
 
 // Minimal safe strncpy helper
-static inline void safe_strncpy(char* dst, const char* src, std::size_t dst_len) noexcept
+static inline void safe_strncpy(char* dst, const char* src, size_t dst_len)
 {
     if (!dst || dst_len == 0)
         return;
@@ -73,11 +73,13 @@ static inline void safe_strncpy(char* dst, const char* src, std::size_t dst_len)
 }
 
 // Dispatcher: convert httpd_req_t -> Handler call, then send response
-esp_err_t HttpUri::dispatch(httpd_req_t* req) noexcept
+esp_err_t HttpUri::dispatch(httpd_req_t* req)
 {
     ////////////////////////////////////////////////////////////////////////
     // Initial validation
     ////////////////////////////////////////////////////////////////////////
+
+    SYS_LOG_D("Request received for URI: %s", req ? req->uri : "NULL");
 
     if (!req)
         return ESP_FAIL;
@@ -120,7 +122,7 @@ esp_err_t HttpUri::dispatch(httpd_req_t* req) noexcept
     int qlen = httpd_req_get_url_query_len(req);
     if (qlen > 0)
     {
-        std::size_t cur = std::strlen(req_buf);
+        size_t cur = std::strlen(req_buf);
         if (cur + 1 < REQ_BUF_SZ)
         {
             req_buf[cur] = '?';
@@ -132,24 +134,24 @@ esp_err_t HttpUri::dispatch(httpd_req_t* req) noexcept
     // Read request body when applicable
     ////////////////////////////////////////////////////////////////////////
 
-    std::size_t req_len = std::strlen(req_buf);
+    size_t req_len = std::strlen(req_buf);
 
     // Read body only for POST and PUT (up to remaining space); consume rest if truncated
     if (method == HTTP_POST || method == HTTP_PUT)
     {
-        std::size_t content_len = (req->content_len > 0) ? static_cast<std::size_t>(req->content_len) : 0;
-        std::size_t space       = (req_len < REQ_BUF_SZ) ? (REQ_BUF_SZ - req_len - 1) : 0;
+        size_t content_len = (req->content_len > 0) ? static_cast<size_t>(req->content_len) : 0;
+        size_t space       = (req_len < REQ_BUF_SZ) ? (REQ_BUF_SZ - req_len - 1) : 0;
         if (space > 0 && content_len > 0)
         {
-            std::size_t to_read     = (content_len < space) ? content_len : space;
-            char*       body_ptr    = req_buf + req_len;
-            std::size_t read_so_far = 0;
+            size_t to_read     = (content_len < space) ? content_len : space;
+            char*  body_ptr    = req_buf + req_len;
+            size_t read_so_far = 0;
             while (read_so_far < to_read)
             {
                 int r = httpd_req_recv(req, body_ptr + read_so_far, static_cast<size_t>(to_read - read_so_far));
                 if (r <= 0)
                     break;
-                read_so_far += static_cast<std::size_t>(r);
+                read_so_far += static_cast<size_t>(r);
             }
             req_len += read_so_far;
             req_buf[req_len] = '\0';
@@ -157,30 +159,30 @@ esp_err_t HttpUri::dispatch(httpd_req_t* req) noexcept
             // Consume remaining bytes if request body was larger than buffer
             if (content_len > read_so_far)
             {
-                std::size_t remaining = content_len - read_so_far;
-                char        tmp[128];
+                size_t remaining = content_len - read_so_far;
+                char   tmp[128];
                 while (remaining)
                 {
-                    std::size_t chunk = (remaining > sizeof(tmp)) ? sizeof(tmp) : remaining;
-                    int         r     = httpd_req_recv(req, tmp, chunk);
+                    size_t chunk = (remaining > sizeof(tmp)) ? sizeof(tmp) : remaining;
+                    int    r     = httpd_req_recv(req, tmp, chunk);
                     if (r <= 0)
                         break;
-                    remaining -= static_cast<std::size_t>(r);
+                    remaining -= static_cast<size_t>(r);
                 }
             }
         }
         else
         {
             // No space: consume body to keep connection consistent
-            std::size_t to_consume = (req->content_len > 0) ? static_cast<std::size_t>(req->content_len) : 0;
-            char        tmp[128];
+            size_t to_consume = (req->content_len > 0) ? static_cast<size_t>(req->content_len) : 0;
+            char   tmp[128];
             while (to_consume)
             {
-                std::size_t chunk = (to_consume > sizeof(tmp)) ? sizeof(tmp) : to_consume;
-                int         r     = httpd_req_recv(req, tmp, chunk);
+                size_t chunk = (to_consume > sizeof(tmp)) ? sizeof(tmp) : to_consume;
+                int    r     = httpd_req_recv(req, tmp, chunk);
                 if (r <= 0)
                     break;
-                to_consume -= static_cast<std::size_t>(r);
+                to_consume -= static_cast<size_t>(r);
             }
         }
     }
@@ -189,15 +191,15 @@ esp_err_t HttpUri::dispatch(httpd_req_t* req) noexcept
         // GET/HEAD: ensure any unexpected body is consumed
         if (req->content_len > 0)
         {
-            std::size_t to_consume = static_cast<std::size_t>(req->content_len);
-            char        tmp[128];
+            size_t to_consume = static_cast<size_t>(req->content_len);
+            char   tmp[128];
             while (to_consume)
             {
-                std::size_t chunk = (to_consume > sizeof(tmp)) ? sizeof(tmp) : to_consume;
-                int         r     = httpd_req_recv(req, tmp, chunk);
+                size_t chunk = (to_consume > sizeof(tmp)) ? sizeof(tmp) : to_consume;
+                int    r     = httpd_req_recv(req, tmp, chunk);
                 if (r <= 0)
                     break;
-                to_consume -= static_cast<std::size_t>(r);
+                to_consume -= static_cast<size_t>(r);
             }
         }
     }
@@ -238,8 +240,8 @@ esp_err_t HttpUri::dispatch(httpd_req_t* req) noexcept
             return ESP_OK;
         }
 
-        std::size_t body_len = std::strlen(resp_buf);
-        esp_err_t   err      = httpd_resp_send(req, resp_buf, body_len);
+        size_t    body_len = std::strlen(resp_buf);
+        esp_err_t err      = httpd_resp_send(req, resp_buf, body_len);
         return (err == ESP_OK) ? ESP_OK : ESP_FAIL;
     }
     else
@@ -249,7 +251,7 @@ esp_err_t HttpUri::dispatch(httpd_req_t* req) noexcept
     }
 }
 
-esp_err_t HttpUri::handle_websocket_frame(httpd_req_t* req) noexcept
+esp_err_t HttpUri::handle_websocket_frame(httpd_req_t* req)
 {
     auto* self = static_cast<HttpUriWebsocket*>(req->user_ctx);
     if (!self)
