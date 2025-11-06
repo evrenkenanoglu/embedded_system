@@ -79,3 +79,10 @@
     } while (0)
 
 #endif
+
+#define BREAK_ON_ERROR(expr) \
+    do                       \
+    {                        \
+        if (expr)            \
+            break;           \
+    } while (0)

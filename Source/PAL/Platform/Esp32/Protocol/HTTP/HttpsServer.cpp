@@ -1,12 +1,42 @@
 #include "HttpsServer.hpp"
-#include "Platform/Esp32/Protocol/HTTP/URIs/HttpUri.hpp" // platform IHttpUri implementation
+#include "PAL/Platform/Esp32/Protocol/HTTP/URIs/HttpUri.hpp" // platform IHttpUri implementation
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
-#include <cstring>
 
-HttpsServer::HttpsServer() noexcept
+#include "mbedtls/ssl.h"
+#include "mbedtls/x509_crt.h"
+#include <algorithm>
+#include <string>
+
+namespace
+{
+httpd_ws_type_t toPlatformWsType(WsFrameType type)
+{
+    switch (type)
+    {
+        case WsFrameType::TEXT:
+            return HTTPD_WS_TYPE_TEXT;
+        case WsFrameType::BINARY:
+            return HTTPD_WS_TYPE_BINARY;
+        case WsFrameType::CLOSE:
+            return HTTPD_WS_TYPE_CLOSE;
+        case WsFrameType::PING:
+            return HTTPD_WS_TYPE_PING;
+        case WsFrameType::PONG:
+            return HTTPD_WS_TYPE_PONG;
+        default:
+            return HTTPD_WS_TYPE_TEXT; // Default to text if unknown
+    }
+}
+} // namespace
+
+HttpsServer::HttpsServer(const HttpServerStartOptions_t& options)
     : _server(nullptr)
     , _sslConfig(HTTPD_SSL_CONFIG_DEFAULT())
+    , _registeredUris()
+    , _semaphore(nullptr)
+    , _started(false)
+    , _startOptions(options)
 
 {
 }
@@ -16,42 +46,55 @@ HttpsServer::~HttpsServer()
     stop();
 }
 
-sys_error_t HttpsServer::populate_configs(const HttpServerStartOptions_t* options, httpd_ssl_config_t& sslConfig)
+sys_error_t HttpsServer::populate_config(const HttpServerStartOptions_t& options, httpd_ssl_config_t& sslConfig)
 {
+    sslConfig = HTTPD_SSL_CONFIG_DEFAULT();
 
     // Validate options
-    // TLS enabled but cert or key is null
     RETURN_IF_ERROR(
-        options != nullptr && options->use_tls && (options->tls_cert_pem == nullptr || options->tls_key_pem == nullptr),
-        ERROR_INVALID_ARG,
-        "TLS is enabled but certificate or key is null");
-
-    sslConfig.httpd = HTTPD_SSL_CONFIG_DEFAULT();
+        !(options.use_tls) || (options.tls_cert_pem == nullptr || options.tls_key_pem == nullptr), // Expression
+        ERROR_INVALID_ARG,                                                                         // Error code
+        SYS_LOG_E("Either use_tls is false or TLS cert/key is null!"));                            // Log message
 
     // Populate SSL config based on provided options
-    sslConfig.transport_mode         = options->use_tls ? HTTPD_SSL_TRANSPORT_SECURE : HTTPD_SSL_TRANSPORT_INSECURE;
-    sslConfig.port_secure            = options->port;
-    sslConfig.servercert             = reinterpret_cast<const uint8_t*>(options->tls_cert_pem);
-    sslConfig.servercert_len         = options->tls_cert_pem ? std::strlen(options->tls_cert_pem) : 0;
-    sslConfig.prvtkey_pem            = reinterpret_cast<const uint8_t*>(options->tls_key_pem);
-    sslConfig.prvtkey_len            = options->tls_key_pem ? std::strlen(options->tls_key_pem) : 0;
-    sslConfig.httpd.stack_size       = options->task_stack_size;
-    sslConfig.httpd.task_priority    = options->task_priority;
-    sslConfig.httpd.max_open_sockets = options->max_connections;
-
+    sslConfig.servercert             = options.tls_cert_pem;
+    sslConfig.servercert_len         = options.tls_cert_len;
+    sslConfig.prvtkey_pem            = options.tls_key_pem;
+    sslConfig.prvtkey_len            = options.tls_key_len;
+    sslConfig.httpd.stack_size       = options.task_stack_size;
+    sslConfig.httpd.task_priority    = options.task_priority;
+    sslConfig.httpd.max_open_sockets = options.max_connections;
     // Set the user callback for HTTPS server
     sslConfig.user_cb = https_server_user_callback;
 
     return ERROR_SUCCESS;
 }
 
-sys_error_t HttpsServer::start(const HttpServerStartOptions_t* options) noexcept
+sys_error_t HttpsServer::start()
 {
     // Check if server is already started
-    RETURN_IF_ERROR(_started != false, ERROR_ALREADY_INITIALIZED, SYS_LOG_E("Server already started!"));
+    RETURN_IF_ERROR(_started != false, ERROR_FAIL, SYS_LOG_E("Server already started!"));
 
     // Populate server and SSL configurations
-    RETURN_ON_ERROR(populate_configs(options, _sslConfig), SYS_LOG_E("Failed to populate server configurations!"));
+    RETURN_ON_ERROR(populate_config(_startOptions, _sslConfig), SYS_LOG_E("Failed to populate server configurations!"));
+
+    // _sslConfig                = HTTPD_SSL_CONFIG_DEFAULT();
+    // _sslConfig.servercert     = _startOptions.tls_cert_pem;
+    // _sslConfig.servercert_len = _startOptions.tls_cert_len;
+    // _sslConfig.prvtkey_pem    = _startOptions.tls_key_pem;
+    // _sslConfig.prvtkey_len    = _startOptions.tls_key_len;
+
+    SYS_LOG_I("SSL Config:");
+    SYS_LOG_I("  transport_mode: " + std::to_string(_sslConfig.transport_mode));
+    SYS_LOG_I("  port_secure: " + std::to_string(_sslConfig.port_secure));
+    SYS_LOG_I("  servercert: %s", _sslConfig.servercert);
+    SYS_LOG_I("  servercert_len: " + std::to_string(_sslConfig.servercert_len));
+
+    SYS_LOG_I("  prvtkey_pem %s", _sslConfig.prvtkey_pem);
+    SYS_LOG_I("  prvtkey_len: " + std::to_string(_sslConfig.prvtkey_len));
+    SYS_LOG_I("  httpd.stack_size: " + std::to_string(_sslConfig.httpd.stack_size));
+    SYS_LOG_I("  httpd.task_priority: " + std::to_string(_sslConfig.httpd.task_priority));
+    SYS_LOG_I("  httpd.max_open_sockets: " + std::to_string(_sslConfig.httpd.max_open_sockets));
 
     // Start the HTTPS server
     RETURN_IF_ERROR(httpd_ssl_start(&_server, &_sslConfig) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to start HTTPS server!"));
@@ -63,21 +106,14 @@ sys_error_t HttpsServer::start(const HttpServerStartOptions_t* options) noexcept
     // Register all previously added URIs
     for (auto uri : _registeredUris)
     {
-        RETURN_ON_ERROR(httpd_register_uri_handler(_server, &uri.platformUri()) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to register URI handler!"));
-        SYS_LOG_I("Registered URIs %s", uri.getPath());
-    }
-
-    // Register all previously added WebSocket URIs
-    for (auto wsUri : _registeredWsUris)
-    {
-        RETURN_ON_ERROR(httpd_register_uri_handler(_server, &wsUri.platformWsUri()) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to register WebSocket URI handler!"));
-        SYS_LOG_I("Registered WebSocket URIs %s", wsUri.getPath());
+        RETURN_IF_ERROR(httpd_register_uri_handler(_server, &uri->platformUri()) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to register URI handler!"));
+        SYS_LOG_I("Registered URIs %s", uri->getPath());
     }
 
     return ERROR_SUCCESS;
 }
 
-sys_error_t HttpsServer::stop() noexcept
+sys_error_t HttpsServer::stop()
 {
     // Check if server is already stopped
     RETURN_IF_ERROR(_started == false, ERROR_NOT_INITIALIZED, SYS_LOG_W("Server already stopped or not started"));
@@ -93,7 +129,21 @@ sys_error_t HttpsServer::stop() noexcept
     return ERROR_SUCCESS;
 }
 
-sys_error_t HttpsServer::registerUri(IHttpUri& uri) noexcept
+sys_error_t HttpsServer::registerTestUri(httpd_uri_t& uri)
+{
+
+    // Check if server is started
+    RETURN_IF_ERROR(_started == false, ERROR_NOT_INITIALIZED, SYS_LOG_E("Server not started!"));
+
+    // Register the URI handler with the server
+    RETURN_IF_ERROR(httpd_register_uri_handler(_server, &uri) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to register test URI handler!"));
+
+    SYS_LOG_I("Registered test URI %s", uri.uri);
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t HttpsServer::registerUri(IHttpUri& uri)
 {
     // Check if server is started
     RETURN_IF_ERROR(_started == false, ERROR_NOT_INITIALIZED, SYS_LOG_E("Server not started!"));
@@ -103,12 +153,14 @@ sys_error_t HttpsServer::registerUri(IHttpUri& uri) noexcept
     {
         if (registeredUri == &uri)
         {
-            return ERROR_ALREADY_INITIALIZED;
+            return ERROR_SUCCESS; // Already registered, no action needed
         }
     }
 
+    httpd_uri_t platformUri = static_cast<HttpUri&>(uri).platformUri();
+
     // Register the URI handler with the server
-    RETURN_IF_ERROR(httpd_register_uri_handler(_server, &static_cast<HttpUri&>(uri).platformUri(), ERROR_FAIL, SYS_LOG_E("Failed to register URI handler!")));
+    RETURN_IF_ERROR(httpd_register_uri_handler(_server, &static_cast<HttpUri&>(uri).platformUri()) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to register URI handler!"));
 
     // Add the URI to the list of registered URIs
     _registeredUris.push_back(static_cast<HttpUri*>(&uri));
@@ -118,18 +170,20 @@ sys_error_t HttpsServer::registerUri(IHttpUri& uri) noexcept
     return ERROR_SUCCESS;
 }
 
-sys_error_t HttpsServer::unregisterUri(IHttpUri& uri) noexcept
+sys_error_t HttpsServer::unregisterUri(IHttpUri& uri)
 {
     // Check if server is started
     RETURN_IF_ERROR(_started == false, ERROR_NOT_INITIALIZED, SYS_LOG_E("Server not started!"));
 
     // Find and remove the URI from the list of registered URIs
     auto it = std::find(_registeredUris.begin(), _registeredUris.end(), static_cast<HttpUri*>(&uri));
-    RETURN_IF_ERROR(it == _registeredUris.end(), ERROR_NOT_FOUND, SYS_LOG_E("URI not found!"));
+    RETURN_IF_ERROR(it == _registeredUris.end(), ERROR_FAIL, SYS_LOG_E("URI not found!"));
 
     // Unregister the URI handler from the server
     RETURN_IF_ERROR(
-        httpd_unregister_uri_handler(_server, uri.getPath(), to_httpd_method(uri.getMethod())) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to unregister URI handler!"));
+        httpd_unregister_uri_handler(_server, static_cast<HttpUri*>(&uri)->platformUri().uri, static_cast<HttpUri*>(&uri)->platformUri().method) != ESP_OK,
+        ERROR_FAIL,
+        SYS_LOG_E("Failed to unregister URI handler!"));
 
     _registeredUris.erase(it);
 
@@ -138,23 +192,25 @@ sys_error_t HttpsServer::unregisterUri(IHttpUri& uri) noexcept
     return ERROR_SUCCESS;
 }
 
-sys_error_t HttpsServer::sendWsMessage(int clientId_sockfd, const uint8_t* data, std::size_t len, WsFrameType ws_type) noexcept
+sys_error_t HttpsServer::sendWsMessage(int clientId_sockfd, const uint8_t* data, size_t len, WsFrameType ws_type)
 {
     RETURN_IF_ERROR((!_started || _server == NULL), ERROR_NOT_INITIALIZED, SYS_LOG_E("Server not started!"));
 
+    httpd_ws_type_t platform_ws_type = toPlatformWsType(ws_type);
     // send to a specific client
-    httpd_ws_frame_t ws_frame = {};
-    ws_frame.payload          = data;
-    ws_frame.len              = len;
-    ws_frame.type             = ws_type;
+    httpd_ws_frame_t ws_frame = {
+        .type    = platform_ws_type,
+        .payload = const_cast<uint8_t*>(data),
+        .len     = len,
+    };
 
     // print the message
-    SYS_LOG_D("Sending message: " + std::string(reinterpret_cast<char*>(data), len) + ", type: " + std::to_string(ws_type) + ", len: " + std::to_string(len));
+    SYS_LOG_D("Sending message: " + std::string(reinterpret_cast<const char*>(data), len) + ", type: " + std::to_string(platform_ws_type) + ", len: " + std::to_string(len));
 
     if (httpd_ws_get_fd_info(_server, clientId_sockfd) == HTTPD_WS_CLIENT_WEBSOCKET)
     {
         error_t error = httpd_ws_send_frame_async(_server, clientId_sockfd, &ws_frame);
-        SYS_LOG_I("Sending message to client fd: " + std::to_string(clientId_sockfd) + ", type: " + std::to_string(ws_type) + ", len: " + std::to_string(len));
+        SYS_LOG_I("Sending message to client fd: " + std::to_string(clientId_sockfd) + ", type: " + std::to_string(platform_ws_type) + ", len: " + std::to_string(len));
         if (error != ESP_OK)
         {
             SYS_LOG_E("Failed to send message to client fd: " + std::to_string(clientId_sockfd));
@@ -169,7 +225,8 @@ sys_error_t HttpsServer::sendWsMessage(int clientId_sockfd, const uint8_t* data,
 
     return ERROR_SUCCESS;
 }
-sys_error_t HttpsServer::broadcastWs(const uint8_t* payload, std::size_t len, WsFrameType ws_type) noexcept
+
+sys_error_t HttpsServer::broadcastWs(const uint8_t* payload, size_t len, WsFrameType ws_type)
 {
     RETURN_IF_ERROR((!_started || _server == NULL), ERROR_NOT_INITIALIZED, SYS_LOG_E("Server not started!"));
 
@@ -192,9 +249,6 @@ sys_error_t HttpsServer::broadcastWs(const uint8_t* payload, std::size_t len, Ws
 
     return ERROR_SUCCESS;
 }
-
-// Example of sending (the server needs a way to find the FD for a client)
-sys_error_t HttpsServer::sendWsMessage(int clientId_sockfd, const uint8_t* data, std::size_t len, WsFrameType ws_type) noexcept {}
 
 static void print_peer_cert_info(const mbedtls_ssl_context* ssl)
 {

@@ -11,7 +11,7 @@ constexpr uint16_t powerSwitchesUpdateTaskStackSize = 4096; // bytes
 constexpr uint8_t  powerSwitchesUpdateTaskPriority  = 5;
 constexpr char     powerSwitchesUpdateTaskName[]    = "powerSwitchesUpdateUpdate";
 constexpr uint16_t programRoutineTaskDelay          = 50; // milliseconds
-constexpr uint8_t  powerSwitchesUpdateQueueSize     = sizeof(Proc_Switches::SwitchQueue_t);
+// constexpr uint8_t  powerSwitchesUpdateQueueSize     = sizeof(Proc_Switches::SwitchQueue_t);
 } // namespace
 
 static esp_err_t webSocketHandler(httpd_req_t* req);
@@ -79,42 +79,34 @@ sys_error_t UriPowerSwitchesWebSocket::updateSwitchStates(uint16_t socketId, boo
     return error;
 }
 
-// Serv_websockets& UriPowerSwitchesWebSocket::getWebsocketServer()
-// {
-//     return _websocketServer;
-// }
-
-// Proc_Switches& UriPowerSwitchesWebSocket::getProcSwitches()
-// {
-//     return _procSwitches;
-// }
-
 sys_error_t UriPowerSwitchesWebSocket::sendAllSwitchStates(int clientId)
 {
-    std::vector<Proc_Switches::Switch_t>* switches = _procSwitches.getSwitches();
-    if (switches->empty())
-    {
-        SYS_LOG_W("UriPowerSwitchesWebSocket", "No switches to send states for.");
-        return ERROR_SUCCESS;
-    }
+    // std::vector<Proc_Switches::Switch_t>* switches = _procSwitches.getSwitches();
+    // if (switches->empty())
+    // {
+    //     SYS_LOG_W("UriPowerSwitchesWebSocket", "No switches to send states for.");
+    //     return ERROR_SUCCESS;
+    // }
 
-    std::string message;
-    message.reserve(100); // Pre-allocate enough space for the typical JSON message
-    message += "{\"socketId\": ";
-    message += std::to_string(ALL_SWITCHES); // Assuming ALL_SWITCHES is a constant defined in Proc_Switches
-    message += ", \"state\": [";
-    for (size_t i = 0; i < switches->size(); ++i)
-    {
-        message += std::to_string(switches->at(i).state ? 1 : 0);
-        if (i < switches->size() - 1)
-        {
-            message += ", ";
-        }
-    }
-    message += "]}";
+    // std::string message;
+    // message.reserve(100); // Pre-allocate enough space for the typical JSON message
+    // message += "{\"socketId\": ";
+    // message += std::to_string(ALL_SWITCHES); // Assuming ALL_SWITCHES is a constant defined in Proc_Switches
+    // message += ", \"state\": [";
+    // for (size_t i = 0; i < switches->size(); ++i)
+    // {
+    //     message += std::to_string(switches->at(i).state ? 1 : 0);
+    //     if (i < switches->size() - 1)
+    //     {
+    //         message += ", ";
+    //     }
+    // }
+    // message += "]}";
 
-    sys_error_t error = _websocketServer.sendMessage(clientId, reinterpret_cast<uint8_t*>(message.data()), message.size(), HTTPD_WS_TYPE_TEXT);
+    // sys_error_t error = _websocketServer.sendMessage(clientId, reinterpret_cast<uint8_t*>(message.data()), message.size(), HTTPD_WS_TYPE_TEXT);
 
-    SYS_LOG_D("Sending all switch states!");
-    return error;
+    // SYS_LOG_D("Sending all switch states!");
+    // return error;
+
+    return ERROR_NOT_IMPLEMENTED;
 }

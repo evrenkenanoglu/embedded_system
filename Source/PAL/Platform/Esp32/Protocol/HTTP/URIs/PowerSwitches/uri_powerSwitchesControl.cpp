@@ -1,7 +1,7 @@
-#include "cJSON.h"
-#include "System/LogHandler.h"
 #include "uri_powerSwitchesControl.hpp"
 #include "Process/Examples/Peripheral/Proc_Switches.hpp"
+#include "System/LogHandler.h"
+#include "cJSON.h"
 
 /**
  * @brief HTTP POST handler for the write request
@@ -71,16 +71,16 @@ static error_t control_put_handler(httpd_req_t* req)
     // Perform the necessary actions to control the power switches
     // For example, you can call a function to set the GPIO pin state
     std::cout << "Setting socket " << socketId << " to state " << state << std::endl;
-    Proc_Switches::SwitchQueue_t switchQueue = {static_cast<uint8_t>(socketId), static_cast<bool>(state)};
+    // Proc_Switches::SwitchQueue_t switchQueue = {static_cast<uint8_t>(socketId), static_cast<bool>(state)};
 
-    if (xQueueSend(proc->getSwitchesQueue(), &switchQueue, 0) == pdTRUE)
-    {
-        SYS_LOG_I( "Switch state updated successfully");
-    }
-    else
-    {
-        SYS_LOG_E("Failed to update switch state");
-    }
+    // if (xQueueSend(proc->getSwitchesQueue(), &switchQueue, 0) == pdTRUE)
+    // {
+    //     SYS_LOG_I("Switch state updated successfully");
+    // }
+    // else
+    // {
+    //     SYS_LOG_E("Failed to update switch state");
+    // }
 
     // Send a response back to the client
     httpd_resp_set_type(req, "application/json");

@@ -96,6 +96,19 @@ sys_error_t Serv_httpsServer::start()
     // Set the user callback for HTTPS server
     _sslConfig.user_cb = https_server_user_callback;
 
+
+    // DEBUG PRINT ALL CONFIG VALUES
+    SYS_LOG_I("SSL Config:");
+    SYS_LOG_I("  transport_mode: " + std::to_string(_sslConfig.transport_mode));
+    SYS_LOG_I("  port_secure: " + std::to_string(_sslConfig.port_secure));
+    SYS_LOG_I("  servercert: " + std::to_string(reinterpret_cast<uintptr_t>(_sslConfig.servercert)));
+    SYS_LOG_I("  servercert_len: " + std::to_string(_sslConfig.servercert_len));
+    SYS_LOG_I("  prvtkey_pem: " + std::to_string(reinterpret_cast<uintptr_t>(_sslConfig.prvtkey_pem)));
+    SYS_LOG_I("  prvtkey_len: " + std::to_string(_sslConfig.prvtkey_len));
+    SYS_LOG_I("  httpd.stack_size: " + std::to_string(_sslConfig.httpd.stack_size));
+    SYS_LOG_I("  httpd.task_priority: " + std::to_string(_sslConfig.httpd.task_priority));
+    SYS_LOG_I("  httpd.max_open_sockets: " + std::to_string(_sslConfig.httpd.max_open_sockets));
+
     if (httpd_ssl_start(&_server, &_sslConfig) == ESP_OK)
     {
         SYS_LOG_I("HTTP server started successfully");

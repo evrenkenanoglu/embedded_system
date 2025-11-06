@@ -6,24 +6,24 @@
 
 #include "System/LogHandler.h"
 
-#define ENABLE_SYS_LOG_D
 // Platform-specific implementation of IHttpUri for ESP32
 class HttpUri : public IHttpUri
 {
 public:
     HttpUri(const char* path, HttpMethod method, Handler handler, void* user_ctx)
-        : _handler(handler)
+        : _esp{.uri = nullptr, .method = HTTP_GET, .handler = nullptr, .user_ctx = nullptr, .is_websocket = false, .handle_ws_control_frames = false, .supported_subprotocol = nullptr}
+        , _handler(handler)
         , _user_ctx(user_ctx)
     {
-        SYS_LOG_I("Creating HTTP URI");
         std::strncpy(_path_buf, path ? path : "/", sizeof(_path_buf));
         _path_buf[sizeof(_path_buf) - 1] = '\0';
-        
-        _esp.uri                         = _path_buf;
-        _esp.method                      = to_httpd_method(method);
-        _esp.handler                     = &HttpUri::dispatch;
-        _esp.user_ctx                    = this;
-        _esp.is_websocket                = false;
+
+        _esp.uri                      = _path_buf;
+        _esp.method                   = to_httpd_method(method);
+        _esp.handler                  = &HttpUri::dispatch;
+        _esp.user_ctx                 = this;
+        _esp.is_websocket             = false;
+        _esp.handle_ws_control_frames = false;
     }
 
     // IHttpUri
