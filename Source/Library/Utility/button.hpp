@@ -111,7 +111,7 @@ CREATE_INSTANCE(uint16_t index, IHAL_IO_GPIO& gpio, Config_t config = Config_t()
  * @return constexpr Instance_t
  */
 inline Instance_t
-CREATE_INSTANCE_EXT_QUE(uint16_t index, IHAL_IO_GPIO& gpio, Config_t config = Config_t(), TaskConfig_t taskConfig = TaskConfig_t(), QueueHandle_t eventQueue = nullptr)
+CREATE_INSTANCE_EXT_QUE(uint16_t index, IHAL_IO_GPIO& gpio, QueueHandle_t eventQueue = nullptr, Config_t config = Config_t(), TaskConfig_t taskConfig = TaskConfig_t())
 {
     return Instance_t{
         .index      = index,      // Unique index for the butFton
@@ -122,4 +122,4 @@ CREATE_INSTANCE_EXT_QUE(uint16_t index, IHAL_IO_GPIO& gpio, Config_t config = Co
         .eventQueue = eventQueue, // Event queue
     };
 }
-} // namespace Button
+} // namespace BUTTON

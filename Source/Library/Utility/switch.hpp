@@ -16,7 +16,8 @@ enum class State
 {
     OFF,
     ON,
-    MAX
+    TOGGLE,
+    UNKNOWN
 };
 
 typedef struct
