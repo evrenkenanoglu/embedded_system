@@ -6,6 +6,7 @@
  */
 
 #include "Proc_wifiConfigurationManager.hpp"
+#define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
 namespace
@@ -347,11 +348,11 @@ void programRoutineTask(void* pvParameters)
                 {
                     // If the WiFi mode is STA
                     // Stop WiFi
-                    std::cout << "WIFI CONFIG PROGRAM: Stopping WiFi..." << std::endl;
+                    SYS_LOG_D("WIFI CONFIG PROGRAM: Stopping WiFi...");
                     proc->getWifiCpx().stop();
                 }
 
-                std::cout << "WIFI CONFIG PROGRAM: Changing state..." << std::endl;
+                SYS_LOG_D("WIFI CONFIG PROGRAM: Changing state...");
                 // Start AP-STA mode
                 proc->setProgramState(ProgramState::AP_STA_MODE);
             }
@@ -376,7 +377,7 @@ void programRoutineTask(void* pvParameters)
                 // Notify other tasks that the AP is ready
                 xEventGroupSetBits(proc->getWifiConfigEventGroup(), WIFI_CONFIG_AP_SETUP_READY);
 
-                std::cout << "WIFI CONFIG PROGRAM: Changing state to AWAITING_CREDENTIALS..." << std::endl;
+                SYS_LOG_D("WIFI CONFIG PROGRAM: Changing state to AWAITING_CREDENTIALS...");
                 proc->setProgramState(ProgramState::AWAITING_CREDENTIALS);
             }
             break;
@@ -420,7 +421,7 @@ void programRoutineTask(void* pvParameters)
                 SYS_LOG_I("Credentials stored");
                 // If user enters, try to connect to the network
 
-                std::cout << "WIFI CONFIG PROGRAM: Changing state to TRY_CONNECT..." << std::endl;
+                SYS_LOG_D("WIFI CONFIG PROGRAM: Changing state to TRY_CONNECT...");
                 proc->setProgramState(ProgramState::TRY_CONNECT);
             }
             break;
@@ -448,11 +449,11 @@ void programRoutineTask(void* pvParameters)
                 // Notify the user that the WiFi is restarting
 
                 // Restart WiFi
-                std::cout << "DEBUG: STOPPING WIFI" << std::endl;
+                SYS_LOG_D("STOPPING WIFI");
                 proc->getWifiCpx().stop();
-                std::cout << "DEBUG: SETTING WIFI MODE TO STA" << std::endl;
+                SYS_LOG_D("SETTING WIFI MODE TO STA");
                 proc->getWifiCpx().setWifiMode(WIFI_MODE_STA);
-                std::cout << "DEBUG: STARTING WIFI" << std::endl;
+                SYS_LOG_D("STARTING WIFI");
                 proc->getWifiCpx().start();
 
                 SYS_LOG_I("WIFI CONFIG PROGRAM: Changing state to INITIALIZED...");
@@ -493,7 +494,7 @@ void wifiEventHandler(void* pvParameters)
 
     for (;;)
     {
-        std::cout << "WIFI EVENT HANDLER: Event manager waiting for events..." << std::endl;
+        SYS_LOG_D("WIFI EVENT HANDLER: Event manager waiting for events...");
         // Wait for the event bits to be set
         EventBits_t eventBits = xEventGroupWaitBits(
             proc->getWifiCpx().getWifiEventGroup(), // Event Group Handle
@@ -506,12 +507,12 @@ void wifiEventHandler(void* pvParameters)
             pdFALSE,                                // Wait for all bit
             portMAX_DELAY);                         // Wait indefinitely
 
-        std::cout << "WIFI EVENT HANDLER: Event manager got event bits: " << (int)eventBits << std::endl;
+        SYS_LOG_D("WIFI EVENT HANDLER: Event manager got event bits: %d", (int)eventBits);
         // Check if the event bits are set
 
         if (eventBits & WIFI_SCAN_DONE)
         {
-            std::cout << "WIFI EVENT HANDLER: Getting wifi scan results..." << std::endl;
+            SYS_LOG_D("WIFI EVENT HANDLER: Getting wifi scan results...");
             // Set the bit to indicate that the scan is done
             proc->getWifiCpx().getScanResults(proc->getWifiConfigScanResults());
 
@@ -547,7 +548,7 @@ void wifiConfigEventHandler(void* pvParameters)
 
     for (;;)
     {
-        std::cout << "WIFI CONFIG EVENT HANDLER: Event manager waiting for events..." << std::endl;
+        SYS_LOG_D("WIFI CONFIG EVENT HANDLER: Event manager waiting for events...");
         // Wait for the event bits to be set
         EventBits_t eventBits = xEventGroupWaitBits(
             proc->getWifiConfigEventGroup(), // Event Group Handle
@@ -558,7 +559,7 @@ void wifiConfigEventHandler(void* pvParameters)
             pdFALSE,                         // Wait for all bit
             portMAX_DELAY);                  // Wait indefinitely
 
-        std::cout << "WIFI CONFIG EVENT HANDLER: Event manager got event bits: " << (int)eventBits << std::endl;
+        SYS_LOG_D("WIFI CONFIG EVENT HANDLER: Event manager got event bits: %d", (int)eventBits);
         // Check if the event bits are set
         if (eventBits & WIFI_CONFIG_SCAN_REQUESTED)
         {
@@ -585,7 +586,7 @@ void wifiConfigEventHandler(void* pvParameters)
 
 sys_error_t getWifiCredentialsfromMem(IHAL_MEM& memDevice, uint8_t* ssid, uint8_t* password)
 {
-    std::cout << "Checking for SSID and password in memory..." << std::endl;
+    SYS_LOG_D("Checking for SSID and password in memory...");
     RETURN_ON_ERROR(memDevice.readData((void*)WIFI_SSID, ssid, WIFI_PASSWORD_LENGTH));
     RETURN_ON_ERROR(memDevice.readData((void*)WIFI_PASSWORD, password, WIFI_PASSWORD_LENGTH));
 

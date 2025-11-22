@@ -17,6 +17,8 @@
 #include <string>
 
 #include "Library/Common/helperConversions.h"
+
+#define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
 static void        wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
@@ -96,26 +98,26 @@ sys_error_t cpx_wifi::stop()
 {
     if (_wifiInitialized)
     {
-        std::cout << "DEBUG: Stopping WIFI!" << std::endl;
+        SYS_LOG_D("Stopping WIFI!");
         ESP_ERROR_CHECK(esp_wifi_stop());
 
-        std::cout << "DEBUG: Event Loop Deleting!" << std::endl;
+        SYS_LOG_D("Event Loop Deleting!");
         esp_event_loop_delete_default();
 
         if (_espNetifSta != nullptr) // Destroy Default WIFI STA
         {
-            std::cout << "DEBUG: Deleting NETIFs STA!" << std::endl;
+            SYS_LOG_D("Deleting NETIFs STA!");
             esp_netif_destroy_default_wifi(_espNetifSta);
             _espNetifSta = nullptr;
         }
 
         if (_espNetifAp != nullptr) // Destroy Default WIFI AP
         {
-            std::cout << "DEBUG: Deleting NETIFs AP!" << std::endl;
+            SYS_LOG_D("Deleting NETIFs AP!");
             esp_netif_destroy_default_wifi(_espNetifAp);
             _espNetifAp = nullptr;
         }
-        std::cout << "DEBUG: WIFI STOPPED!" << std::endl;
+        SYS_LOG_D("WIFI STOPPED!");
     }
     return ERROR_SUCCESS;
 }
@@ -134,10 +136,10 @@ sys_error_t cpx_wifi::wifiInit()
 {
     // Initialize TCP/IP Stack
     ESP_ERROR_CHECK(esp_netif_init());
-    std::cout << "DEBUG: TCP/IP Stack Initialized!" << std::endl;
+    SYS_LOG_D("TCP / IP Stack Initialized!");
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    std::cout << "DEBUG: Event Loop Created!" << std::endl;
+    SYS_LOG_D("Event Loop Created!");
 
     switch (_wifiMode)
     {
@@ -147,7 +149,7 @@ sys_error_t cpx_wifi::wifiInit()
             ss << "WIFI STA Initializing...!" << std::endl << "SSID: " << _wifiConfig.sta.ssid << std::endl << "PASSWORD: " << _wifiConfig.sta.password << std::endl;
             SYS_LOG_I(ss.str());
             _espNetifSta = esp_netif_create_default_wifi_sta();
-            std::cout << "DEBUG: Default WIFI STA Created!" << std::endl;
+            SYS_LOG_D("Default WIFI STA Created!");
         }
         break;
 
@@ -157,7 +159,7 @@ sys_error_t cpx_wifi::wifiInit()
             ss << "WIFI SOFT AP Initializing... " << std::endl << "SSID: " << _wifiConfig.ap.ssid << std::endl << "PASSWORD: " << _wifiConfig.ap.password << std::endl;
             SYS_LOG_I(ss.str());
             _espNetifAp = esp_netif_create_default_wifi_ap();
-            std::cout << "DEBUG: Default AP Created!" << std::endl;
+            SYS_LOG_D("Default AP Created!");
         }
         break;
 
@@ -169,7 +171,7 @@ sys_error_t cpx_wifi::wifiInit()
             _espNetifAp  = esp_netif_create_default_wifi_ap();
             _espNetifSta = esp_netif_create_default_wifi_sta();
 
-            std::cout << "DEBUG: Default WIFI STA and AP Created!" << std::endl;
+            SYS_LOG_D("Default WIFI STA and AP Created!");
         }
         break;
 
@@ -181,9 +183,9 @@ sys_error_t cpx_wifi::wifiInit()
 
     // Wifi module init wit default config
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    std::cout << "DEBUG: WIFI Init Config Created!" << std::endl;
+    SYS_LOG_D("WIFI Init Config Created!");
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    std::cout << "DEBUG: WIFI Initialized!" << std::endl;
+    SYS_LOG_D("WIFI Initialized!");
 
     // Event Handler Instances Created for WIFI and IP Events
     esp_event_handler_instance_t instance_any_id1;
