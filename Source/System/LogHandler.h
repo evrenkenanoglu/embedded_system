@@ -9,11 +9,6 @@
 #define SYS_LOG_I(message, ...) SYS_LOGGER().log(ILog::LogLevel::INFO, message, ##__VA_ARGS__)
 #define SYS_LOG_W(message, ...) SYS_LOGGER().log(ILog::LogLevel::WARNING, message, ##__VA_ARGS__)
 #define SYS_LOG_E(message, ...) SYS_LOGGER().log(ILog::LogLevel::ERROR, message, ##__VA_ARGS__)
-#ifdef ENABLE_SYS_LOG_D
-    #define SYS_LOG_D(message, ...) SYS_LOGGER().log(ILog::LogLevel::DEBUG, message, ##__VA_ARGS__)
-#else
-    #define SYS_LOG_D(message, ...) ((void)0)
-#endif
 
 /**
  * @brief The LogHandler class is a wrapper for the ILog class to log messages with different severity levels.
@@ -121,116 +116,13 @@ public:
 };
 #endif // LOG_HANDLER_H
 
-// /**
-//  * @brief The logWrapperImpl class is an implementation of the ILog interface for logging messages to the console.
-//  */
-// class logWrapperImpl : public ILog
-// {
-// public:
-//     /**
-//      * @brief Constructs a new logWrapperImpl object.
-//      */
-//     logWrapperImpl()
-//     {
-//         std::cout << "LogWrapperImpl is initialized" << std::endl;
-//     }
+#ifdef SYS_LOG_D
+#undef SYS_LOG_D
+#endif
 
-//     /**
-//      * @brief Destructor for the logWrapperImpl class.
-//      */
-//     ~logWrapperImpl() {}
-
-//     /**
-//      * @brief Logs an informational message to the console.
-//      *
-//      * @param message The message to log.
-//      */
-//     void logInfo(const std::string& message) override
-//     {
-//         // Replace this with the appropriate logging mechanism if needed
-//         std::cout << "[INFO] " << message << std::endl;
-//     }
-
-//     /**
-//      * @brief Logs a warning message to the console.
-//      *
-//      * @param message The message to log.
-//      */
-//     void logWarning(const std::string& message) override
-//     {
-//         // Replace this with the appropriate logging mechanism if needed
-//         std::cerr << "[WARNING] " << message << std::endl;
-//     }
-
-//     /**
-//      * @brief Logs an error message to the console.
-//      *
-//      * @param message The message to log.
-//      */
-//     void logError(const std::string& message) override
-//     {
-//         // Replace this with the appropriate logging mechanism if needed
-//         std::cerr << "[ERROR] " << message << std::endl;
-//     }
-
-//     /**//      * @brief Logs a debug message to the console.
-//      * @param message The message to log.
-//      */
-//     void logDebug(const std::string& message) override
-//     {
-//         // Replace this with the appropriate logging mechanism if needed
-//         std::cout << "[DEBUG] " << message << std::endl;
-//     }
-
-//     void logToFile(const std::string& filename, LogLevel level, const std::string& message) override
-//     {
-//         std::ofstream file(filename, std::ios_base::app);
-//         if (file.is_open())
-//         {
-//             switch (level)
-//             {
-//                 case LogLevel::INFO:
-//                     file << "[INFO] " << message << std::endl;
-//                     break;
-//                 case LogLevel::WARNING:
-//                     file << "[WARNING] " << message << std::endl;
-//                     break;
-//                 case LogLevel::ERROR:
-//                     file << "[ERROR] " << message << std::endl;
-//                     break;
-//                 case LogLevel::DEBUG:
-//                     file << "[DEBUG] " << message << std::endl;
-//                     break;
-//             }
-//             file.close();
-//         }
-//         else
-//         {
-//             std::cerr << "Unable to open file " << filename << " for writing." << std::endl;
-//         }
-//     }
-// };
-
-// An example of usage
-// int main()
-// {
-// // Create an implementation of the ILog interface
-// LogWrapperImpl* logImpl = new LogWrapperImpl();
-
-// // Set the implementation for the singleton logger
-// logger().setLogImplementation(logImpl);
-
-// // Now use the logging macros or the logger directly
-
-// // Using macros (recommended way)
-// SYS_LOG_I("This is an info message with parameter: %d", 42);
-// SYS_LOG_W("This is a warning message");
-// SYS_LOG_E("This is an error message with parameter: %s", "Error details");
-// SYS_LOG_D("This is a debug message");
-
-// // Or using the logger directly
-// SYS_LOG_I( "Direct info log: %s", "message");
-
-// // Clean up (if application is ending)
-// delete logImpl;
-// }
+// 2. Redefine based on the current state of the flag
+#ifdef ENABLE_SYS_LOG_D
+#define SYS_LOG_D(message, ...) SYS_LOGGER().log(ILog::LogLevel::DEBUG, message, ##__VA_ARGS__)
+#else
+#define SYS_LOG_D(message, ...) ((void)0)
+#endif
