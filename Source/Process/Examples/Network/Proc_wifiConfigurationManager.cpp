@@ -237,8 +237,8 @@ void programRoutineTask(void* pvParameters)
                 SYS_LOG_I("Trying to access credentials...");
 
                 // Try to access the credentials
-                uint8_t ssid[WIFI_SSID_LENGTH];
-                uint8_t password[WIFI_PASSWORD_LENGTH];
+                uint8_t ssid[WIFI_SSID_LENGTH]         = {0};
+                uint8_t password[WIFI_PASSWORD_LENGTH] = {0};
 
                 // Read the SSID and password from NVS
                 sys_error_t error = getWifiCredentialsfromMem(proc->getMemDevice(), ssid, password);
@@ -594,12 +594,9 @@ sys_error_t getWifiCredentialsfromMem(IHAL_MEM& memDevice, uint8_t* ssid, uint8_
         printf("SSID or password not found\n");
         return ERROR_FAIL;
     }
-
-    std::stringstream ss;
-    ss << "SSID: " << ssid << std::endl;
-    ss << "Password: " << password << std::endl;
-
     // Log SSID and Password
-    SYS_LOG_I(ss.str());
+    SYS_LOG_I("WiFi Credentials retrieved from memory:");
+    SYS_LOG_I("SSID: " + std::string((char*)ssid));
+    SYS_LOG_I("Password: " + std::string((char*)password));
     return ERROR_SUCCESS;
 }
