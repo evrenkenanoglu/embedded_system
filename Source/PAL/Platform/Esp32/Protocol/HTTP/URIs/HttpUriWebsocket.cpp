@@ -1,42 +1,59 @@
 #include "HttpUriWebsocket.hpp"
 #include <cstring>
 
-HttpUriWebsocket::HttpUriWebsocket(
-    const char* uriName, Handler handler, void* user_ctx, const char* htmlContent, OnOpen on_open, OnMessage on_message, OnClose on_close) 
+#define ENABLE_SYS_LOG_D
+#include "System/LogHandler.h"
+
+HttpUriWebsocket::HttpUriWebsocket(const char* uriName, void* user_ctx, OnOpen on_open, OnMessage on_message, OnClose on_close)
     : HttpUri(
-          uriName,                                                     //
-          IHttpUri::HttpMethod::GET,                                   //
-          handler ? handler : &HttpUriWebsocket::default_html_handler, //
-          handler ? user_ctx : static_cast<void*>(this)                //
+          uriName,                   // URI Name
+          IHttpUri::HttpMethod::GET, // Method
+          nullptr,                   // Handler
+          user_ctx                   // User Context
           )
-    , _htmlContent(htmlContent)
-    , _htmlContentLen(htmlContent ? std::strlen(htmlContent) : 0)
-    , _on_open(on_open)
-    , _on_message(on_message)
-    , _on_close(on_close)
+    , _on_open(on_open)       // Initialize callback members
+    , _on_message(on_message) // Initialize callback members
+    , _on_close(on_close)     // Initialize callback members
+    , _clientId(-1)           // Initialize clientId
 {
     // Change user_ctx to this class and set is_websocket flag
-    _esp.is_websocket = true;
-    _esp.user_ctx     = this; // Ensure dispatch gets a pointer to HttpUriWebsocket instance
+    setWebSocket(true);
+    setUserContext(this);
 }
 
-int HttpUriWebsocket::default_html_handler(const char* /*req_ptr*/, size_t /*req_len*/, char* resp_buf, size_t resp_buf_len, void* user_ctx) 
+int HttpUriWebsocket::onOpen(void* user_ctx) const
 {
-    if (!resp_buf || resp_buf_len == 0)
-        return 500;
+    SYS_LOG_D("HttpUriWebsocket::onOpen called");
+    return _on_open ? _on_open(user_ctx) : default_on_open(user_ctx);
+}
 
-    const HttpUriWebsocket* self     = static_cast<const HttpUriWebsocket*>(user_ctx);
-    const char*             body     = (self && self->_htmlContent) ? self->_htmlContent : "";
-    size_t             body_len = (self) ? self->_htmlContentLen : 0;
+int HttpUriWebsocket::onMessage(const char* data, size_t len, void* user_ctx) const
+{
+    SYS_LOG_D("HttpUriWebsocket::onMessage called");
+    return _on_message ? _on_message(data, len, user_ctx) : default_on_message(data, len, user_ctx);
+}
 
-    size_t max_copy = (resp_buf_len > 0) ? (resp_buf_len - 1) : 0;
-    size_t to_copy  = (body_len < max_copy) ? body_len : max_copy;
+void HttpUriWebsocket::onClose(void* user_ctx) const
+{
+    SYS_LOG_D("HttpUriWebsocket::onClose called");
+    return _on_close ? _on_close(user_ctx) : default_on_close(user_ctx);
+}
 
-    if (to_copy > 0)
-        std::memcpy(resp_buf, body, to_copy);
+// default websocket callbacks (no-op / success)
+int HttpUriWebsocket::default_on_open(void* /*user_ctx*/)
+{
+    return 0;
+}
+int HttpUriWebsocket::default_on_message(const char* /*data*/, size_t /*len*/, void* /*user_ctx*/)
+{
+    return 0;
+}
+void HttpUriWebsocket::default_on_close(void* /*user_ctx*/)
+{
+    return;
+}
 
-    resp_buf[to_copy] = '\0';
-    (void)resp_buf_len;
-
-    return 200;
+void HttpUriWebsocket::setClientId(int id)
+{
+    _clientId = id;
 }

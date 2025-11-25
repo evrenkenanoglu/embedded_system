@@ -3,61 +3,88 @@
 #include "PAL/Protocols/HTTP/IHttpUri.hpp"
 #include <cstring>
 #include <esp_https_server.h>
-
-#include "System/LogHandler.h"
-
 // Platform-specific implementation of IHttpUri for ESP32
 class HttpUri : public IHttpUri
 {
 public:
-    HttpUri(const char* path, HttpMethod method, Handler handler, void* user_ctx)
-        : _esp{.uri = nullptr, .method = HTTP_GET, .handler = nullptr, .user_ctx = nullptr, .is_websocket = false, .handle_ws_control_frames = false, .supported_subprotocol = nullptr}
-        , _handler(handler)
-        , _user_ctx(user_ctx)
-    {
-        std::strncpy(_path_buf, path ? path : "/", sizeof(_path_buf));
-        _path_buf[sizeof(_path_buf) - 1] = '\0';
+    HttpUri(const char* path, HttpMethod method, Handler handler, void* user_ctx);
 
-        _esp.uri                      = _path_buf;
-        _esp.method                   = to_httpd_method(method);
-        _esp.handler                  = &HttpUri::dispatch;
-        _esp.user_ctx                 = this;
-        _esp.is_websocket             = false;
-        _esp.handle_ws_control_frames = false;
-    }
-
-    // IHttpUri
-    const char* getPath() const override
-    {
-        return _path_buf;
-    }
-    HttpMethod getMethod() const override
-    {
-        return from_httpd_method(_esp.method);
-    }
-    Handler getHandler() const override
-    {
-        return _handler;
-    }
-    void* getUserContext() const override
-    {
-        return _user_ctx;
-    }
-
-    // platform helper for registration
-    const httpd_uri_t& platformUri() const
-    {
-        return _esp;
-    }
+    const char*        getPath() const override;
+    HttpMethod         getMethod() const override;
+    void*              getUserContext() const override;
+    const httpd_uri_t& platformUri() const;
+    size_t             getResponseBufferSize() const override;
+    void               setWebSocket(bool is_ws) override;
+    void               setUserContext(void* user_ctx) override;
+    void               setStaticContent(const char* content, size_t len) override;
 
 protected:
-    static esp_err_t      dispatch(httpd_req_t* req);
-    static httpd_method_t to_httpd_method(HttpMethod m);
-    static HttpMethod     from_httpd_method(httpd_method_t m);
-    static esp_err_t      handle_websocket_frame(httpd_req_t* req);
+    /**
+     * @brief The Main Dispatcher
+     *
+     * @param platform-specific request pointer
+     * @return error code
+     */
+    static esp_err_t dispatch(httpd_req_t* req);
 
+    /**
+     * @brief Convert IHttpUri::HttpMethod to httpd_method_t
+     *
+     * @param m HttpMethod enum
+     * @return httpd_method_t equivalent
+     */
+    static httpd_method_t to_httpd_method(HttpMethod m);
+
+    /**
+     * @brief Convert httpd_method_t to IHttpUri::HttpMethod
+     *
+     * @param m httpd_method_t enum
+     * @return HttpMethod equivalent
+     */
+    static HttpMethod from_httpd_method(httpd_method_t m);
+
+    /**
+     * @brief Handle WebSocket Frame
+     *
+     * @param req platform-specific request pointer
+     * @return esp_err_t
+     */
+    static esp_err_t handle_websocket_frame(httpd_req_t* req);
+
+    /**
+     * @brief Handle GET Request
+     *
+     * @param req platform-specific request pointer
+     * @return esp_err_t
+     */
+    static esp_err_t handle_get_request(httpd_req_t* req);
+
+    /**
+     * @brief Handle Body Request (POST/PUT/PATCH)
+     *
+     * @param req platform-specific request pointer
+     * @return esp_err_t
+     */
+    static esp_err_t handle_body_request(httpd_req_t* req);
+
+    // Default handler implementation calls user-defined handler
+    /**
+     * @brief Handler function
+     *
+     * @param req_ptr Pointer to request data
+     * @param req_len Length of request data
+     * @param resp_buf Pointer to response buffer
+     * @param resp_buf_len Length of response buffer
+     * @param user_ctx User-defined context pointer
+     * @return uint16_t HTTP status code or error code
+     */
+    virtual uint16_t handler(const char* req_ptr, size_t req_len, char* resp_buf, size_t resp_buf_len, void* user_ctx);
+
+protected:
     char        _path_buf[128];
     httpd_uri_t _esp;
     Handler     _handler;
     void*       _user_ctx;
+    const char* _static_content;
+    size_t      _static_len;
 };

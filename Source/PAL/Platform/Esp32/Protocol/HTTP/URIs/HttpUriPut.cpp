@@ -1,36 +1,21 @@
 #include "HttpUriPut.hpp"
 #include <cstring>
 
-HttpUriPut::HttpUriPut(const char* uriName, Handler handler, void* user_ctx) 
-    : HttpUri(uriName,
-              HttpMethod::PUT,
-              handler ? handler : &HttpUriPut::default_put_handler,
-              handler ? user_ctx : static_cast<void*>(this))
+#define ENABLE_SYS_LOG_D
+#include "System/LogHandler.h"
+
+HttpUriPut::HttpUriPut(const char* uriName, Handler handler, void* user_ctx)
+    : HttpUri(
+          uriName,         // URI Name
+          HttpMethod::PUT, // Method
+          handler,         // Handler
+          user_ctx         // User Context
+      )
 {
-}
-
-int HttpUriPut::default_put_handler(const char* req_ptr,
-                                    size_t req_len,
-                                    char* resp_buf,
-                                    size_t resp_buf_len,
-                                    void* /*user_ctx*/) 
-{
-    if (!resp_buf || resp_buf_len == 0)
-        return 500;
-
-    // No body -> No Content
-    if (!req_ptr || req_len == 0)
-        return 204;
-
-    // Copy up to resp_buf_len-1 and NUL-terminate (text echo)
-    size_t max_copy = (resp_buf_len > 0) ? (resp_buf_len - 1) : 0;
-    size_t to_copy = (req_len < max_copy) ? req_len : max_copy;
-
-    if (to_copy > 0)
-        std::memcpy(resp_buf, req_ptr, to_copy);
-
-    resp_buf[to_copy] = '\0';
-
-    // Return OK
-    return 200;
+    if (!user_ctx)
+    {
+        SYS_LOG_I("No user_ctx provided, using default PUT handler");
+        // If No user_ctx provided, set user_ctx to this for default handler
+        setUserContext(this);
+    }
 }
