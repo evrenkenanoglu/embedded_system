@@ -1,6 +1,7 @@
 #ifndef URI_POWERSWITCHESWEBSOCKET_HPP
 #define URI_POWERSWITCHESWEBSOCKET_HPP
 
+#include "PAL/Protocols/HTTP/IHttpServer.hpp"
 #include "PAL/Platform/Esp32/Protocol/HTTP/Serv_websockets.hpp"
 #include "PAL/Platform/Esp32/Protocol/HTTP/URIs/HttpUriWebsocket.hpp"
 #include "Process/Examples/Peripheral/Proc_Switches.hpp"
@@ -9,19 +10,18 @@
 class UriPowerSwitchesWebSocket : public HttpUriWebsocket
 {
 public:
-    UriPowerSwitchesWebSocket(Serv_websockets& websocketServer, Proc_Switches& procSwitches);
+    UriPowerSwitchesWebSocket(IHttpServer& httpServer);
     ~UriPowerSwitchesWebSocket();
-    sys_error_t start();
+    // sys_error_t updateSwitchStates(uint16_t socketId, bool state);
+    // sys_error_t sendAllSwitchStates(int clientId);
 
-    sys_error_t updateSwitchStates(uint16_t socketId, bool state);
-
-    // Serv_websockets& getWebsocketServer();
-    // Proc_Switches& getProcSwitches();
-    sys_error_t sendAllSwitchStates(int clientId);
 private:
-    Serv_websockets& _websocketServer;
-    Proc_Switches&   _procSwitches;
+    int  onOpen(void* user_ctx) const override;
+    int  onMessage(const char* data, size_t len, void* user_ctx) const override;
+    void onClose(void* user_ctx) const override;
 
+private:
+    IHttpServer& _httpServer;
 };
 
 #endif // URI_POWERSWITCHESWEBSOCKET_HPP

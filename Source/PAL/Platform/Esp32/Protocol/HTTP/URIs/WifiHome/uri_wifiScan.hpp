@@ -9,19 +9,8 @@ public:
     UriWiFiScan(EventGroupHandle_t& wifiConfigEventGroup, QueueHandle_t wifiConfigScanResults);
     ~UriWiFiScan();
 
-    /**
-     * @brief Get the Wifi Config Event Group object
-     *
-     * @return EventGroupHandle_t&
-     */
-    EventGroupHandle_t& getWifiConfigEventGroup() const;
-
-    /**
-     * @brief Get the Wifi Config Scan Results object
-     *
-     * @return QueueHandle_t
-     */
-    QueueHandle_t getWifiConfigScanResults() const;
+private:
+    uint16_t handler(const char* req_ptr, size_t req_len, char* resp_buf, size_t resp_buf_len, void* user_ctx) override;
 
 private:
     EventGroupHandle_t& _wifiConfigEventGroup;

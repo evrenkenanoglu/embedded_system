@@ -1,76 +1,34 @@
 #include "uri_powerSwitchesControl.hpp"
 #include "Process/Examples/Peripheral/Proc_Switches.hpp"
-#include "System/LogHandler.h"
 #include "cJSON.h"
 
-/**
- * @brief HTTP POST handler for the write request
- *
- * @param req HTTP request
- * @return error_t
- */
+#define ENABLE_SYS_LOG_D
+#include "System/LogHandler.h"
 
-static error_t control_put_handler(httpd_req_t* req);
-
-UriPowerSwitchesControl::UriPowerSwitchesControl(QueueHandle_t switchesQueue)
-    : HttpUriPut("/power-switches-control", control_put_handler, this)
-    , _switchesQueue(switchesQueue)
+UriPowerSwitchesControl::UriPowerSwitchesControl()
+    : HttpUriPut("/power-switches-control", nullptr, this)
 {
 }
 
 UriPowerSwitchesControl::~UriPowerSwitchesControl() {}
 
-QueueHandle_t UriPowerSwitchesControl::getSwitchesQueue() const
+uint16_t UriPowerSwitchesControl::handler(const char* req_ptr, size_t req_len, char* resp_buf, size_t resp_buf_len, void* user_ctx)
 {
-    return _switchesQueue;
-}
-
-static error_t control_put_handler(httpd_req_t* req)
-{
-
-    UriPowerSwitchesControl* proc = (UriPowerSwitchesControl*)req->user_ctx;
-
-    // Buffer to store the incoming JSON data
-    char content[100];
-    int  ret;
-
-    // Read the content of the request
-    if ((ret = httpd_req_recv(req, content, sizeof(content))) <= 0)
-    {
-        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
-        {
-            httpd_resp_send_408(req);
-        }
-        return ESP_FAIL;
-    }
-
     // Parse the JSON data
-    cJSON* json = cJSON_Parse(content);
-    if (json == NULL)
-    {
-        SYS_LOG_E("Error parsing JSON data");
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
-        return ESP_FAIL;
-    }
+    cJSON* json = cJSON_Parse(req_ptr);
+
+    RETURN_IF_ERROR(json == NULL, HTTP::RESPONSE::BAD_REQUEST, SYS_LOG_D("Error parsing JSON data!"));
 
     // Extract the socketId and state from the JSON data
     cJSON* socketIdJson = cJSON_GetObjectItem(json, "socketId");
     cJSON* stateJson    = cJSON_GetObjectItem(json, "state");
 
-    if (!cJSON_IsNumber(socketIdJson) || !cJSON_IsNumber(stateJson))
-    {
-        SYS_LOG_E("Invalid JSON data");
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON data");
-        cJSON_Delete(json);
-        return ESP_FAIL;
-    }
+    RETURN_IF_ERROR(!cJSON_IsNumber(socketIdJson) || !cJSON_IsNumber(stateJson), HTTP::RESPONSE::BAD_REQUEST, SYS_LOG_E("Invalid JSON data"));
 
     int socketId = socketIdJson->valueint;
     int state    = stateJson->valueint;
 
-    // Perform the necessary actions to control the power switches
-    // For example, you can call a function to set the GPIO pin state
-    std::cout << "Setting socket " << socketId << " to state " << state << std::endl;
+    SYS_LOG_D("Control Power Switch - Socket ID: %d, State: %d", socketId, state);
     // Proc_Switches::SwitchQueue_t switchQueue = {static_cast<uint8_t>(socketId), static_cast<bool>(state)};
 
     // if (xQueueSend(proc->getSwitchesQueue(), &switchQueue, 0) == pdTRUE)
@@ -82,12 +40,17 @@ static error_t control_put_handler(httpd_req_t* req)
     //     SYS_LOG_E("Failed to update switch state");
     // }
 
-    // Send a response back to the client
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"message\":\"Success\"}");
+    // Convert response JSON to string
+    constexpr char   response_str[] = "{\"message\":\"Success\"}";
+    constexpr size_t response_len   = sizeof(response_str) - 1;
+
+    // Copy the response to resp_buf
+    size_t copy_len = (response_len < resp_buf_len - 1) ? response_len : (resp_buf_len - 1);
+    strncpy(resp_buf, response_str, copy_len);
+    resp_buf[copy_len] = '\0';
 
     // Clean up
     cJSON_Delete(json);
 
-    return ESP_OK;
+    return HTTP::RESPONSE::OK;
 }

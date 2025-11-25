@@ -6,18 +6,11 @@
 class UriPowerSwitchesControl : public HttpUriPut
 {
 public:
-    UriPowerSwitchesControl(QueueHandle_t switchesQueue);
+    UriPowerSwitchesControl();
     ~UriPowerSwitchesControl();
 
-    /**
-     * @brief Get the Switches Queue object
-     *
-     * @return QueueHandle_t
-     */
-    QueueHandle_t getSwitchesQueue() const;
-
 private:
-    QueueHandle_t  _switchesQueue;
+    uint16_t handler(const char* req_ptr, size_t req_len, char* resp_buf, size_t resp_buf_len, void* user_ctx) override;
 };
 
 #endif // URI_POWERSWITCHESCONTROL_HPP

@@ -1,73 +1,26 @@
 #include "uri_wifiConnect.hpp"
-#include "System/LogHandler.h"
 #include "Process/Examples/Network/Proc_wifiConfigurationManager.hpp"
 #include "cJSON.h"
 
-namespace
-{
-constexpr uint16_t post_content_length = 256;
-}
-
-/**
- * @brief HTTP POST handler for the connect wifi request
- *
- * @param req HTTP request
- * @return error_t
- */
-static error_t connect_post_handler(httpd_req_t* req);
+#define ENABLE_SYS_LOG_D
+#include "System/LogHandler.h"
 
 UriWifiConnect::UriWifiConnect(EventGroupHandle_t& wifiConfigEventGroup, IHAL_MEM& memDevice)
-    : HttpUriPost("/wifiConnect", connect_post_handler, this) // Initialize Uri post for the connect
-    , _wifiConfigEventGroup(wifiConfigEventGroup)             // Initialize the event group
-    , _memDevice(memDevice)                                   // Initialize the memory device
+    : HttpUriPost("/wifiConnect", nullptr, this)  // Initialize Uri post for the connect
+    , _wifiConfigEventGroup(wifiConfigEventGroup) // Initialize the event group
+    , _memDevice(memDevice)                       // Initialize the memory device
 
 {
 }
 
-UriWifiConnect::~UriWifiConnect()
+UriWifiConnect::~UriWifiConnect() {}
+
+uint16_t UriWifiConnect::handler(const char* req_ptr, size_t req_len, char* resp_buf, size_t resp_buf_len, void* user_ctx)
 {
-}
-
-EventGroupHandle_t& UriWifiConnect::getWifiConfigEventGroup()
-{
-    return _wifiConfigEventGroup;
-}
-
-IHAL_MEM& UriWifiConnect::getMemDevice() const
-{
-    return _memDevice;
-}
-
-/* An HTTP POST handler */
-static error_t connect_post_handler(httpd_req_t* req)
-{
-    UriWifiConnect* uriPtr = (UriWifiConnect*)req->user_ctx;
-
-    char content[post_content_length];
-
-    // Read the content of the POST request
-    int ret = httpd_req_recv(req, content, sizeof(content));
-
-    if (ret <= 0)
-    { // 0 return value indicates connection closed
-        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
-        {
-            httpd_resp_send_408(req);
-        }
-        SYS_LOG_E("Error receiving data from POST request!");
-        return ESP_FAIL;
-    }
-
-    // Null terminate the content string
-    content[ret] = '\0';
-
     // Parse the JSON data
-    cJSON* json = cJSON_Parse(content);
-    if (json == NULL)
-    {
-        SYS_LOG_E("Error parsing JSON data!");
-        return ESP_FAIL;
-    }
+    cJSON* json = cJSON_Parse(req_ptr);
+
+    RETURN_IF_ERROR(json == NULL, 500, SYS_LOG_D("Error parsing JSON data!"));
 
     // Get the SSID and password from the JSON data
     cJSON* json_ssid     = cJSON_GetObjectItemCaseSensitive(json, "ssid");
@@ -75,7 +28,6 @@ static error_t connect_post_handler(httpd_req_t* req)
 
     cJSON* response = cJSON_CreateObject();
     char*  response_str;
-    httpd_resp_set_type(req, "application/json");
 
     if (cJSON_IsString(json_ssid) && (json_ssid->valuestring != NULL) && cJSON_IsString(json_password) && (json_password->valuestring != NULL))
     {
@@ -87,18 +39,18 @@ static error_t connect_post_handler(httpd_req_t* req)
         }
         else // SSID and password are not empty
         {
-            SYS_LOG_I( "Received SSID and password!");
+            SYS_LOG_I("Received SSID and password!");
             std::stringstream ss;
             ss << "SSID: " << json_ssid->valuestring << std::endl;
             ss << "Password: " << json_password->valuestring << std::endl;
-            SYS_LOG_I( ss.str());
+            SYS_LOG_I(ss.str());
 
             std::cout << "WIFI_SSID: " << WIFI_SSID << std::endl;
             std::cout << "WIFI_PASSWORD: " << WIFI_PASSWORD << std::endl;
 
             // Write the SSID and password to the memory device
-            sys_error_t errorWifi = uriPtr->getMemDevice().writeData(WIFI_SSID, (uint8_t*)json_ssid->valuestring, strlen(json_ssid->valuestring) + 1);
-            sys_error_t errorPass = uriPtr->getMemDevice().writeData(WIFI_PASSWORD, (uint8_t*)json_password->valuestring, strlen(json_password->valuestring) + 1);
+            sys_error_t errorWifi = _memDevice.writeData(WIFI_SSID, (uint8_t*)json_ssid->valuestring, strlen(json_ssid->valuestring) + 1);
+            sys_error_t errorPass = _memDevice.writeData(WIFI_PASSWORD, (uint8_t*)json_password->valuestring, strlen(json_password->valuestring) + 1);
 
             std::string responseMessage;
             if (errorWifi != ERROR_SUCCESS || errorPass != ERROR_SUCCESS)
@@ -108,7 +60,7 @@ static error_t connect_post_handler(httpd_req_t* req)
             }
             else // if writing to memory device operation Success
             {
-                xEventGroupSetBits(uriPtr->getWifiConfigEventGroup(), WIFI_CONFIG_CREDENTIALS_STORED);
+                xEventGroupSetBits(_wifiConfigEventGroup, WIFI_CONFIG_CREDENTIALS_STORED);
                 // Send back the SSID and password
                 responseMessage = "Received SSID and password. Connecting to  ";
                 responseMessage.append(json_ssid->valuestring);
@@ -127,13 +79,20 @@ static error_t connect_post_handler(httpd_req_t* req)
 
     response_str = cJSON_PrintUnformatted(response);
 
-    // Send the response
-    httpd_resp_send(req, response_str, strlen(response_str));
+    // Copy response to resp_buf if provided
+    size_t response_len = strlen(response_str);
+    size_t max_copy     = (resp_buf_len > 0) ? (resp_buf_len - 1) : 0;
+    size_t to_copy      = (response_len < max_copy) ? response_len : max_copy;
+
+    if (to_copy > 0)
+        std::memcpy(resp_buf, response_str, to_copy);
+
+    resp_buf[to_copy] = '\0'; // Null-terminate the response buffer
 
     // Clean up
     free(response_str);
     cJSON_Delete(json);
     cJSON_Delete(response);
 
-    return ESP_OK;
+    return HTTP::RESPONSE::OK;
 }

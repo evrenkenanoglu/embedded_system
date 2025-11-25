@@ -10,19 +10,9 @@ public:
     UriWifiConnect(EventGroupHandle_t& wifiConfigEventGroup, IHAL_MEM& memDevice);
     ~UriWifiConnect();
 
-    /**
-     * @brief Get the Wifi Config Event Group Handle
-     *
-     * @return EventGroupHandle_t&
-     */
-    EventGroupHandle_t& getWifiConfigEventGroup();
+private:
+    uint16_t handler(const char* req_ptr, size_t req_len, char* resp_buf, size_t resp_buf_len, void* user_ctx) override;
 
-    /**
-     * @brief Get the Mem Device object
-     *
-     * @return IHAL_MEM&
-     */
-    IHAL_MEM& getMemDevice() const;
 
 private:
     EventGroupHandle_t& _wifiConfigEventGroup;
