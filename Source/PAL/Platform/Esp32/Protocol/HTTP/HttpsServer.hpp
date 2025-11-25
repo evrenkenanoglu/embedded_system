@@ -8,21 +8,19 @@
 class HttpsServer : public IHttpServer
 {
 public:
-    explicit HttpsServer(const HttpServerStartOptions_t& options) ;
+    explicit HttpsServer(const HttpServerStartOptions_t& options);
     ~HttpsServer() override;
 
-    sys_error_t start()  override;
-    sys_error_t stop()  override;
+    sys_error_t start() override;
+    sys_error_t stop() override;
 
-    sys_error_t registerUri(IHttpUri& uri)  override;
-    sys_error_t unregisterUri(IHttpUri& uri)  override;
+    sys_error_t registerUri(IHttpUri& uri) override;
+    sys_error_t unregisterUri(IHttpUri& uri) override;
 
-    sys_error_t registerTestUri(httpd_uri_t& uri);
+    sys_error_t sendWsMessage(int clientId, const uint8_t* data, size_t len, WsFrameType ws_type) override;
+    sys_error_t broadcastWs(const uint8_t* data, size_t len, WsFrameType ws_type) override;
 
-    sys_error_t sendWsMessage(int clientId, const uint8_t* data, size_t len, WsFrameType ws_type)  override;
-    sys_error_t broadcastWs(const uint8_t* data, size_t len, WsFrameType ws_type)  override;
-
-    void* nativeHandle() const  override
+    void* nativeHandle() const override
     {
         return reinterpret_cast<void*>(_server);
     }
@@ -39,7 +37,7 @@ private:
      * @brief Populate server and SSL configurations from start options
      *
      * @param options start options provided by the user
-     * @param serverConfig
+     * @param serverConfig 
      * @param sslConfig
      */
     static sys_error_t populate_config(const HttpServerStartOptions_t& options, httpd_ssl_config_t& sslConfig);

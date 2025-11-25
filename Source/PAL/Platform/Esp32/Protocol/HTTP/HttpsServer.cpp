@@ -54,7 +54,7 @@ sys_error_t HttpsServer::populate_config(const HttpServerStartOptions_t& options
     RETURN_IF_ERROR(
         !(options.use_tls) || (options.tls_cert_pem == nullptr || options.tls_key_pem == nullptr), // Expression
         ERROR_INVALID_ARG,                                                                         // Error code
-        SYS_LOG_E("Either use_tls is false or TLS cert/key is null!"));                            // Log message
+        SYS_LOG_E("TLS cert/key is null!"));                                                       // Log message
 
     // Populate SSL config based on provided options
     sslConfig.servercert             = options.tls_cert_pem;
@@ -77,24 +77,6 @@ sys_error_t HttpsServer::start()
 
     // Populate server and SSL configurations
     RETURN_ON_ERROR(populate_config(_startOptions, _sslConfig), SYS_LOG_E("Failed to populate server configurations!"));
-
-    // _sslConfig                = HTTPD_SSL_CONFIG_DEFAULT();
-    // _sslConfig.servercert     = _startOptions.tls_cert_pem;
-    // _sslConfig.servercert_len = _startOptions.tls_cert_len;
-    // _sslConfig.prvtkey_pem    = _startOptions.tls_key_pem;
-    // _sslConfig.prvtkey_len    = _startOptions.tls_key_len;
-
-    SYS_LOG_I("SSL Config:");
-    SYS_LOG_I("  transport_mode: " + std::to_string(_sslConfig.transport_mode));
-    SYS_LOG_I("  port_secure: " + std::to_string(_sslConfig.port_secure));
-    SYS_LOG_I("  servercert: %s", _sslConfig.servercert);
-    SYS_LOG_I("  servercert_len: " + std::to_string(_sslConfig.servercert_len));
-
-    SYS_LOG_I("  prvtkey_pem %s", _sslConfig.prvtkey_pem);
-    SYS_LOG_I("  prvtkey_len: " + std::to_string(_sslConfig.prvtkey_len));
-    SYS_LOG_I("  httpd.stack_size: " + std::to_string(_sslConfig.httpd.stack_size));
-    SYS_LOG_I("  httpd.task_priority: " + std::to_string(_sslConfig.httpd.task_priority));
-    SYS_LOG_I("  httpd.max_open_sockets: " + std::to_string(_sslConfig.httpd.max_open_sockets));
 
     // Start the HTTPS server
     RETURN_IF_ERROR(httpd_ssl_start(&_server, &_sslConfig) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to start HTTPS server!"));
@@ -125,20 +107,6 @@ sys_error_t HttpsServer::stop()
     _started = false;
 
     SYS_LOG_I("HTTPS server stopped successfully!");
-
-    return ERROR_SUCCESS;
-}
-
-sys_error_t HttpsServer::registerTestUri(httpd_uri_t& uri)
-{
-
-    // Check if server is started
-    RETURN_IF_ERROR(_started == false, ERROR_NOT_INITIALIZED, SYS_LOG_E("Server not started!"));
-
-    // Register the URI handler with the server
-    RETURN_IF_ERROR(httpd_register_uri_handler(_server, &uri) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to register test URI handler!"));
-
-    SYS_LOG_I("Registered test URI %s", uri.uri);
 
     return ERROR_SUCCESS;
 }
