@@ -57,3 +57,8 @@ void HttpUriWebsocket::setClientId(int id)
 {
     _clientId = id;
 }
+
+int HttpUriWebsocket::getClientId() const
+{
+    return _clientId;
+}

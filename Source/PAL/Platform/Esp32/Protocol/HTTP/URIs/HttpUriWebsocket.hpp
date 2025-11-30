@@ -19,6 +19,7 @@ public:
     void onClose(void* user_ctx) const override;
 
     void setClientId(int id);
+    int  getClientId() const;
 
 private:
     static int  default_on_open(void* user_ctx);

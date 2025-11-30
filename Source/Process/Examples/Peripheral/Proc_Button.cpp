@@ -28,6 +28,8 @@ sys_error_t Proc_Button::start()
 {
     SYS_LOG_D("STATE: %d", static_cast<int>(getState()));
 
+    RETURN_IF_ERROR(_buttons.get() == nullptr, ERROR_INIT_FAILED, SYS_LOG_D("Buttons pointer is null"));
+
     RETURN_IF_ERROR_WITH_LOG(
         getState() != State::INITIALIZED && getState() != State::STOPPED, // Expression
         ERROR_INVALID_STATE,                                              // Error Code
@@ -96,8 +98,14 @@ void Proc_Button::buttonListener(void* arg)
 {
     RETURN_IF_ERROR(arg == nullptr, );
 
-    BUTTON::Instance_t* button           = static_cast<BUTTON::Instance_t*>(arg);
-    QueueHandle_t       gpioEventQueue   = reinterpret_cast<QueueHandle_t>(button->gpio.getEventQueue());
+    SYS_LOG_D("Button listener started.\n");
+
+    BUTTON::Instance_t* button = static_cast<BUTTON::Instance_t*>(arg);
+    SYS_LOG_D("BUTTON ID: %d\n", button->index);
+    QueueHandle_t gpioEventQueue = reinterpret_cast<QueueHandle_t>(button->gpio.getEventQueue());
+
+    RETURN_IF_ERROR(gpioEventQueue == nullptr, , SYS_LOG_D("GPIO event queue is null.\n"));
+
     QueueHandle_t       buttonEventQueue = reinterpret_cast<QueueHandle_t>(button->eventQueue);
     hal_gpio_event_t    event;
     BUTTON::EventData_t eventData;

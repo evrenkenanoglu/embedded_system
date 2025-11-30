@@ -1,19 +1,31 @@
 #ifndef URI_POWERSWITCHESWEBSOCKET_HPP
 #define URI_POWERSWITCHESWEBSOCKET_HPP
 
-#include "PAL/Protocols/HTTP/IHttpServer.hpp"
-#include "PAL/Platform/Esp32/Protocol/HTTP/Serv_websockets.hpp"
 #include "PAL/Platform/Esp32/Protocol/HTTP/URIs/HttpUriWebsocket.hpp"
-#include "Process/Examples/Peripheral/Proc_Switches.hpp"
-#include "System/system.h"
+
+namespace PowerSwitchesWs
+{
+enum class EventType : uint8_t
+{
+    CLIENT_CONNECTED,
+    CLIENT_DISCONNECTED,
+};
+
+typedef struct
+{
+    EventType eventType;
+    int       clientId;
+} EventData_t;
+
+constexpr uint8_t EVENT_QUEUE_SIZE = 5;
+
+}; // namespace PowerSwitchesWs
 
 class UriPowerSwitchesWebSocket : public HttpUriWebsocket
 {
 public:
-    UriPowerSwitchesWebSocket(IHttpServer& httpServer);
+    UriPowerSwitchesWebSocket(QueueHandle_t eventQueuePowerSwitchesWs);
     ~UriPowerSwitchesWebSocket();
-    // sys_error_t updateSwitchStates(uint16_t socketId, bool state);
-    // sys_error_t sendAllSwitchStates(int clientId);
 
 private:
     int  onOpen(void* user_ctx) const override;
@@ -21,7 +33,7 @@ private:
     void onClose(void* user_ctx) const override;
 
 private:
-    IHttpServer& _httpServer;
+    QueueHandle_t _eventQueuePowerSwitchesWs;
 };
 
 #endif // URI_POWERSWITCHESWEBSOCKET_HPP

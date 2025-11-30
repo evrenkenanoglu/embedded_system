@@ -200,7 +200,7 @@ esp_err_t HttpUri::handle_body_request(httpd_req_t* req)
     uint16_t ret = self->handler(req_buf, req_len, resp_buf, RESP_BUF_SZ, self->_user_ctx);
 
     // Handle success
-    if (ret >= HTTP::RESPONSE::OK && ret < HTTP::RESPONSE::MULTIPLE_CHOICES)
+    if (resp_buf[0] != '\0' && (ret >= HTTP::RESPONSE::OK && ret < HTTP::RESPONSE::MULTIPLE_CHOICES))
     {
         return httpd_resp_send(req, resp_buf, strlen(resp_buf));
     }

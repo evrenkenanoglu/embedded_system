@@ -1,22 +1,15 @@
 #include "uri_powerSwitchesWebsocket.hpp"
-
 #include "Library/UI/HTTP/PowerSwitches/ui_wifi_power_sockets/output/header/ui_wifi_power_sockets.h"
-#include "System/LogHandler.h"
-#include <esp_http_server.h>
-#include <esp_log.h>
 
+#define ENABLE_SYS_LOG_D
+#include "System/LogHandler.h"
 namespace
 {
-constexpr uint16_t powerSwitchesUpdateTaskStackSize = 4096; // bytes
-constexpr uint8_t  powerSwitchesUpdateTaskPriority  = 5;
-constexpr char     powerSwitchesUpdateTaskName[]    = "powerSwitchesUpdateUpdate";
-constexpr uint16_t programRoutineTaskDelay          = 50; // milliseconds
-// constexpr uint8_t  powerSwitchesUpdateQueueSize     = sizeof(Proc_Switches::SwitchQueue_t);
 } // namespace
 
-UriPowerSwitchesWebSocket::UriPowerSwitchesWebSocket(IHttpServer& httpServer)
+UriPowerSwitchesWebSocket::UriPowerSwitchesWebSocket(QueueHandle_t eventQueuePowerSwitchesWs)
     : HttpUriWebsocket("/powerSwitchesWs", this, nullptr, nullptr, nullptr)
-    , _httpServer(httpServer)
+    , _eventQueuePowerSwitchesWs(eventQueuePowerSwitchesWs)
 {
 }
 
@@ -28,6 +21,13 @@ int UriPowerSwitchesWebSocket::onOpen(void* user_ctx) const
     UriPowerSwitchesWebSocket* self = static_cast<UriPowerSwitchesWebSocket*>(user_ctx);
     RETURN_IF_ERROR(self == nullptr, -1, SYS_LOG_E("WebSocket context is null"));
 
+    // Notify the event manager about the new connection
+    // Prepare event data
+    PowerSwitchesWs::EventData_t eventData;
+    eventData.eventType = PowerSwitchesWs::EventType::CLIENT_CONNECTED;
+    eventData.clientId  = getClientId();
+    // Send event to the queue
+    xQueueSend(self->_eventQueuePowerSwitchesWs, &eventData, 0);
     return 0;
 }
 
