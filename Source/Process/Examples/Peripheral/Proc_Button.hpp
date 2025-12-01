@@ -24,6 +24,9 @@ private:
     static void buttonListener(void* arg);
 
     std::unique_ptr<std::vector<BUTTON::Instance_t*>> _buttons;
+    uint32_t                                          _stackSize;
+    int                                               _taskPriority;
+    TaskHandle_t                                      _taskHandle;
 
 public:
     /**
@@ -31,7 +34,7 @@ public:
      *
      * @param buttons A unique pointer to a vector of button instances
      */
-    Proc_Button(std::unique_ptr<std::vector<BUTTON::Instance_t*>> buttons);
+    Proc_Button(std::unique_ptr<std::vector<BUTTON::Instance_t*>> buttons, uint32_t stackSize = 8192, int taskPriority = tskIDLE_PRIORITY + 1);
     ~Proc_Button();
 
     sys_error_t start() override;
@@ -44,7 +47,7 @@ public:
 
 public:
     void buttonEventCallback(uint16_t buttonIndex, BUTTON::Event event, uint32_t duration);
-    void processButtonEvents();
+    void processButtonEvent(BUTTON::Instance_t* button, hal_gpio_event_t* event);
 };
 
 #endif /* PROC_BUTTON_HPP */
