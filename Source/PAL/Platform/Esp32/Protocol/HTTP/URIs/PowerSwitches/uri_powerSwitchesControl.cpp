@@ -8,6 +8,7 @@
 
 UriPowerSwitchesControl::UriPowerSwitchesControl(QueueHandle_t httpButtonEventQueue)
     : HttpUriPut("/power-switches-control", nullptr, this)
+    , _httpButtonEventQueue(httpButtonEventQueue)
 {
     RETURN_IF_ERROR(httpButtonEventQueue == nullptr, , SYS_LOG_E("Invalid HTTP button event queue"));
 }
