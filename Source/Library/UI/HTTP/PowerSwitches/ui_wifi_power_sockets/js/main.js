@@ -1,7 +1,6 @@
 
 // Function to Socket State Mapping
 registerDomContentLoadedFunc(() => {
-    initSocketControl();
 });
 
 // Function to generate buttons and add them to the DOM

@@ -1,10 +1,11 @@
 const ButtonState = {
-  OFF: 0,
-  ON: 1,
-  DISABLED: 2,
+    OFF: 0,
+    ON: 1,
+    DISABLED: 2,
 };
 
 const ButtonIndexAll = 0xff;
+const ButtonStartIndex = 1;
 
 const colorStateOff = "#FD0101";
 const colorStateOn = "#00ff00";
@@ -16,9 +17,9 @@ const responseFromHardwareTimeout = 500;
 const websocketUri = "/powerSwitchesWs";
 
 const websocketUrl =
-  location.protocol === "https:"
-    ? "wss://" + location.host + websocketUri
-    : "ws://" + location.host + websocketUri;
+    location.protocol === "https:" ?
+    "wss://" + location.host + websocketUri :
+    "ws://" + location.host + websocketUri;
 
 const websocketReconnectInterval = 5000;
 const websocketMaxRetries = 5;

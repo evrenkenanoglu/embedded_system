@@ -394,12 +394,13 @@ function addWebSocketListeners(websocket) {\
   </script>\
   <script>\
    const ButtonState = {\
-  OFF: 0,\
-  ON: 1,\
-  DISABLED: 2,\
+    OFF: 0,\
+    ON: 1,\
+    DISABLED: 2,\
 };\
 \
 const ButtonIndexAll = 0xff;\
+const ButtonStartIndex = 1;\
 \
 const colorStateOff = \"#FD0101\";\
 const colorStateOn = \"#00ff00\";\
@@ -411,9 +412,9 @@ const responseFromHardwareTimeout = 500;\
 const websocketUri = \"/powerSwitchesWs\";\
 \
 const websocketUrl =\
-  location.protocol === \"https:\"\
-    ? \"wss://\" + location.host + websocketUri\
-    : \"ws://\" + location.host + websocketUri;\
+    location.protocol === \"https:\" ?\
+    \"wss://\" + location.host + websocketUri :\
+    \"ws://\" + location.host + websocketUri;\
 \
 const websocketReconnectInterval = 5000;\
 const websocketMaxRetries = 5;\
@@ -439,7 +440,6 @@ function registerDomContentLoadedFunc(func) {\
   </script>\
   <script>\
    registerDomContentLoadedFunc(() => {\
-    initSocketControl();\
 });\
 \
 registerDomContentLoadedFunc(() => { \
@@ -458,247 +458,296 @@ document.addEventListener(\"DOMContentLoaded\", initializeDomContent);\
   </script>\
   <script>\
    const socketStateMap = new Map();\
-const sockets = [];\
+const sockets = new Map();\
 \
-function initSocketControl() {\
-  for (let i = 0; i < 10; i++) {\
-    socketStateMap.set(i, ButtonState.DISABLED);\
-  }\
-  socketStateMap.set(ButtonIndexAll, ButtonState.DISABLED);\
+\
+function initSocketControl(socketCount) {\
+    for (let i = ButtonStartIndex; i <= socketCount; i++) {\
+        socketStateMap.set(i, ButtonState.DISABLED);\
+    }\
+    socketStateMap.set(ButtonIndexAll, ButtonState.DISABLED);\
 }\
 \
 async function handleSocketState(button, index) {\
-  if (socketStateMap.get(index) === ButtonState.DISABLED) {\
-    alert(\"Button is disabled\");\
-    return;\
-  }\
-  try {\
-    const getToggledState = !socketStateMap.get(index) ? 1 : 0;\
-    setButtonState(index, ButtonState.DISABLED);\
-    const response = await fetch(\"/power-switches-control\", {\
-      method: \"PUT\",\
-      headers: {\
-        \"Content-Type\": \"application/json\",\
-      },\
-      body: JSON.stringify({ socketId: index, state: getToggledState }),\
-      timeout: responseFromHardwareTimeout,\
-    });\
-    if (!response.ok) {\
-      alert(\"Error: \" + response.status);\
+    if (socketStateMap.get(index) === ButtonState.DISABLED) {\
+        alert(\"Button is disabled\");\
+        return;\
     }\
-  } catch (error) {\
-    alert(\"Error: \" + error.message);\
-  }\
+    try {\
+        const getToggledState = !socketStateMap.get(index) ? 1 : 0;\
+        setButtonState(index, ButtonState.DISABLED);\
+        const response = await fetch(\"/power-switches-control\", {\
+            method: \"PUT\",\
+            headers: {\
+                \"Content-Type\": \"application/json\",\
+            },\
+            body: JSON.stringify({ socketId: index, state: getToggledState }),\
+            timeout: responseFromHardwareTimeout,\
+        });\
+        if (!response.ok) {\
+            alert(\"Error: \" + response.status);\
+        }\
+    } catch (error) {\
+        alert(\"Error: \" + error.message);\
+    }\
 }\
 \
 function setButtonState(index, state) {\
-  socketStateMap.set(index, state);\
+    socketStateMap.set(index, state);\
 \
-  if (index === ButtonIndexAll) {\
-    const toggleAllButton = document.getElementById(\"buttonToggleAll\");\
-    toggleAllButton.disabled = state === ButtonState.DISABLED;\
-    updateButtonVisuals(toggleAllButton);\
-    sockets.forEach((button, i) => {\
-      socketStateMap.set(i, state);\
-      updateButtonVisuals(button, state);\
-    });\
-  } else if (index >= 0 && index < sockets.length) {\
-    const button = sockets[index];\
-    updateButtonVisuals(button, state);\
-  } else {\
-    console.error(`Invalid button index: ${index}`);\
-  }\
+    if (index === ButtonIndexAll) {\
+        const toggleAllButton = document.getElementById(\"buttonToggleAll\");\
+        toggleAllButton.disabled = state === ButtonState.DISABLED;\
+        updateButtonVisuals(toggleAllButton, state);\
+        sockets.forEach((buttonElement, socketId) => {\
+            socketStateMap.set(socketId, state);\
+            updateButtonVisuals(buttonElement, state);\
+        });\
+    } else {\
+        const buttonElement = sockets.get(index);\
+        if (buttonElement) {\
+            updateButtonVisuals(buttonElement, state);\
+        } else {\
+            console.error(`Button element not found for index: ${index}`);\
+        }\
+    }\
 }\
   </script>\
   <script>\
    function generateUiElements() {\
-  generateConnectionStatusContainer();\
-\
-  generateButtons();\
+    generateConnectionStatusContainer();\
 }\
 \
-function generateButtons(buttons) {\
-  document.getElementById(\"controls\").innerHTML = \"\";\
+function generateButtons(socketCount) {\
+    document.getElementById(\"controls\").innerHTML = \"\";\
 \
-  for (let i = 0; i < 10; i++) {\
-    const container = document.createElement(\"div\");\
-    container.className = \"socket-container\";\
+    sockets.clear();\
 \
-    const button = document.createElement(\"button\");\
-    button.className = \"btn button-container off\";\
+    for (let i = 1; i <= socketCount; i++) {\
+        const container = document.createElement(\"div\");\
+        container.className = \"socket-container\";\
 \
-    const buttonStateCircle = document.createElement(\"div\");\
-    buttonStateCircle.className = \"button-state-circle\";\
+        const button = document.createElement(\"button\");\
+        button.className = \"btn button-container off\";\
 \
-    const buttonOuterCircle = document.createElement(\"div\");\
-    buttonOuterCircle.className = \"button-outer-circle\";\
+        const buttonStateCircle = document.createElement(\"div\");\
+        buttonStateCircle.className = \"button-state-circle\";\
 \
-    const buttonInnerCircle = document.createElement(\"div\");\
-    buttonInnerCircle.className = \"button-inner-circle\";\
+        const buttonOuterCircle = document.createElement(\"div\");\
+        buttonOuterCircle.className = \"button-outer-circle\";\
 \
-    const icon = document.createElement(\"div\");\
-    icon.className = \"icon\";\
+        const buttonInnerCircle = document.createElement(\"div\");\
+        buttonInnerCircle.className = \"button-inner-circle\";\
 \
-    const iconPower = document.createElement(\"i\");\
-    iconPower.className = \"fas fa-power-off\";\
+        const icon = document.createElement(\"div\");\
+        icon.className = \"icon\";\
 \
-    icon.append(iconPower);\
-    buttonInnerCircle.append(icon);\
-    button.append(buttonStateCircle);\
-    button.append(buttonOuterCircle);\
-    button.append(buttonInnerCircle);\
+        const iconPower = document.createElement(\"i\");\
+        iconPower.className = \"fas fa-power-off\";\
 \
-    addEventListeners(button, i);\
+        icon.append(iconPower);\
+        buttonInnerCircle.append(icon);\
+        button.append(buttonStateCircle);\
+        button.append(buttonOuterCircle);\
+        button.append(buttonInnerCircle);\
 \
-    sockets.push(button);\
+        addEventListeners(button, i);\
 \
-    container.append(button);\
-    document.getElementById(\"controls\").append(container);\
-  }\
+        sockets.set(i, button);\
 \
-  generateButtonToggleAll();\
+        container.append(button);\
+        document.getElementById(\"controls\").append(container);\
+    }\
 \
-  function updateInitialButtonStates() {\
-    sockets.forEach((button, index) => {\
-      const state = socketStateMap.get(index);\
-      updateButtonVisuals(button, state);\
-    });\
-  }\
+    generateButtonToggleAll();\
 \
-  updateInitialButtonStates();\
+    function updateInitialButtonStates() {\
+        sockets.forEach((button, index) => {\
+            const state = socketStateMap.get(index);\
+            updateButtonVisuals(button, state);\
+        });\
+    }\
+\
+    updateInitialButtonStates();\
 }\
 \
 function updateButtonVisuals(button, state) {\
-  const stateCircle = button.querySelector(\".button-state-circle\");\
-  const outerCircle = button.querySelector(\".button-outer-circle\");\
-  const powerIcon = button.querySelector(\".fa-power-off\");\
+    const stateCircle = button.querySelector(\".button-state-circle\");\
+    const outerCircle = button.querySelector(\".button-outer-circle\");\
+    const powerIcon = button.querySelector(\".fa-power-off\");\
 \
-  switch (state) {\
-    case ButtonState.DISABLED:\
-      button.classList.add(\"disabled\");\
-      button.classList.remove(\"on\", \"off\");\
-      stateCircle.style.borderColor = colorStateDisabled;\
-      powerIcon.style.color = colorStateDisabled;\
-      outerCircle.style.animation = \"none\";\
-      button.style.opacity = 0.5;\
-      break;\
-    case ButtonState.ON:\
-      button.classList.remove(\"disabled\", \"off\");\
-      button.classList.add(\"on\");\
-      button.style.opacity = 1;\
-      stateCircle.style.borderColor = colorStateOn;\
-      powerIcon.style.color = colorStateOn;\
-      outerCircle.style.animation = \"glowGreen 1.5s infinite alternate\";\
-      break;\
-    case ButtonState.OFF:\
-    default:\
-      button.classList.remove(\"disabled\", \"on\");\
-      button.classList.add(\"off\");\
-      button.style.opacity = 1;\
-      stateCircle.style.borderColor = colorStateOff;\
-      powerIcon.style.color = colorStateOff;\
-      outerCircle.style.animation = \"glowRed 1.5s infinite alternate\";\
-      break;\
-  }\
+    switch (state) {\
+        case ButtonState.DISABLED:\
+            button.classList.add(\"disabled\");\
+            button.classList.remove(\"on\", \"off\");\
+            stateCircle.style.borderColor = colorStateDisabled;\
+            powerIcon.style.color = colorStateDisabled;\
+            outerCircle.style.animation = \"none\";\
+            button.style.opacity = 0.5;\
+            break;\
+        case ButtonState.ON:\
+            button.classList.remove(\"disabled\", \"off\");\
+            button.classList.add(\"on\");\
+            button.style.opacity = 1;\
+            stateCircle.style.borderColor = colorStateOn;\
+            powerIcon.style.color = colorStateOn;\
+            outerCircle.style.animation = \"glowGreen 1.5s infinite alternate\";\
+            break;\
+        case ButtonState.OFF:\
+        default:\
+            button.classList.remove(\"disabled\", \"on\");\
+            button.classList.add(\"off\");\
+            button.style.opacity = 1;\
+            stateCircle.style.borderColor = colorStateOff;\
+            powerIcon.style.color = colorStateOff;\
+            outerCircle.style.animation = \"glowRed 1.5s infinite alternate\";\
+            break;\
+    }\
 }\
 \
 function generateButtonToggleAll() {\
-  const mainControlsDiv = document.getElementById(\"mainControls\");\
-  mainControlsDiv.innerHTML = \"\";\
+    const mainControlsDiv = document.getElementById(\"mainControls\");\
+    mainControlsDiv.innerHTML = \"\";\
 \
-  const socketContainer = document.createElement(\"div\");\
-  socketContainer.className = \"socket-container\";\
-  socketContainer.style.margin = \"0 auto 20px auto\";\
-  const buttonToggleAll = document.createElement(\"button\");\
-  buttonToggleAll.id = \"buttonToggleAll\";\
-  buttonToggleAll.className = \"btn button-container off\";\
-  const stateCircle = document.createElement(\"div\");\
-  stateCircle.className = \"button-state-circle\";\
+    const socketContainer = document.createElement(\"div\");\
+    socketContainer.className = \"socket-container\";\
+    socketContainer.style.margin = \"0 auto 20px auto\";\
+    const buttonToggleAll = document.createElement(\"button\");\
+    buttonToggleAll.id = \"buttonToggleAll\";\
+    buttonToggleAll.className = \"btn button-container off\";\
+    const stateCircle = document.createElement(\"div\");\
+    stateCircle.className = \"button-state-circle\";\
 \
-  const outerCircle = document.createElement(\"div\");\
-  outerCircle.className = \"button-outer-circle\";\
+    const outerCircle = document.createElement(\"div\");\
+    outerCircle.className = \"button-outer-circle\";\
 \
-  const innerCircle = document.createElement(\"div\");\
-  innerCircle.className = \"button-inner-circle\";\
+    const innerCircle = document.createElement(\"div\");\
+    innerCircle.className = \"button-inner-circle\";\
 \
-  const iconDiv = document.createElement(\"div\");\
-  iconDiv.className = \"icon\";\
+    const iconDiv = document.createElement(\"div\");\
+    iconDiv.className = \"icon\";\
 \
-  const icon = document.createElement(\"i\");\
-  icon.className = \"fas fa-power-off\";\
+    const icon = document.createElement(\"i\");\
+    icon.className = \"fas fa-power-off\";\
 \
-  iconDiv.appendChild(icon);\
-  innerCircle.appendChild(iconDiv);\
-  buttonToggleAll.appendChild(stateCircle);\
-  buttonToggleAll.appendChild(outerCircle);\
-  buttonToggleAll.appendChild(innerCircle);\
-  socketContainer.appendChild(buttonToggleAll);\
-  mainControlsDiv.appendChild(socketContainer);\
-  addEventListeners(buttonToggleAll, ButtonIndexAll);\
+    iconDiv.appendChild(icon);\
+    innerCircle.appendChild(iconDiv);\
+    buttonToggleAll.appendChild(stateCircle);\
+    buttonToggleAll.appendChild(outerCircle);\
+    buttonToggleAll.appendChild(innerCircle);\
+    socketContainer.appendChild(buttonToggleAll);\
+    mainControlsDiv.appendChild(socketContainer);\
+    addEventListeners(buttonToggleAll, ButtonIndexAll);\
 }\
 \
 function generateConnectionStatusContainer() {\
-  const statusPlaceholderDiv = document.getElementById(\"statusPlaceholder\");\
-  statusPlaceholderDiv.innerHTML = \"\";\
+    const statusPlaceholderDiv = document.getElementById(\"statusPlaceholder\");\
+    statusPlaceholderDiv.innerHTML = \"\";\
 \
-  const statusContainer = document.createElement(\"div\");\
-  statusContainer.id = \"connectionStatusContainer\";\
+    const statusContainer = document.createElement(\"div\");\
+    statusContainer.id = \"connectionStatusContainer\";\
 \
-  const statusIndicator = document.createElement(\"span\");\
-  statusIndicator.id = \"connectionStatus\";\
-  statusIndicator.style.backgroundColor = \"#ff0000\";\
+    const statusIndicator = document.createElement(\"span\");\
+    statusIndicator.id = \"connectionStatus\";\
+    statusIndicator.style.backgroundColor = \"#ff0000\";\
 \
-  const statusText = document.createElement(\"span\");\
-  statusText.id = \"connectionText\";\
-  statusText.textContent = \"Connecting...\";\
+    const statusText = document.createElement(\"span\");\
+    statusText.id = \"connectionText\";\
+    statusText.textContent = \"Connecting...\";\
 \
-  statusContainer.appendChild(statusIndicator);\
-  statusContainer.appendChild(statusText);\
-  statusPlaceholderDiv.appendChild(statusContainer);\
+    statusContainer.appendChild(statusIndicator);\
+    statusContainer.appendChild(statusText);\
+    statusPlaceholderDiv.appendChild(statusContainer);\
 }\
   </script>\
   <script>\
    let websocket = null;\
 \
 function initializeWebSocket() {\
-  console.log(\"Trying to open a WebSocket connection...\");\
-  websocket = new WebSocket(websocketUrl);\
+    console.log(\"Trying to open a WebSocket connection...\");\
+    websocket = new WebSocket(websocketUrl);\
 \
-  websocket.onopen = () => {\
-    console.log(\"WebSocket Connected!\");\
-    websocket.send(\"Hello from browser!\");\
-  };\
+    websocket.onopen = () => {\
+        console.log(\"WebSocket Connected!\");\
+        websocket.send(\"Hello from browser!\");\
+    };\
 \
-  websocket.onmessage = (e) => {\
-    const message = JSON.parse(e.data);\
-    console.log(\"Received message:\", message);\
-    if (message.socketId === undefined || message.state === undefined) {\
-      console.warn(\"Invalid message format:\", message);\
-    }\
+    websocket.onmessage = (e) => {\
+        const message = JSON.parse(e.data);\
+        console.log(\"Received message:\", message);\
+        wsMessageHandler(message);\
+    };\
 \
-    if (message.socketId === ButtonIndexAll) {\
-      if (Array.isArray(message.state)) {\
-        message.state.forEach((state, index) => {\
-          setButtonState(index, state);\
-        });\
-        return;\
-      }\
-    }\
+    websocket.onclose = () => {\
+        console.log(\"WebSocket disconnected\");\
+    };\
 \
-    setButtonState(message.socketId, message.state);\
-  };\
-\
-  websocket.onclose = () => {\
-    console.log(\"WebSocket disconnected\");\
-  };\
-\
-  websocket.onerror = (error) => {\
-    console.error(\"WebSocket error:\", error);\
-  };\
+    websocket.onerror = (error) => {\
+        console.error(\"WebSocket error:\", error);\
+    };\
 }\
 \
 function getWebSocket() {\
-  return websocket;\
+    return websocket;\
+}\
+\
+function wsMessageHandler(message) {\
+    if (!message.type) {\
+        console.warn(\"Received message without type:\", message);\
+        return;\
+    }\
+\
+    switch (message.type) {\
+        case \"UI_UPDATE\":\
+            if (validateMessageFields(message, [\"socketCount\", \"initialStates\"]) && Array.isArray(message.initialStates)) {\
+                generateButtons(message.socketCount);\
+                initSocketControl(message.socketCount);\
+\
+                for (let i = 0; i < message.socketCount; i++) {\
+                    setButtonState(ButtonStartIndex + i, message.initialStates[i]);\
+                }\
+\
+            } else {\
+                console.warn(\
+                    \"Received UI_UPDATE message with missing fields:\",\
+                    message\
+                );\
+            }\
+            break;\
+        case \"SWITCH_STATE_UPDATE\":\
+            if (validateMessageFields(message, [\"socketId\", \"state\"])) {\
+                if (message.socketId === ButtonIndexAll) {\
+                    if (Array.isArray(message.state)) {\
+                        message.state.forEach((state, index) => {\
+                            setButtonState(index, state);\
+                        });\
+                    }\
+                } else {\
+                    setButtonState(message.socketId, message.state);\
+                }\
+            } else {\
+                console.warn(\
+                    \"Received SWITCH_STATE_UPDATE message with missing fields:\",\
+                    message\
+                );\
+            }\
+            break;\
+        default:\
+            console.warn(\"Invalid message type:\", message.type);\
+    }\
+}\
+\
+function validateMessageFields(message, requiredFields) {\
+    for (const field of requiredFields) {\
+        if (message[field] === undefined) {\
+            console.warn(\
+                `Received message missing required field: ${field}`,\
+                message\
+            );\
+            return false;\
+        }\
+    }\
+    return true;\
 }\
   </script>\
   <script src=\"https://code.jquery.com/jquery-3.3.1.slim.min.js\">\

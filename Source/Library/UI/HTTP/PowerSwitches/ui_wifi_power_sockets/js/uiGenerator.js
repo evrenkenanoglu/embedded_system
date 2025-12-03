@@ -1,163 +1,163 @@
 function generateUiElements() {
-  // Generate the connection status container
-  generateConnectionStatusContainer();
-
-  // Generate the buttons
-  generateButtons();
+    // Generate the connection status container
+    generateConnectionStatusContainer();
 }
 
-function generateButtons(buttons) {
-  // Clear existing content first to refresh all buttons
-  document.getElementById("controls").innerHTML = "";
+function generateButtons(socketCount) {
+    // Clear existing content first to refresh all buttons
+    document.getElementById("controls").innerHTML = "";
 
-  for (let i = 0; i < 10; i++) {
-    const container = document.createElement("div");
-    container.className = "socket-container";
+    // Clear the sockets map before repopulating
+    sockets.clear();
 
-    const button = document.createElement("button");
-    button.className = "btn button-container off";
+    for (let i = 1; i <= socketCount; i++) {
+        const container = document.createElement("div");
+        container.className = "socket-container";
 
-    const buttonStateCircle = document.createElement("div");
-    buttonStateCircle.className = "button-state-circle";
+        const button = document.createElement("button");
+        button.className = "btn button-container off";
 
-    const buttonOuterCircle = document.createElement("div");
-    buttonOuterCircle.className = "button-outer-circle";
+        const buttonStateCircle = document.createElement("div");
+        buttonStateCircle.className = "button-state-circle";
 
-    const buttonInnerCircle = document.createElement("div");
-    buttonInnerCircle.className = "button-inner-circle";
+        const buttonOuterCircle = document.createElement("div");
+        buttonOuterCircle.className = "button-outer-circle";
 
-    const icon = document.createElement("div");
-    icon.className = "icon";
+        const buttonInnerCircle = document.createElement("div");
+        buttonInnerCircle.className = "button-inner-circle";
 
-    const iconPower = document.createElement("i");
-    iconPower.className = "fas fa-power-off";
+        const icon = document.createElement("div");
+        icon.className = "icon";
 
-    icon.append(iconPower);
-    buttonInnerCircle.append(icon);
-    button.append(buttonStateCircle);
-    button.append(buttonOuterCircle);
-    button.append(buttonInnerCircle);
+        const iconPower = document.createElement("i");
+        iconPower.className = "fas fa-power-off";
 
-    addEventListeners(button, i);
+        icon.append(iconPower);
+        buttonInnerCircle.append(icon);
+        button.append(buttonStateCircle);
+        button.append(buttonOuterCircle);
+        button.append(buttonInnerCircle);
 
-    sockets.push(button);
+        addEventListeners(button, i);
 
-    container.append(button);
-    document.getElementById("controls").append(container);
-  }
+        sockets.set(i, button);
 
-  generateButtonToggleAll();
+        container.append(button);
+        document.getElementById("controls").append(container);
+    }
 
-  // Update the button visuals based on the initial state
-  function updateInitialButtonStates() {
-    sockets.forEach((button, index) => {
-      const state = socketStateMap.get(index);
-      updateButtonVisuals(button, state);
-    });
-  }
+    generateButtonToggleAll();
 
-  updateInitialButtonStates();
+    // Update the button visuals based on the initial state
+    function updateInitialButtonStates() {
+        sockets.forEach((button, index) => {
+            const state = socketStateMap.get(index);
+            updateButtonVisuals(button, state);
+        });
+    }
+
+    updateInitialButtonStates();
 }
 
 function updateButtonVisuals(button, state) {
-  const stateCircle = button.querySelector(".button-state-circle");
-  const outerCircle = button.querySelector(".button-outer-circle");
-  const powerIcon = button.querySelector(".fa-power-off");
+    const stateCircle = button.querySelector(".button-state-circle");
+    const outerCircle = button.querySelector(".button-outer-circle");
+    const powerIcon = button.querySelector(".fa-power-off");
 
-  switch (state) {
-    case ButtonState.DISABLED:
-      button.classList.add("disabled");
-      button.classList.remove("on", "off");
-      stateCircle.style.borderColor = colorStateDisabled;
-      powerIcon.style.color = colorStateDisabled;
-      outerCircle.style.animation = "none";
-      button.style.opacity = 0.5;
-      break;
-    case ButtonState.ON:
-      button.classList.remove("disabled", "off");
-      button.classList.add("on");
-      button.style.opacity = 1;
-      stateCircle.style.borderColor = colorStateOn;
-      powerIcon.style.color = colorStateOn;
-      outerCircle.style.animation = "glowGreen 1.5s infinite alternate";
-      break;
-    case ButtonState.OFF:
-    default:
-      button.classList.remove("disabled", "on");
-      button.classList.add("off");
-      button.style.opacity = 1;
-      stateCircle.style.borderColor = colorStateOff;
-      powerIcon.style.color = colorStateOff;
-      outerCircle.style.animation = "glowRed 1.5s infinite alternate";
-      break;
-  }
+    switch (state) {
+        case ButtonState.DISABLED:
+            button.classList.add("disabled");
+            button.classList.remove("on", "off");
+            stateCircle.style.borderColor = colorStateDisabled;
+            powerIcon.style.color = colorStateDisabled;
+            outerCircle.style.animation = "none";
+            button.style.opacity = 0.5;
+            break;
+        case ButtonState.ON:
+            button.classList.remove("disabled", "off");
+            button.classList.add("on");
+            button.style.opacity = 1;
+            stateCircle.style.borderColor = colorStateOn;
+            powerIcon.style.color = colorStateOn;
+            outerCircle.style.animation = "glowGreen 1.5s infinite alternate";
+            break;
+        case ButtonState.OFF:
+        default:
+            button.classList.remove("disabled", "on");
+            button.classList.add("off");
+            button.style.opacity = 1;
+            stateCircle.style.borderColor = colorStateOff;
+            powerIcon.style.color = colorStateOff;
+            outerCircle.style.animation = "glowRed 1.5s infinite alternate";
+            break;
+    }
 }
 
 function generateButtonToggleAll() {
-  const mainControlsDiv = document.getElementById("mainControls");
-  // Clear any existing content
-  mainControlsDiv.innerHTML = "";
+    const mainControlsDiv = document.getElementById("mainControls");
+    // Clear any existing content
+    mainControlsDiv.innerHTML = "";
 
-  // Create container for the main button
-  const socketContainer = document.createElement("div");
-  socketContainer.className = "socket-container";
-  socketContainer.style.margin = "0 auto 20px auto";
-  // Create the main toggle button
-  const buttonToggleAll = document.createElement("button");
-  buttonToggleAll.id = "buttonToggleAll";
-  buttonToggleAll.className = "btn button-container off";
-  // Create button elements
-  const stateCircle = document.createElement("div");
-  stateCircle.className = "button-state-circle";
+    // Create container for the main button
+    const socketContainer = document.createElement("div");
+    socketContainer.className = "socket-container";
+    socketContainer.style.margin = "0 auto 20px auto";
+    // Create the main toggle button
+    const buttonToggleAll = document.createElement("button");
+    buttonToggleAll.id = "buttonToggleAll";
+    buttonToggleAll.className = "btn button-container off";
+    // Create button elements
+    const stateCircle = document.createElement("div");
+    stateCircle.className = "button-state-circle";
 
-  const outerCircle = document.createElement("div");
-  outerCircle.className = "button-outer-circle";
+    const outerCircle = document.createElement("div");
+    outerCircle.className = "button-outer-circle";
 
-  const innerCircle = document.createElement("div");
-  innerCircle.className = "button-inner-circle";
+    const innerCircle = document.createElement("div");
+    innerCircle.className = "button-inner-circle";
 
-  const iconDiv = document.createElement("div");
-  iconDiv.className = "icon";
+    const iconDiv = document.createElement("div");
+    iconDiv.className = "icon";
 
-  const icon = document.createElement("i");
-  icon.className = "fas fa-power-off";
+    const icon = document.createElement("i");
+    icon.className = "fas fa-power-off";
 
-  // Build the button hierarchy
-  iconDiv.appendChild(icon);
-  innerCircle.appendChild(iconDiv);
-  buttonToggleAll.appendChild(stateCircle);
-  buttonToggleAll.appendChild(outerCircle);
-  buttonToggleAll.appendChild(innerCircle);
-  socketContainer.appendChild(buttonToggleAll);
-  // Add to the DOM
-  mainControlsDiv.appendChild(socketContainer);
-  // Add event listener for the toggle all button
-  addEventListeners(buttonToggleAll, ButtonIndexAll);
+    // Build the button hierarchy
+    iconDiv.appendChild(icon);
+    innerCircle.appendChild(iconDiv);
+    buttonToggleAll.appendChild(stateCircle);
+    buttonToggleAll.appendChild(outerCircle);
+    buttonToggleAll.appendChild(innerCircle);
+    socketContainer.appendChild(buttonToggleAll);
+    // Add to the DOM
+    mainControlsDiv.appendChild(socketContainer);
+    // Add event listener for the toggle all button
+    addEventListeners(buttonToggleAll, ButtonIndexAll);
 }
 
 // Connection Status Container Generation
 function generateConnectionStatusContainer() {
-  const statusPlaceholderDiv = document.getElementById("statusPlaceholder");
-  // Clear any existing content
-  statusPlaceholderDiv.innerHTML = "";
+    const statusPlaceholderDiv = document.getElementById("statusPlaceholder");
+    // Clear any existing content
+    statusPlaceholderDiv.innerHTML = "";
 
-  // Create the status container
-  const statusContainer = document.createElement("div");
-  statusContainer.id = "connectionStatusContainer";
+    // Create the status container
+    const statusContainer = document.createElement("div");
+    statusContainer.id = "connectionStatusContainer";
 
-  // Create the status indicator span
-  const statusIndicator = document.createElement("span");
-  statusIndicator.id = "connectionStatus";
-  statusIndicator.style.backgroundColor = "#ff0000";
+    // Create the status indicator span
+    const statusIndicator = document.createElement("span");
+    statusIndicator.id = "connectionStatus";
+    statusIndicator.style.backgroundColor = "#ff0000";
 
-  // Create the text span
-  const statusText = document.createElement("span");
-  statusText.id = "connectionText";
-  statusText.textContent = "Connecting...";
+    // Create the text span
+    const statusText = document.createElement("span");
+    statusText.id = "connectionText";
+    statusText.textContent = "Connecting...";
 
-  // Append the status indicator and text to the container
-  statusContainer.appendChild(statusIndicator);
-  statusContainer.appendChild(statusText);
-  // Append the status container to the placeholder div
-  statusPlaceholderDiv.appendChild(statusContainer);
+    // Append the status indicator and text to the container
+    statusContainer.appendChild(statusIndicator);
+    statusContainer.appendChild(statusText);
+    // Append the status container to the placeholder div
+    statusPlaceholderDiv.appendChild(statusContainer);
 }
