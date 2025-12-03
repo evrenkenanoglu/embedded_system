@@ -12,7 +12,7 @@
 namespace
 {
 constexpr uint16_t programRoutineTaskDelay     = 1000; // milliseconds
-constexpr uint16_t programRoutineTaskStackSize = 4096; // bytes
+constexpr uint16_t programRoutineTaskStackSize = 6 * 1024; // bytes
 constexpr uint8_t  programRoutineTaskPriority  = 5;
 constexpr char     programRoutineTaskName[]    = "programRoutineTask";
 
