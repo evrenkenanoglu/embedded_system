@@ -30,10 +30,10 @@ Proc_Button::~Proc_Button()
 
 sys_error_t Proc_Button::start()
 {
-    SYS_LOG_D("STATE: %d", static_cast<int>(getState()));
-
+    // Validate buttons pointer
     RETURN_IF_ERROR(_buttons.get() == nullptr, ERROR_INIT_FAILED, SYS_LOG_D("Buttons pointer is null"));
 
+    // Ensure process is in INITIALIZED or STOPPED state
     RETURN_IF_ERROR_WITH_LOG(
         getState() != State::INITIALIZED && getState() != State::STOPPED, // Expression
         ERROR_INVALID_STATE,                                              // Error Code
@@ -87,15 +87,19 @@ sys_error_t Proc_Button::resume()
 
 void Proc_Button::buttonListener(void* arg)
 {
+    // Validate argument
     RETURN_IF_ERROR(arg == nullptr, , SYS_LOG_E("Proc_Button argument is null"));
 
+    // Get the Proc_Button instance
     Proc_Button* proc = static_cast<Proc_Button*>(arg);
 
     // Create queue set for all button queues
     QueueSetHandle_t queueSet = xQueueCreateSet(proc->_buttons->size() * IHAL_GPIO_EVENT_QUEUE_LENGTH);
 
+    // Validate queue set creation
     RETURN_IF_ERROR(queueSet == nullptr, , SYS_LOG_E("Failed to create queue set for button listener"));
 
+    // Add all button queues to the queue set
     for (BUTTON::Instance_t* button : *(proc->_buttons))
     {
         RETURN_IF_ERROR(
@@ -105,11 +109,10 @@ void Proc_Button::buttonListener(void* arg)
         );
     }
 
-    SYS_LOG_D("Waiting for button to be pressed!\n");
     for (;;)
     {
+        // Wait indefinitely for the first event on any queue in the set.
         QueueHandle_t activeQueue = xQueueSelectFromSet(queueSet, portMAX_DELAY);
-
         // Find which button triggered
         for (BUTTON::Instance_t* button : *(proc->_buttons))
         {
@@ -129,7 +132,7 @@ void Proc_Button::processButtonEvent(BUTTON::Instance_t* button, hal_gpio_event_
     RETURN_IF_ERROR((button == nullptr || event == nullptr), , SYS_LOG_E("Button instance is null"));
 
     BUTTON::EventData_t eventData;
-    eventData.index                = button->index; //
+    eventData.index                = button->index;
     QueueHandle_t buttonEventQueue = reinterpret_cast<QueueHandle_t>(button->eventQueue);
 
     // Get current time in ticks
@@ -172,7 +175,6 @@ void Proc_Button::processButtonEvent(BUTTON::Instance_t* button, hal_gpio_event_
 
         if (duration < button->config.shortPressThresholdMs)
         {
-
             eventData.event = BUTTON::Event::SHORT_PRESS;
             xQueueSend(buttonEventQueue, &eventData, 0);
         }
@@ -181,13 +183,12 @@ void Proc_Button::processButtonEvent(BUTTON::Instance_t* button, hal_gpio_event_
             eventData.event = BUTTON::Event::LONG_PRESS;
             xQueueSend(buttonEventQueue, &eventData, 0);
         }
-        // else: ignore very long presses
-
-        // If no double click detected after window, reset
-        if (button->state.waitingForSecondClick && (now - button->state.firstClickTime > button->config.doubleClickWindowMs))
-        {
-            button->state.waitingForSecondClick = false;
-        }
+    }
+    // else: ignore very long presses
+    // If no double click detected after window, reset
+    if (button->state.waitingForSecondClick && (now - button->state.firstClickTime > button->config.doubleClickWindowMs))
+    {
+        button->state.waitingForSecondClick = false;
     }
 }
 
