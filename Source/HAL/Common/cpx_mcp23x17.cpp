@@ -6,10 +6,10 @@
  */
 
 #include "cpx_mcp23x17.hpp"
-#include "System/LogHandler.h"
+#include "System/errorTranslateHandler.h"
 
 // #define ENABLE_SYS_LOG_D
-#include "System/errorTranslateHandler.h"
+#include "System/LogHandler.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////c
 // STATIC FUNCTION DECLARATIONS
@@ -67,6 +67,8 @@ cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_
     , _isHardwareAddressEnabled(static_cast<bool>(HAEN_ENABLED))                      // 3rd bit
     , _isOpenDrainEnabled(static_cast<bool>(ODR_DISABLED))                            // 2nd bit
     , _isIntPolarityActiveHigh(static_cast<bool>(INTPOL_ACTIVE_LOW))                  // 1st bit
+    , _lastInputStatePortA(0x00)                                                      // Initialize last input state for Port A
+    , _lastInputStatePortB(0x00)                                                      // Initialize last input state for Port B
     , _interruptTaskHandle(nullptr)
 // 0th bit no effect
 {
@@ -119,15 +121,6 @@ sys_error_t cpx_mcp23x17::init(void* params)
         RETURN_ON_ERROR(_interruptPinB->init());
     }
 
-    uint8_t ioconValueA = 0;
-    uint8_t ioconValueB = 0;
-    SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
-    setIOCONRegister();
-    readRegisterByTypeByte(REG_TYPE::IOCON, PORT::A, ioconValueA);
-    readRegisterByTypeByte(REG_TYPE::IOCON, PORT::B, ioconValueB);
-
-    SYS_LOG_I("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
-
     _isInitialized = true; // Mark as initialized
 
     return ERROR_SUCCESS;
@@ -159,6 +152,19 @@ sys_error_t cpx_mcp23x17::start()
     {
         return ERROR_SUCCESS; // Already started
     }
+
+    uint8_t ioconValueA = 0;
+    uint8_t ioconValueB = 0;
+    SYS_LOG_D("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
+    RETURN_ON_ERROR(setIOCONRegister());
+    RETURN_ON_ERROR(readRegisterByTypeByte(REG_TYPE::IOCON, PORT::A, ioconValueA));
+    RETURN_ON_ERROR(readRegisterByTypeByte(REG_TYPE::IOCON, PORT::B, ioconValueB));
+
+    SYS_LOG_D("IOCON Register A: 0x%02X, B: 0x%02X", ioconValueA, ioconValueB);
+
+    // Read initial GPIO states to populate _lastInputStatePortA and _lastInputStatePortB
+    RETURN_ON_ERROR(readRegisterByTypeByte(REG_TYPE::GPIO, PORT::A, _lastInputStatePortA));
+    RETURN_ON_ERROR(readRegisterByTypeByte(REG_TYPE::GPIO, PORT::B, _lastInputStatePortB));
 
     // create a task to handle interrupts if needed
     if (_interruptPinA || _interruptPinB)
@@ -314,31 +320,36 @@ sys_error_t cpx_mcp23x17::handleInterrupt(PORT port, void* params)
 {
     RETURN_IF_ERROR((!_started), ERROR_NOT_INITIALIZED);
 
-    // Read the interrupt flags to determine which pins triggered the interrupt
-    uint8_t intFlags    = 0; // Read which pins triggered the interrupt
-    uint8_t intCaptured = 0; // Read the captured values at the time of the interrupt
+    uint8_t  currentGpioState  = 0;
+    uint8_t* lastKnownStatePtr = (port == PORT::A) ? &_lastInputStatePortA : &_lastInputStatePortB;
 
-    RETURN_ON_ERROR_WITH_LOG(getInterruptFlag(port, intFlags), "Failed to read interrupt flags");
-    RETURN_ON_ERROR_WITH_LOG(getInterruptCaptured(port, intCaptured), "Failed to read interrupt captured values");
+    // Reading INTCAP caused issues if multiple pins interrupted at once causing missed interrupts on other pins.
+    // 1. Read the CURRENT real-time state (GPIO), NOT the captured state (INTCAP).
+    // Reading GPIO also clears the interrupt on the MCP23017.
+    RETURN_ON_ERROR_WITH_LOG(readRegisterByTypeByte(REG_TYPE::GPIO, port, currentGpioState), "Failed to read GPIO state");
 
-    // SYS_LOG_D("Interrupt flags for Port %d: 0x%02X", static_cast<int>(port), intFlags);
-    // SYS_LOG_D("Interrupt captured values for Port %d: 0x%02X", static_cast<int>(port), intCaptured);
+    // 2. Determine what changed by XORing current state with last known state
+    uint8_t changedBits = currentGpioState ^ (*lastKnownStatePtr);
 
-    // Iterate through each pin and call the registered handler if the pin triggered the interrupt
+    // 3. Update the last known state immediately
+    *lastKnownStatePtr = currentGpioState;
+
+    // 4. Iterate through changed pins
     for (uint8_t pinNo = 0; pinNo < 8; ++pinNo)
     {
-        if (intFlags & (1 << pinNo)) // Check if this pin triggered the interrupt
+        if (changedBits & (1 << pinNo)) // If this pin changed
         {
             auto it = _inputPinInterruptHandlers.find(std::make_pair(port, pinNo));
-            // if found and handler is not null, call the handler with params
+
             if (it != _inputPinInterruptHandlers.end() && it->second.first != nullptr)
             {
-                // SYS_LOG_D("Calling interrupt handler for Port %d, Pin %d", static_cast<int>(port), pinNo);
-                it->second.first(it->second.second, (intCaptured & (1 << pinNo)) != 0); // Call the handler with params and captured level
-            }
-            else
-            {
-                SYS_LOG_W("No interrupt handler registered for Port %d, Pin %d", static_cast<int>(port), pinNo);
+                // Determine the new level (High/Low) based on currentGpioState
+                bool newLevel = (currentGpioState & (1 << pinNo)) != 0;
+
+                SYS_LOG_D("State Change Detect: Port %d, Pin %d, NewLevel %d", static_cast<int>(port), pinNo, newLevel);
+
+                // Call handler with the NEW level
+                it->second.first(it->second.second, newLevel);
             }
         }
     }
@@ -377,7 +388,7 @@ CPX_MCP23X17_REG_FUNCS(Latch, OLAT);
 
 sys_error_t cpx_mcp23x17::writeRegister(const uint8_t reg, const uint8_t value)
 {
-    if (!_started)
+    if (!_isInitialized)
     {
         return ERROR_NOT_INITIALIZED; // Not started, cannot write register
     }
@@ -385,7 +396,7 @@ sys_error_t cpx_mcp23x17::writeRegister(const uint8_t reg, const uint8_t value)
     // Prepare the data to be sent
     const uint8_t data[2] = {static_cast<uint8_t>(reg), value}; // Register address and value to write
 
-    // SYS_LOG_D("Writing to register: 0x%02X, value: 0x%02X", reg, value);
+    SYS_LOG_D("Writing to register: 0x%02X, value: 0x%02X", reg, value);
 
     // Send the data using the communication interface
     RETURN_ON_ERROR_WITH_LOG(
@@ -398,7 +409,7 @@ sys_error_t cpx_mcp23x17::writeRegister(const uint8_t reg, const uint8_t value)
 
 sys_error_t cpx_mcp23x17::readRegister(const uint8_t reg, uint8_t& value)
 {
-    if (!_started)
+    if (!_isInitialized)
     {
         return ERROR_NOT_INITIALIZED; // Not started, cannot read register
     }
@@ -437,8 +448,10 @@ sys_error_t cpx_mcp23x17::readRegisterByTypeBit(const REG_TYPE regType, const PO
 
 sys_error_t cpx_mcp23x17::updateRegisterMasked(const uint8_t reg, const uint8_t mask, const uint8_t value, const bool verify)
 {
-    if (!_started)
+
+    if (!_isInitialized)
     {
+        SYS_LOG_E("Cannot update register 0x%02X: Device not started", reg);
         return ERROR_NOT_INITIALIZED; // Not started, cannot update register
     }
 
@@ -451,7 +464,7 @@ sys_error_t cpx_mcp23x17::updateRegisterMasked(const uint8_t reg, const uint8_t 
     // Update the value with the mask
     currentValue = (currentValue & ~mask) | (value & mask);
 
-    // SYS_LOG_D("Updating register: 0x%02X, current value: 0x%02X, mask: 0x%02X, new value: 0x%02X", reg, currentValue, mask, value);
+    SYS_LOG_D("Updating register: 0x%02X, current value: 0x%02X, mask: 0x%02X, new value: 0x%02X", reg, currentValue, mask, value);
 
     // Write the updated value back to the register
     RETURN_ON_ERROR_WITH_LOG(
@@ -459,11 +472,11 @@ sys_error_t cpx_mcp23x17::updateRegisterMasked(const uint8_t reg, const uint8_t 
         "Failed to write updated register value", // Error Message
     );
 
-    // SYS_LOG_D("Register 0x%02X updated successfully", reg);
+    SYS_LOG_D("Register 0x%02X updated successfully", reg);
 
     if (verify)
     {
-        // SYS_LOG_D("Verifying register: 0x%02X after update", reg);
+        SYS_LOG_D("Verifying register: 0x%02X after update", reg);
 
         // Verify the register value if required
         RETURN_ON_ERROR_WITH_LOG(
@@ -477,8 +490,9 @@ sys_error_t cpx_mcp23x17::updateRegisterMasked(const uint8_t reg, const uint8_t 
 
 sys_error_t cpx_mcp23x17::verifyRegister(const uint8_t reg, const uint8_t expectedValue)
 {
-    if (!_started)
+    if (!_isInitialized)
     {
+        SYS_LOG_E("Cannot verify register 0x%02X: Device not started", reg);
         return ERROR_NOT_INITIALIZED; // Not started, cannot verify register
     }
 

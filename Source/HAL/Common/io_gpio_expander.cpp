@@ -11,6 +11,8 @@
 
 /** INCLUDES ******************************************************************/
 #include "io_gpio_expander.hpp"
+
+// #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
 namespace

@@ -325,6 +325,10 @@ private:
     bool          _isOpenDrainEnabled;            // True if open-drain output is enabled
     bool          _isIntPolarityActiveHigh;       // True if interrupt polarity is active high
 
+    // Last known input states for change detection
+    uint8_t _lastInputStatePortA;
+    uint8_t _lastInputStatePortB;
+
     TaskHandle_t _interruptTaskHandle; // Task handle for interrupt handling task
 
     /**
