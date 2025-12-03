@@ -133,7 +133,7 @@ if __name__ == "__main__":
         with open(output_path, "r", encoding="utf-8") as file:
             soup = BeautifulSoup(file, "lxml")
 
-        formatter = TabHTMLFormatter(indent=1)  # 1 tab per level
+        formatter = TabHTMLFormatter(indent=4)  # 4 tab per level
         formatted_html = soup.prettify(formatter=formatter)
 
         with open(output_path, "w", encoding="utf-8") as file:
