@@ -1,7 +1,7 @@
 #ifndef URI_WIFICONNECT_HPP
 #define URI_WIFICONNECT_HPP
 
-#include "HAL/IHal/IHal.h"
+#include "HAL/IHAL/IHal.h"
 #include "PAL/Platform/Esp32/Protocol/HTTP/URIs/HttpUriPost.hpp"
 
 class UriWifiConnect : public HttpUriPost

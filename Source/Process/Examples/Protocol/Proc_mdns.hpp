@@ -8,7 +8,7 @@
 #ifndef PROC_MDNS_HPP
 #define PROC_MDNS_HPP
 
-#include "PAL/PAL.h"
+#include "PAL/Pal.h"
 #include "Process/Process.hpp"
 
 class Proc_mdns : public Process

@@ -8,7 +8,7 @@
 #ifndef PROC_LEDS_HPP
 #define PROC_LEDS_HPP
 
-#include "HAL/IHal/IHal_Io_Gpio.h"
+#include "HAL/IHAL/IHal_Io_Gpio.h"
 #include "Process/Process.hpp"
 #include <stdbool.h>
 #include <vector>

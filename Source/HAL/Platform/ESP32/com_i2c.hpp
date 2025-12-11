@@ -8,7 +8,7 @@
 #ifndef COM_I2C_HPP
 #define COM_I2C_HPP
 
-#include "HAL/IHal/IHal_Com_i2c.h"
+#include "HAL/IHAL/IHal_Com_i2c.h"
 #include "driver/i2c.h"
 
 typedef struct platformSpecificConfig_t

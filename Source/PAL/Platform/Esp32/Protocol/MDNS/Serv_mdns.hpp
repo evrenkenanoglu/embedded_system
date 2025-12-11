@@ -8,7 +8,7 @@
 #ifndef SERV_MDNS_HPP
 #define SERV_MDNS_HPP
 
-#include "Pal/Pal.h"
+#include "PAL/Pal.h"
 #include "System/system.h"
 #include <string>
 

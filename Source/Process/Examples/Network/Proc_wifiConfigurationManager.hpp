@@ -8,7 +8,7 @@
 #ifndef Proc_wifiConfigurationManager_HPP
 #define Proc_wifiConfigurationManager_HPP
 
-#include "HAL/IHal/IHal.h"
+#include "HAL/IHAL/IHal.h"
 #include "HAL/Platform/ESP32/cpx_wifi.h"
 #include "Process/Examples/Protocol/Proc_httpServer.hpp"
 #include "Process/Process.hpp"

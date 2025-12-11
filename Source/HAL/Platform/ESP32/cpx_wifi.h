@@ -8,7 +8,7 @@
 #ifndef CPX_WIFI_HPP
 #define CPX_WIFI_HPP
 
-#include "HAL/IHal/IHal.h"
+#include "HAL/IHAL/IHal.h"
 #include "System/error_definitions.h"
 #include "esp_netif_types.h"
 #include "esp_wifi_types.h"

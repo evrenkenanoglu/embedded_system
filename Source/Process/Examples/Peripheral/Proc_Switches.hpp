@@ -8,7 +8,7 @@
 #ifndef PROC_SWITCHES_HPP
 #define PROC_SWITCHES_HPP
 
-#include "HAL/IHal/IHal.h"
+#include "HAL/IHAL/IHal.h"
 #include "Library/Utility/switch.hpp"
 #include "Process/Process.hpp"
 #include <functional>

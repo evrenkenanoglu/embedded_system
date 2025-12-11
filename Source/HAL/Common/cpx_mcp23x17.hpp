@@ -8,7 +8,7 @@
 #ifndef CPX_MCP23X17_HPP
 #define CPX_MCP23X17_HPP
 
-#include "HAL\IHAL\IHal_Io_Gpio.h"
+#include "HAL/IHAL/IHal_Io_Gpio.h"
 #include <map>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,7 +8,7 @@
 #ifndef SERV_WEBSOCKETS_HPP
 #define SERV_WEBSOCKETS_HPP
 
-#include "Pal/Pal.h"
+#include "PAL/Pal.h"
 #include "URIs/HttpUriWebsocket.hpp"
 #include <esp_http_server.h>
 

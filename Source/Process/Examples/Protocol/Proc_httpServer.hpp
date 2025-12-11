@@ -8,7 +8,7 @@
 #ifndef PROC_HTTPSERVER_HPP
 #define PROC_HTTPSERVER_HPP
 
-#include "PAL/PAL.h"
+#include "PAL/Pal.h"
 #include "Process/Process.hpp"
 
 class Proc_httpServer : public Process

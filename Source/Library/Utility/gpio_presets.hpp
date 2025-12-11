@@ -1,5 +1,5 @@
 #pragma once
-#include "HAL\IHAL\IHal_Io_Gpio.h"
+#include "HAL/IHAL/IHal_Io_Gpio.h"
 
 /**
  * @brief GPIO configuration presets for common use cases

@@ -8,7 +8,7 @@
 #ifndef MEM_NVS_HPP
 #define MEM_NVS_HPP
 
-#include "HAL/IHal/IHal.h"
+#include "HAL/IHAL/IHal.h"
 
 #include "nvs.h"
 #include "nvs_flash.h"
