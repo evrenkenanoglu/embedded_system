@@ -6,3 +6,5 @@ _deps/
 **.pyc
 *.sarif
 **/static_code_analysis/reports/**
+
+.venv/
