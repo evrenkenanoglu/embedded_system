@@ -14,7 +14,9 @@
             "activityBar.background": "#0066ff",
             "titleBar.activeBackground": "#0066ff",
             "titleBar.activeForeground": "#f5ffde"
-        }
+        },
+        "python.terminal.activateEnvironment": true
+        
     },
     "extensions": {
         "recommendations": [
@@ -39,23 +41,32 @@
                 "label": "ES: Run Static Analysis with Active File",
                 "type": "shell",
                 "windows": {
-                    "command": "cd ${workspaceFolder}\\embedded_system\\Source\\Scripts\\static_code_analysis && python main.py --file ${file}"
-                }
+                    "command": "cd ${workspaceFolder}/embedded_system/Source/Scripts/static_code_analysis && python main.py --file ${file}"
+                },
+                "linux": {
+                    "command": "cd ${workspaceFolder}/embedded_system/Source/Scripts/static_code_analysis && python3 main.py --file ${file}"
+                },
             },
             {
                 "label": "ES: Run Static Analysis",
                 "type": "shell",
                 "windows": {
-                    "command": "cd ${workspaceFolder}\\embedded_system\\Source\\Scripts\\static_code_analysis && python main.py"
+                    "command": "cd ${workspaceFolder}/embedded_system/Source/Scripts/static_code_analysis && python main.py"
                 },
-                "problemMatcher": []
+                "linux": {
+                    "command": "cd ${workspaceFolder}/embedded_system/Source/Scripts/static_code_analysis && python3 main.py"
+                },
             },
             {
                 "label": "ES: Create a System Source File",
                 "type": "shell",
-                "command": "cd ${workspaceFolder}\\embedded_system\\Source\\Scripts\\system_source_files_generator && python create_system_source_files.py",
-                "problemMatcher": []
-            },
+                "windows": {
+                    "command": "cd ${workspaceFolder}/embedded_system/Source/Scripts/system_source_files_generator && python create_system_source_files.py"
+                },
+                "linux": {
+                    "command": "cd ${workspaceFolder}/embedded_system/Source/Scripts/system_source_files_generator && python3 create_system_source_files.py"
+                },
+            }
         ]
     }
 }
