@@ -16,7 +16,6 @@
             "titleBar.activeForeground": "#f5ffde"
         },
         "python.terminal.activateEnvironment": true
-        
     },
     "extensions": {
         "recommendations": [
@@ -66,6 +65,20 @@
                 "linux": {
                     "command": "cd ${workspaceFolder}/embedded_system/Source/Scripts/system_source_files_generator && python3 create_system_source_files.py"
                 },
+            },
+            {
+                "label": "ES: Smart Attach WSL USB",
+                "type": "shell",
+                "windows": {
+                    "command": "${workspaceFolder}/embedded_system/Tools/WSL/Smart_Attach.bat"
+                }
+            },
+            {
+                "label": "ES: Smart Deattach WSL USB",
+                "type": "shell",
+                "windows": {
+                    "command": "${workspaceFolder}/embedded_system/Tools/WSL/Smart_Deattach.bat"
+                }
             }
         ]
     }
