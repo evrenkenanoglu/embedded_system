@@ -83,6 +83,13 @@
                     "command": "python ${workspaceFolder}/embedded_system/Tools/WSL/Smart_Deattach.py"
                 }
             },
+            {
+                "label": "ES: Deattach & Attach WSL USB",
+                "type": "shell",
+                "windows": {
+                    "command": "python ${workspaceFolder}/embedded_system/Tools/WSL/Smart_Deattach_Attach.py"
+                }
+            }
             //********************************************************************//
             // Python requirements installation task can be added here if needed
             //********************************************************************//
