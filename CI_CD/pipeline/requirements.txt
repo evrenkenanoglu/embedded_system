@@ -1,0 +1,6 @@
+# add the python packages needed for embedded testing
+pytest 
+pytest-embedded 
+pytest-embedded-serial 
+pytest-embedded-idf
+pytest-embedded-serial-esp
