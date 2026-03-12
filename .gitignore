@@ -1,4 +1,4 @@
-build/
+build*/
 .vscode/
 Scripts/*.c*
 Scripts/*.h*
@@ -8,3 +8,6 @@ _deps/
 **/static_code_analysis/reports/**
 
 .venv/
+
+__pycache__/
+.pytest_cache/
