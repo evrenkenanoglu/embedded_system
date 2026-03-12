@@ -6,7 +6,7 @@
  */
 
 #include "Proc_Switches.hpp"
-// #define ENABLE_SYS_LOG_D
+#define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
 namespace
