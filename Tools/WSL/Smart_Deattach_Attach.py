@@ -118,6 +118,8 @@ def main():
     except Exception as e:
         print(f"\n[ERROR] An unexpected error occurred: {e}")
 
+    # Sleep 1 sec
+    time.sleep(1)
     # Attach again
     try:
         bind(bus_id)

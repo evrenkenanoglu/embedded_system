@@ -82,7 +82,7 @@ def main():
             
     except Exception as e:
         print(f"\n[ERROR] An unexpected error occurred: {e}")
-
+    
     # 4. List current status
     print("\n--- Current Device Status ---")
     try:
