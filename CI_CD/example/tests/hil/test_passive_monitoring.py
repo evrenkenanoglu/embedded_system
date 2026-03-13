@@ -6,8 +6,6 @@ def test_firmware_and_system_boot(dut: Dut):
     """
     Test 1: Verify the correct firmware is loaded and core systems initialize.
     """
-    # FORCE THE ESP32 TO RESTART RIGHT NOW so we capture the logs from Time 0!
-    dut.serial.hard_reset()
     
     # 1. Verify ESP-IDF bootloader and partition
     # Using a slightly looser regex so it survives ESP-IDF updates (removed the "v5.4.1-dirty" part)

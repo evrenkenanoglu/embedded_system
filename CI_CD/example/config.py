@@ -24,3 +24,8 @@ class ProjectConfig:
     DEFAULT_OTA_PORT = 8032
     
     DEFAULT_PORT = "COM3" if platform.system().lower() == "windows" else "/dev/ttyUSB0"
+
+    EMBEDDED_SERVICES = ["esp", "serial"]
+    
+    TEST_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "test_reports")
+    REPORT_FILE_PREFIX = "hil_report"

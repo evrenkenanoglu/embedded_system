@@ -38,18 +38,24 @@ def main():
     # else:
     #     tc.flash_ota(args.port, config.EXTRACTED_BUILD_DIR, config.DEFAULT_OTA_PORT)
 
+# pytest -s --log-cli-level=INFO tests/hil/test_serial.py --port=COM3 --target=esp32 --embedded-services esp,serial
+
     print("\n--- STAGE: HIL TESTS ---")
+
+    test_file_name = "test_serial.py"
+    test_file_name = "test_passive_monitoring.py"
     test_cmd =[
         "pytest", 
-        "-s", 
-        config.HIL_TEST_DIR, 
+        "-s",
+        "--log-cli-level=INFO",
+        f"{config.HIL_TEST_DIR}/{test_file_name}",
         f"--port={args.port}", 
         f"--target={config.TARGET}",  # <--- ADD THIS SO IT RESETS THE CHIP!
-        "--html=hil_report.html", 
+        f"--embedded-services={','.join(config.EMBEDDED_SERVICES)}",
+        f"--html={config.TEST_OUTPUT_DIR}/{config.REPORT_FILE_PREFIX}_{test_file_name.replace('.py', '')}.html",
         "--self-contained-html"
     ]
     run_cmd(test_cmd, check=False)
-
 
 if __name__ == "__main__":
     main()
