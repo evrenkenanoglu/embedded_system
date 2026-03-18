@@ -8,6 +8,33 @@ import time  # <-- Added this for a slight delay
 TARGET_VID_PID = "10c4:ea60"
 # ---------------------
 
+def find_host_ip():
+    """Finds the host's IP address for 'Ethernet adapter Ethernet 2'."""
+    try:
+        print("Finding host IP address for WSL...")
+        # Capture output from ipconfig
+        result = subprocess.check_output(["ipconfig"], text=True)
+        
+        # 1. Locate the specific 'Ethernet 2' block
+        # This matches from 'Ethernet 2:' until it hits another 'adapter' header
+        pattern = r"Ethernet adapter Ethernet 2:(.*?)(?=Ethernet adapter|Wireless LAN adapter|$)"
+        host_section = re.search(pattern, result, re.DOTALL)
+        
+        if host_section:
+            section_text = host_section.group(1)
+            # 2. Extract the IPv4 Address within that block
+            ip_match = re.search(r"IPv4 Address[.\s]*:\s*([\d.]+)", section_text)
+            
+            if ip_match:
+                ip = ip_match.group(1)
+                print(f"Host IP found: {ip}")
+                return ip
+            
+        print("Host IP not found in 'Ethernet 2' section.")
+    except Exception as e:
+        print(f"[ERROR] Failed to find host IP: {e}")
+    return None
+
 def is_admin():
     """Checks if the script is running with Administrator privileges."""
     try:
@@ -60,8 +87,12 @@ def bind(bus_id):
         stderr=subprocess.DEVNULL,
     )
 
-def attach(bus_id):
+def attach(bus_id, host_ip=None):
     cmd = ["usbipd", "attach", "--wsl", "--busid", bus_id, "--auto-attach"]
+    if host_ip:
+        cmd.extend(["--host-ip", host_ip])
+    
+    print(f"\nAttaching to WSL with command: {' '.join(cmd)}")
     CREATE_NO_WINDOW = 0x08000000
     subprocess.Popen(
         cmd,
@@ -81,8 +112,9 @@ def try_attach(bus_id):
             # 1. Bind (ignores error if already bound)
             bind(bus_id)
 
+
             # 2. Attach in the BACKGROUND using Popen
-            attach(bus_id)
+            attach(bus_id, host_ip=find_host_ip())
 
             print("\n[SUCCESS] Endless auto-attach loop started invisibly!")
             print("-" * 30)
