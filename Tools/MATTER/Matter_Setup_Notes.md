@@ -9,6 +9,11 @@ networkingMode = bridged
 vmSwitch = Bridge
 ipv6 = true
 
+or 
+
+[wsl2]
+networkingMode=mirrored
+
 WARNING: After this config, usbipd should get host-ip address to attach the device.
 
 ## Enable Matter Console to pass WiFi credentials to the device

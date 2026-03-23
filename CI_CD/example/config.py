@@ -23,9 +23,15 @@ class ProjectConfig:
     FLASH_ARGS_FILE = "flash_project_args"
     DEFAULT_OTA_PORT = 8032
     
-    DEFAULT_PORT = "COM3" if platform.system().lower() == "windows" else "/dev/ttyUSB0"
+    SERIAL_PORT = "COM3" if platform.system().lower() == "windows" else "/dev/ttyUSB0"
+    SERIAL_BAUD = 115200
 
     EMBEDDED_SERVICES = ["esp", "serial"]
     
     TEST_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "test_reports")
     REPORT_FILE_PREFIX = "hil_report"
+
+    TARGET_WIFI_SSID = "UniverseHome"
+    TARGET_WIFI_PASSWORD = "Lotr_2023"
+
+    CHIP_TOOL_PATH = "chip-tool" 

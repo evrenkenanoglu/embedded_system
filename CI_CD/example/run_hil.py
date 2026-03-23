@@ -22,7 +22,7 @@ from pipeline.core.utils import extract_zip, run_cmd, print_stage, print_start
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", default=ProjectConfig.DEFAULT_PORT)
+    parser.add_argument("--port", default=ProjectConfig.SERIAL_PORT)
     parser.add_argument("--method", choices=["usb", "ota"], default="usb")
     args = parser.parse_args()
 
@@ -38,19 +38,25 @@ def main():
     # else:
     #     tc.flash_ota(args.port, config.EXTRACTED_BUILD_DIR, config.DEFAULT_OTA_PORT)
 
-# pytest -s --log-cli-level=INFO tests/hil/test_serial.py --port=COM3 --target=esp32 --embedded-services esp,serial
+    # pytest -s --log-cli-level=INFO tests/hil/test_serial.py --port=COM3 --target=esp32 --embedded-services esp,serial
 
     print("\n--- STAGE: HIL TESTS ---")
 
-    test_file_name = "test_serial.py"
-    test_file_name = "test_passive_monitoring.py"
+    print("Current Directory:", os.getcwd())
+    print("Project Root:", config.PROJECT_ROOT)
+    print("HIL Test Directory:", config.HIL_TEST_DIR)
+
+
+    test_file_name = "test_matter_hil.py"
     test_cmd =[
         "pytest", 
         "-s",
+        "-v",
+        "--capture=tee-sys",
         "--log-cli-level=INFO",
         f"{config.HIL_TEST_DIR}/{test_file_name}",
         f"--port={args.port}", 
-        f"--target={config.TARGET}",  # <--- ADD THIS SO IT RESETS THE CHIP!
+        f"--target={config.TARGET}", 
         f"--embedded-services={','.join(config.EMBEDDED_SERVICES)}",
         f"--html={config.TEST_OUTPUT_DIR}/{config.REPORT_FILE_PREFIX}_{test_file_name.replace('.py', '')}.html",
         "--self-contained-html"
