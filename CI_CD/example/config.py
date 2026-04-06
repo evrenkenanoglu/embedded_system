@@ -4,7 +4,12 @@ import platform
 class ProjectConfig:
     # Resolves to 'smart_plug_project' root
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    
+
+    CLONE_URL = "https://github.com/evrenkenanoglu/Smart_Plugs_SW.git"
+    CLONE_BRANCH = "features/power_bar_app"
+    CLONE_DIR = os.path.join(PROJECT_ROOT, "temp_workspace")
+    WORKDIR = CLONE_DIR
+
     # --- PIPELINE LIBRARY LOCATION ---
     # Can be overridden by the CI Server via: export PIPELINE_LIB_PATH="/opt/embedded_system/CI_CD"
     _default_lib_path = os.path.abspath(os.path.join(PROJECT_ROOT, "../../embedded_system/CI_CD"))
@@ -13,7 +18,7 @@ class ProjectConfig:
     # --- PROJECT SETTINGS ---
     TOOLCHAIN = "esp-idf"
     TARGET = "esp32"
-    IDF_VERSION = "5.2"
+    IDF_VERSION = "5.4"
     
     BUILD_DIR = os.path.join(PROJECT_ROOT, "build")
     EXTRACTED_BUILD_DIR = os.path.join(PROJECT_ROOT, "build_extracted")

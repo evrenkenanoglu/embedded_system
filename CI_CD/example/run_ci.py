@@ -2,30 +2,41 @@
 import sys
 import os
 
-
 # 1. Load the project configuration
 from config import ProjectConfig
 
-# 2. Inject the central CI_CD library path into Python's module search path
 if not os.path.exists(ProjectConfig.PIPELINE_LIB_PATH):
-    print(f"❌ Error: Central Pipeline library not found at {ProjectConfig.PIPELINE_LIB_PATH}")
-    print("Please check your folder structure or set the PIPELINE_LIB_PATH environment variable.")
     sys.exit(1)
     
 sys.path.append(ProjectConfig.PIPELINE_LIB_PATH)
 
-# 3. NOW we can safely import the shared mechanics!
 from pipeline.toolchains.factory import get_toolchain
 from pipeline.core.utils import create_zip, print_stage
+from pipeline.core.git_manager import GitManager
 
 def main():
     config = ProjectConfig()
-    tc = get_toolchain(config) # Pass config into the library
+    
+    # --- STAGE 1: SOURCE CONTROL ---
+    print_stage("SOURCE CONTROL SETUP")
+    git = GitManager(config.WORKDIR)
+    
+    # If you need to clone from scratch, uncomment this:
+    git.clone("https://github.com/evrenkenanoglu/Smart_Plugs_SW.git", branch="features/power_bar_app")
+    
+    # Update submodules (esp-matter, connectedhomeip, etc.)
+    git.init_submodules()
 
-    # tc.build(config.TARGET)
-    # tc.run_unit_tests()
-    create_zip(config.BUILD_DIR, config.ARTIFACT_NAME)
-    print("✅ CI Pipeline Completed Successfully")
+    # --- STAGE 2: BUILD ---
+    print_stage(f"BUILD (Target: {config.TARGET})")
+    tc = get_toolchain(config)
+    tc.build(config.TARGET)
+
+    # --- STAGE 3: ARTIFACTS ---
+    print_stage("PACKAGE ARTIFACTS")
+    # create_zip(config.BUILD_DIR, config.ARTIFACT_NAME)
+    
+    print("\n✅ CI Pipeline Completed Successfully")
 
 if __name__ == "__main__":
     main()

@@ -6,3 +6,6 @@ pytest-embedded-idf
 pytest-embedded-serial-esp
 
 pytest-html
+
+
+GitManager

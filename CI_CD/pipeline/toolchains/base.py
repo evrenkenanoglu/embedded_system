@@ -23,6 +23,14 @@ class BaseToolchain(ABC):
         print_stage(f"📡 FLASH OTA ({port})")
         self._flash_ota(port, binary_dir, ota_port)
 
+    def clean(self):
+        print_stage("🧹 CLEAN")
+        self._clean()
+
+    def clean_all(self):
+        print_stage("🧹 CLEAN ALL")
+        self._clean_all()
+
     # --- ABSTRACT METHODS (Must be implemented by subclasses) ---
 
     @abstractmethod

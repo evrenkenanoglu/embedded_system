@@ -1,3 +1,4 @@
+# pipeline/toolchains/esp_idf.py
 import os
 import threading
 import http.server
@@ -8,20 +9,66 @@ from .base import BaseToolchain
 class EspIdfToolchain(BaseToolchain):
     def __init__(self, config):
         super().__init__(config)
-        self.docker_image = f"espressif/idf:release-v{self.config.IDF_VERSION}"
+        
+        # 1. Pull the 2-in-1 image containing BOTH ESP-Matter and ESP-IDF 5.4!
+        self.docker_image = "espressif/esp-matter:release-v1.4.2_idf_v5.4.1" 
 
-    def _run_in_docker(self, cmd_str, workdir="/project"):
-        cmd =[
-            "docker", "run", "--rm",
-            "-v", f"{self.config.PROJECT_ROOT}:/project",
-            "-w", workdir,
-            self.docker_image,
-            "bash", "-c", cmd_str
-        ]
-        run_cmd(cmd)
+    def _execute(self, cmd_str, workdir=None):
+        """Executes a command either in Docker or locally based on the config."""
+        
+        if workdir is None:
+            workdir = self.config.WORKDIR
+
+        if getattr(self.config, 'USE_DOCKER', True):
+            docker_workdir = workdir.replace(self.config.PROJECT_ROOT, "/project").replace("\\", "/")
+            
+            # --- THE FIX ---
+            # ESP-Matter's export.sh changes the directory. 
+            # We MUST add `cd {docker_workdir}` to force it back to your project!
+            matter_cmd = (
+                "source /opt/espressif/esp-idf/export.sh && "
+                "source /opt/espressif/esp-matter/export.sh && "
+                f"cd {docker_workdir} && "
+                f"{cmd_str}"
+            )
+            
+            cmd =[
+                "docker", "run", "--rm",
+                "-v", f"{self.config.PROJECT_ROOT}:/project",
+                "-w", docker_workdir,
+                self.docker_image,
+                "bash", "-c", matter_cmd
+            ]
+            run_cmd(cmd)
+        else:
+            print(f"💻 Running locally in {workdir}...")
+            cmd =["bash", "-c", cmd_str]
+            run_cmd(cmd, cwd=workdir)
 
     def _build(self, target):
-        self._run_in_docker(f"idf.py set-target {target} && idf.py build")
+            # 1. Remove stale configs
+            # 2. Export target
+            # 3. FORCE the absolute path to sdkconfig.defaults so it is found
+            #    even if we are deep inside temp_workspace!
+
+            build_cmd = (
+                f"rm -rf build sdkconfig && "
+                f"export IDF_TARGET={target} && "
+                f"export SDKCONFIG_DEFAULTS=/project/sdkconfig.defaults && "
+                f"idf.py build"
+            )
+
+            # build_cmd = (
+                # f"idf.py -DSDKCONFIG_DEFAULTS=sdkconfig.defaults set-target {target} build"
+                # f"idf.py build"
+            # )
+            self._execute(build_cmd, workdir=self.config.WORKDIR)
+    
+    def clean(self):
+        self._execute("idf.py clean", workdir=self.config.WORKDIR)
+
+    def clean_all(self):
+        self._execute("idf.py fullclean", workdir=self.config.WORKDIR)
 
     def _run_unit_tests(self):
         self._run_in_docker("idf.py set-target linux && idf.py build && ./build/unit_test_app", workdir="/project/tests/unit")
