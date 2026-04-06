@@ -1,7 +1,15 @@
 import os
+import os
+import sys
 from pickle import TRUE
 import platform
 
+PIPELINE_LIB_PATH = os.environ.get("PIPELINE_LIB_PATH", "/home/evren_wsl/WORKSPACE_PERSONAL/Embedded_IoT_BT_WIFI_Base_Project/embedded_system/CI_CD")
+
+if os.path.exists(PIPELINE_LIB_PATH):
+    sys.path.append(PIPELINE_LIB_PATH)
+else:
+    print(f"⚠️ Warning: PIPELINE_LIB_PATH not found at {PIPELINE_LIB_PATH}")
 
 class ProjectConfig:
     # ===========================================================
@@ -9,24 +17,14 @@ class ProjectConfig:
     # ===========================================================
     PROJECT_NAME = "Smart_Plug"
     # Resolves to 'smart_plug_project' root
-    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
+    PROJECT_ROOT = os.getcwd()
+    OUTPUT_DIR = os.path.join(PROJECT_ROOT, "Out")
     TEMP_WORKSPACE_NAME = "temp_workspace"
+
     CLONE_URL = "https://github.com/evrenkenanoglu/Smart_Plugs_SW.git"
     CLONE_BRANCH = "features/power_bar_app"
-    CLONE_DIR = os.path.join(PROJECT_ROOT, TEMP_WORKSPACE_NAME)
+    CLONE_DIR = os.path.join(PROJECT_ROOT, OUTPUT_DIR, TEMP_WORKSPACE_NAME)
     WORKDIR = CLONE_DIR
-
-    # --- PIPELINE LIBRARY LOCATION ---
-    # Can be overridden by the CI Server via: export PIPELINE_LIB_PATH="/opt/embedded_system/CI_CD"
-    _default_lib_path = os.path.abspath(
-        os.path.join(PROJECT_ROOT, "../../embedded_system/CI_CD")
-    )
-    print(
-        f"🔧 Using PIPELINE_LIB_PATH: {os.getenv('PIPELINE_LIB_PATH', _default_lib_path)}"
-    )
-    PIPELINE_LIB_PATH = os.getenv("PIPELINE_LIB_PATH", _default_lib_path)
-    print(f"🔧 Resolved PIPELINE_LIB_PATH: {PIPELINE_LIB_PATH}")
 
     # ===========================================================
     # TOOLCHAIN SETTINGS
@@ -60,7 +58,7 @@ class ProjectConfig:
     FACTORY_BIN_NAME = f"{PROJECT_NAME}_factory.bin"
     FACTORY_BIN_PATH = FACTORY_BIN_NAME
 
-    ARTIFACT_NAME = os.path.join(PROJECT_ROOT, PACKAGE_NAME.replace("package_", ""))
+    ARTIFACT_NAME = os.path.join(OUTPUT_DIR, PACKAGE_NAME.replace("package_", ""))
     EXTRACTED_PACKAGE_DIR = os.path.join(PROJECT_ROOT, f"{ARTIFACT_NAME}_extracted")
 
     FLASH_ARGS_FILENAME = "flash_args"
@@ -85,7 +83,7 @@ class ProjectConfig:
 
     EMBEDDED_SERVICES = ["esp", "serial"]
 
-    TEST_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "test_reports")
+    TEST_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "test_reports")
     REPORT_FILE_PREFIX = "hil_report"
 
     TARGET_WIFI_SSID = "UniverseHome"

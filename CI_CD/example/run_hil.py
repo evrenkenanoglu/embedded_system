@@ -3,17 +3,9 @@ import sys
 import os
 import argparse
 
-# 1. Load configuration
+# Load configuration
+import config
 from config import ProjectConfig
-
-# 2. Inject library path
-if not os.path.exists(ProjectConfig.PIPELINE_LIB_PATH):
-    print(
-        f"❌ Error: Central Pipeline library not found at {ProjectConfig.PIPELINE_LIB_PATH}"
-    )
-    sys.exit(1)
-
-sys.path.append(ProjectConfig.PIPELINE_LIB_PATH)
 
 # 3. Import shared mechanics
 from pipeline.toolchains.factory import get_toolchain

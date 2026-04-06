@@ -2,13 +2,9 @@
 import sys
 import os
 
-# 1. Load the project configuration
+# Load project configuration
+import config
 from config import ProjectConfig
-
-if not os.path.exists(ProjectConfig.PIPELINE_LIB_PATH):
-    sys.exit(1)
-
-sys.path.append(ProjectConfig.PIPELINE_LIB_PATH)
 
 from pipeline.core.docker_manager import DockerManager
 from pipeline.toolchains.factory import get_toolchain

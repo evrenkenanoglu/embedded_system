@@ -85,7 +85,6 @@ class EspIdfToolchain(BaseToolchain):
 
         # We only check for existence using the full path
         full_args_path = os.path.join(binary_dir, flash_args_filename)
-        print (f"🔍 Checking for flash args at: {full_args_path}")
         if not os.path.exists(full_args_path):
             raise FileNotFoundError(f"❌ Could not find {full_args_path}")
 
@@ -99,9 +98,7 @@ class EspIdfToolchain(BaseToolchain):
             "write-flash",
             f"@{flash_args_filename}" 
         ]
-
-        print(f"🚀 Flashing from directory: {binary_dir}")
-    
+            
         run_cmd(cmd, cwd=binary_dir)
 
     def _flash_ota(self, port, binary_dir, ota_port):
