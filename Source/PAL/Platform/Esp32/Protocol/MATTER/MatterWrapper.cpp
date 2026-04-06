@@ -479,14 +479,14 @@ sys_error_t MatterWrapper::addDevice(IMatterDevice& device)
 
     switch (device.getDeviceType())
     {
-        case MatterTypes::Device::ON_OFF_PLUG_IN_UNIT_DEVICE:
+        case MatterTypes::Device::ON_OFF_PLUGIN_UNIT_DEVICE:
         {
             // Configure On/Off Plugin Unit (Relay)
-            on_off_plug_in_unit::config_t config;
+            on_off_plugin_unit::config_t config;
             config.on_off.on_off = false;
 
             // Create the endpoint and register priv_data
-            ep_handle = on_off_plug_in_unit::create(_node_handle, &config, ENDPOINT_FLAG_NONE, priv_data);
+            ep_handle = on_off_plugin_unit::create(_node_handle, &config, ENDPOINT_FLAG_NONE, priv_data);
 
             // Set device cluster_id
             device.setClusterId(OnOff::Id);
