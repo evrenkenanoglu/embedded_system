@@ -114,7 +114,7 @@ def try_attach(bus_id):
 
 
             # 2. Attach in the BACKGROUND using Popen
-            attach(bus_id, host_ip=find_host_ip())
+            attach(bus_id)
 
             print("\n[SUCCESS] Endless auto-attach loop started invisibly!")
             print("-" * 30)
