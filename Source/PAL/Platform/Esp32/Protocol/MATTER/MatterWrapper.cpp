@@ -446,7 +446,7 @@ MatterWrapper& MatterWrapper::get()
 sys_error_t MatterWrapper::init()
 {
     // Create a Matter node and add the mandatory Root Node device type on endpoint 0
-    node::config_t node_config;
+    node::config_t node_config = {};
     // Register the GLOBAL callback here
     _node_handle = node::create(&node_config, onAttributeCallback, identificationCallback);
 
@@ -482,7 +482,7 @@ sys_error_t MatterWrapper::addDevice(IMatterDevice& device)
         case MatterTypes::Device::ON_OFF_PLUGIN_UNIT_DEVICE:
         {
             // Configure On/Off Plugin Unit (Relay)
-            on_off_plugin_unit::config_t config;
+            on_off_plugin_unit::config_t config = {};
             config.on_off.on_off = false;
 
             // Create the endpoint and register priv_data
@@ -500,7 +500,7 @@ sys_error_t MatterWrapper::addDevice(IMatterDevice& device)
             // Configure generic On/Off Light (Actuator)
             // Note: If you meant a physical wall controller (remote), use on_off_light_switch
             // But usually for IoT projects "LightSwitch" implies a relay controlling a light.
-            on_off_light::config_t config;
+            on_off_light::config_t config = {};
             config.on_off.on_off                   = false;
             config.on_off_lighting.start_up_on_off = nullptr;
 
