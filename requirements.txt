@@ -3,3 +3,4 @@ clang-tidy >= 17
 cmake >= 3.25
 -r Source/Scripts/static_code_analysis/requirements.txt
 -r Source/Library/UI/HTTP/requirements.txt
+-r CI_CD/requirements.txt
