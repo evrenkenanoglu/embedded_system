@@ -11,8 +11,8 @@
 #ifndef MEM_OTA_HPP
 #define MEM_OTA_HPP
 
-#include "esp_ota_ops.h"
 #include "HAL/IHAL/IHal_Mem_Ota.h"
+#include "esp_ota_ops.h"
 
 /** INCLUDES ******************************************************************/
 
@@ -28,11 +28,11 @@ class mem_ota : public IHal_Mem_Ota
 {
 private:
     /** VARIABLES *************************************************************/
-    esp_ota_handle_t          _updateHandle;
-    const esp_partition_t*    _updatePartition;
-    bool                      _isInitialized;
-    bool                      _isOngoing;
-    bool                      _headerValidated;
+    esp_ota_handle_t       _updateHandle;    // Handle for the OTA update process
+    const esp_partition_t* _updatePartition; // Pointer to the partition where the new firmware will be written
+    bool                   _isInitialized;   // Flag indicating whether the OTA memory interface has been initialized
+    bool                   _isOngoing;       // Flag indicating whether an OTA update session is currently in progress
+    bool                   _headerValidated; // Flag indicating whether the incoming firmware image header has been validated
 
     /** PRIVATE METHODS *******************************************************/
     sys_error_t validateIncomingImageHeader(const uint8_t* data, size_t length);
@@ -40,6 +40,14 @@ private:
 public:
     mem_ota();
     ~mem_ota();
+
+    // Disable copy mechanics to prevent duplicate handles to the same OTA session
+    mem_ota(const mem_ota&)            = delete;
+    mem_ota& operator=(const mem_ota&) = delete;
+
+    // Disable move mechanics unless specifically needed
+    mem_ota(mem_ota&&)            = delete;
+    mem_ota& operator=(mem_ota&&) = delete;
 
     /** INTERFACE METHODS *****************************************************/
     virtual sys_error_t init(void* params = nullptr) override;
@@ -51,8 +59,10 @@ public:
     virtual sys_error_t setBootPartition() override;
     virtual sys_error_t markAppValid() override;
     virtual sys_error_t markAppInvalid() override;
+
 public:
     /** USER METHODS *******************************************************/
+    void resetInternalState();
 };
 
 /** MACROS ********************************************************************/
