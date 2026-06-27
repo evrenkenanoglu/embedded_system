@@ -1,4 +1,5 @@
 #include "HttpsClient.hpp"
+#include <cstring>
 
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
@@ -22,17 +23,29 @@ HttpsClient::~HttpsClient()
 
 sys_error_t HttpsClient::connect(const HttpClientOptions_t& options)
 {
-    // Return success if client is already initialized
-    RETURN_IF_ERROR((_client != nullptr), ERROR_SUCCESS);
+    /// Pre-Initialization Check
+    /// If the native client is already active, return success immediately to prevent re-allocation.
+    RETURN_IF_ERROR(
+        (_client != nullptr), // Expression
+        ERROR_SUCCESS         // Error code
+    );
 
     _options = options;
 
     esp_http_client_config_t config = {};
 
+    /// Configuration Mapping
+    /// Convert class options to raw ESP-IDF configuration parameters.
     _populate_config(_options, config);
 
+    /// Native Handle Allocation
+    /// Initialize the underlying SDK HTTP client instance.
     _client = esp_http_client_init(&config);
-    RETURN_IF_ERROR((_client == nullptr), ERROR_FAIL, SYS_LOG_D("Failed to initialize HTTP client!"));
+    RETURN_IF_ERROR(
+        (_client == nullptr),                          // Expression
+        ERROR_FAIL,                                    // Error code
+        SYS_LOG_D("Failed to initialize HTTP client!") // Error message
+    );
 
     _connected = true;
     return ERROR_SUCCESS;
@@ -40,11 +53,16 @@ sys_error_t HttpsClient::connect(const HttpClientOptions_t& options)
 
 sys_error_t HttpsClient::disconnect()
 {
+    /// Native Handle Cleanup
+    /// Safely release raw ESP-IDF client resources if allocated.
     if (_client)
     {
         esp_http_client_cleanup(_client);
         _client = nullptr;
     }
+
+    /// State Reset
+    /// Reset active connection flags and header memory contexts.
     _connected = false;
     _active_headers.clear();
     return ERROR_SUCCESS;
@@ -55,96 +73,104 @@ bool HttpsClient::isConnected() const
     return _connected;
 }
 
-sys_error_t HttpsClient::sendRequest(IHttpUri::HttpMethod           method,
-                                     const std::string&             path,
-                                     const std::vector<HttpHeader>& headers,
-                                     const uint8_t*                 body,
-                                     size_t                         body_len,
-                                     int&                           out_status_code,
-                                     HttpResponseStreamCb_t         on_data_received)
+sys_error_t HttpsClient::sendRequest(
+    IHttpUri::HttpMethod           method,          //
+    const std::string&             path,            //
+    const std::vector<HttpHeader>& headers,         //
+    const uint8_t*                 body,            //
+    size_t                         body_len,        //
+    int&                           out_status_code, //
+    HttpResponseStreamCb_t         on_data_received //
+)
 {
-
-    RETURN_IF_ERROR((_client == nullptr), ERROR_NOT_INITIALIZED, SYS_LOG_D("HTTPS Client not initialized!"));
-
-    _active_stream_cb = &on_data_received;
-    _active_response_buf = nullptr;
-
-    RETURN_ON_ERROR(
-        _prepare_request(method, path, headers, body, body_len),    // Expression
-        SYS_LOG_E("Failed to prepare request!");                    // Error Message
-        _active_stream_cb = nullptr;                                // Clean up callback
+    /// Initialization Verification
+    RETURN_IF_ERROR(
+        (_client == nullptr),                      // Expression
+        ERROR_NOT_INITIALIZED,                     // Error code
+        SYS_LOG_D("HTTPS Client not initialized!") // Error message
     );
 
-    esp_err_t esp_err = esp_http_client_perform(_client);
+    /// Context Binding
+    /// Map active callbacks and reset transaction status parameters.
+    _transaction_error   = ERROR_SUCCESS;
+    _active_stream_cb    = &on_data_received;
+    _active_response_buf = nullptr;
 
+    /// Payload Preparation
+    RETURN_ON_ERROR(_prepare_request(method, path, headers, body, body_len), // Expression
+                    SYS_LOG_E("Failed to prepare request!");                 // Error Message
+                    _active_stream_cb = nullptr;                             // Cleanup
+    );
+
+    /// Synchronous Execution
+    /// Execute the HTTP transaction over network interface.
+    const esp_err_t esp_err = esp_http_client_perform(_client);
+
+    /// Clean Up Shared Memory
+    /// Delete active headers and unbind dynamic stream pointers.
     for (const auto& key : _active_headers)
     {
         esp_http_client_delete_header(_client, key.c_str());
     }
     _active_headers.clear();
-
     _active_stream_cb = nullptr;
 
-    RETURN_ON_ERROR(
-        (esp_err != ESP_OK),                        // Expression
-        ERROR_FAIL,                                 // Return Error Code
-        SYS_LOG_E("Failed to perform request!")     // Log Message
+    /// Status Code Validation
+    RETURN_IF_ERROR(
+        (esp_err != ESP_OK),                                                     // Expression
+        (_transaction_error != ERROR_SUCCESS) ? _transaction_error : ERROR_FAIL, // Error code
+        SYS_LOG_E("Failed to perform request!")                                  // Error message
     );
 
     out_status_code = esp_http_client_get_status_code(_client);
-    on_data_received(nullptr, 0, true);
 
     return ERROR_SUCCESS;
 }
 
-sys_error_t HttpsClient::sendRequest(IHttpUri::HttpMethod           method,
-                                     const std::string&             path,
-                                     const std::vector<HttpHeader>& headers,
-                                     const uint8_t*                 body,
-                                     size_t                         body_len,
-                                     int&                           out_status_code,
-                                     std::vector<uint8_t>&          out_response_body)
+sys_error_t HttpsClient::sendRequest(
+    IHttpUri::HttpMethod           method,           //
+    const std::string&             path,             //
+    const std::vector<HttpHeader>& headers,          //
+    const uint8_t*                 body,             //
+    size_t                         body_len,         //
+    int&                           out_status_code,  //
+    std::vector<uint8_t>&          out_response_body //
+)
 {
-    RETURN_IF_ERROR((_client == nullptr), ERROR_NOT_INITIALIZED, SYS_LOG_D("HTTPS Client not initialized!"));
+    /// Initialization Verification
+    RETURN_IF_ERROR(
+        (_client == nullptr),                      // Expression
+        ERROR_NOT_INITIALIZED,                     // Error code
+        SYS_LOG_D("HTTPS Client not initialized!") // Error message
+    );
 
+    /// Context Binding
+    /// Map target buffers and reset transaction status parameters.
+    _transaction_error = ERROR_SUCCESS;
     out_response_body.clear();
-    _active_stream_cb = nullptr;
+    _active_stream_cb    = nullptr;
     _active_response_buf = &out_response_body;
 
-    RETURN_ON_ERROR(
-        _prepare_request(method, path, headers, body, body_len),        // Expression
-        SYS_LOG_E("Failed to prepare request!");                        // Log Message
-        _active_response_buf = nullptr;                                 // Clean up
+    /// Payload Preparation
+    RETURN_ON_ERROR(_prepare_request(method, path, headers, body, body_len), // Expression
+                    SYS_LOG_E("Failed to prepare request!");                 // Error Message
+                    _active_response_buf = nullptr;                          // Cleanup
     );
 
-    esp_err_t esp_err = esp_http_client_perform(_client);
+    /// Synchronous Execution
+    /// Execute the HTTP transaction over network interface.
+    const esp_err_t esp_err = esp_http_client_perform(_client);
 
+    /// Clean Up Shared Memory
+    /// Delete active headers and unbind response buffer pointers.
     for (const auto& key : _active_headers)
     {
         esp_http_client_delete_header(_client, key.c_str());
     }
     _active_headers.clear();
-
     _active_response_buf = nullptr;
 
-
-    RETURN_IF_ERROR(
-        (esp_err != ESP_OK),                        // Expression
-        ERROR_FAIL,                                 // Return Error Code
-        SYS_LOG_E("Failed to perform request!");     // Log Message
-        out_response_body.clear();                  // Clean up
-    );
-
-    esp_err_t esp_err = esp_http_client_perform(_client);
-
-    for (const auto& key : _active_headers)
-    {
-        esp_http_client_delete_header(_client, key.c_str());
-    }
-    _active_headers.clear();
-
-    _active_response_buf = nullptr;
-
+    /// Status Code Validation
     if (esp_err != ESP_OK)
     {
         out_response_body.clear();
@@ -156,15 +182,20 @@ sys_error_t HttpsClient::sendRequest(IHttpUri::HttpMethod           method,
     return ERROR_SUCCESS;
 }
 
-sys_error_t HttpsClient::_prepare_request(IHttpUri::HttpMethod           method,
-                                          const std::string&             path,
-                                          const std::vector<HttpHeader>& headers,
-                                          const uint8_t*                 body,
-                                          size_t                         body_len)
+sys_error_t HttpsClient::_prepare_request(
+    IHttpUri::HttpMethod           method,  //
+    const std::string&             path,    //
+    const std::vector<HttpHeader>& headers, //
+    const uint8_t*                 body,    //
+    size_t                         body_len //
+)
 {
-    esp_http_client_set_method(_client, HTTP_COMMON::_to_esp_method(method));
-    esp_http_client_set_path(_client, path.c_str());
+    /// Target Endpoint Configuration
+    /// Dynamically update request path using standard URL utility.
+    esp_http_client_set_method(_client, _to_esp_method(method));
+    esp_http_client_set_url(_client, path.c_str());
 
+    /// Payload Body Insertion
     if (body != nullptr && body_len > 0)
     {
         esp_http_client_set_post_field(_client, reinterpret_cast<const char*>(body), static_cast<int>(body_len));
@@ -174,6 +205,7 @@ sys_error_t HttpsClient::_prepare_request(IHttpUri::HttpMethod           method,
         esp_http_client_set_post_field(_client, nullptr, 0);
     }
 
+    /// Custom Header Registration
     for (const auto& header : headers)
     {
         esp_http_client_set_header(_client, header.key.c_str(), header.value.c_str());
@@ -197,19 +229,32 @@ esp_err_t HttpsClient::_handle_event(esp_http_client_event_t* evt)
 {
     switch (evt->event_id)
     {
-        case HTTP_EVENT_ERROR:    
+        case HTTP_EVENT_ERROR:
+        {
             _transaction_error = ERROR_FAIL; // Map generic ESP-IDF error to ERROR_FAIL
-            break;    
-        case HTTP_EVENT_ON_CONNECTED:    
+        }
+        break;
+
+        case HTTP_EVENT_ON_CONNECTED:
+        {
             _connected = true;
-            break;      
-        case HTTP_EVENT_HEADER_SENT:    
-            // All headers have been sent successfully
-            break;    
-        case HTTP_EVENT_ON_HEADER_RECEIVED:    
-            // HTTP headers have been received
-            break;    
-        case HTTP_EVENT_ON_DATA:    
+        }
+        break;
+
+        case HTTP_EVENT_DISCONNECTED:
+        {
+            _connected = false;
+        }
+        break;
+
+        case HTTP_EVENT_HEADER_SENT:
+        { // All headers have been sent successfully
+        }
+        break;
+
+        case HTTP_EVENT_ON_DATA:
+        {
+            /// Process chunked socket streams by prioritizing stream callbacks or appending to buffers.
             if (evt->data_len > 0)
             {
                 if (_active_stream_cb != nullptr)
@@ -225,9 +270,8 @@ esp_err_t HttpsClient::_handle_event(esp_http_client_event_t* evt)
                 {
                     try
                     {
-                        _active_response_buf->insert(_active_response_buf->end(),
-                                                     reinterpret_cast<const uint8_t*>(evt->data),
-                                                     reinterpret_cast<const uint8_t*>(evt->data) + evt->data_len);
+                        _active_response_buf->insert(
+                            _active_response_buf->end(), reinterpret_cast<const uint8_t*>(evt->data), reinterpret_cast<const uint8_t*>(evt->data) + evt->data_len);
                     }
                     catch (...)
                     {
@@ -236,18 +280,18 @@ esp_err_t HttpsClient::_handle_event(esp_http_client_event_t* evt)
                     }
                 }
             }
-            break;
+        }
+        break;
 
         case HTTP_EVENT_ON_FINISH:
+        {
+            /// Flush stream contexts on transaction completion events.
             if (_active_stream_cb != nullptr)
             {
                 (*_active_stream_cb)(nullptr, 0, true);
             }
-            break;
-
-        case HTTP_EVENT_ERROR:
-            _transaction_error = ERROR_FAIL; // Map generic ESP-IDF error to ERROR_FAIL
-            break;
+        }
+        break;
 
         default:
             break;
@@ -266,7 +310,7 @@ esp_http_client_method_t HttpsClient::_to_esp_method(IHttpUri::HttpMethod method
             return HTTP_METHOD_POST;
         case IHttpUri::HttpMethod::PUT:
             return HTTP_METHOD_PUT;
-        case IHttpUri::HttpMethod::DELETE_:
+        case IHttpUri::HttpMethod::DELETE:
             return HTTP_METHOD_DELETE;
         case IHttpUri::HttpMethod::PATCH:
             return HTTP_METHOD_PATCH;
@@ -277,10 +321,29 @@ esp_http_client_method_t HttpsClient::_to_esp_method(IHttpUri::HttpMethod method
 
 void HttpsClient::_populate_config(const HttpClientOptions_t& options, esp_http_client_config_t& config)
 {
-    config.url               = options.uri.c_str();
-    config.transport_type    = HTTP_TRANSPORT_OVER_SSL;
-    config.event_handler     = _http_event_handler;
-    config.user_data         = this;
-    config.skip_cert_chain_validation = true;
+    // Zero-initialize the structure to ensure all unmapped fields default to safe values
+    std::memset(&config, 0, sizeof(esp_http_client_config_t));
+
+    // Populate standard network parameters
+    config.host              = options.host.c_str();
+    config.port              = options.port;
+    config.transport_type    = options.use_tls ? HTTP_TRANSPORT_OVER_SSL : HTTP_TRANSPORT_OVER_TCP;
     config.timeout_ms        = options.timeout_ms;
+    config.keep_alive_enable = options.keep_alive;
+
+    // Populate transaction callbacks
+    config.event_handler = &HttpsClient::_http_event_handler;
+    config.user_data     = this;
+
+    // Populate TLS configurations if enabled
+    if (options.use_tls)
+    {
+        config.cert_pem                    = options.server_cert_pem;
+        config.cert_len                    = options.server_cert_len;
+        config.client_cert_pem             = options.client_cert_pem;
+        config.client_cert_len             = options.client_cert_len;
+        config.client_key_pem              = options.client_key_pem;
+        config.client_key_len              = options.client_key_len;
+        config.skip_cert_common_name_check = true;
+    }
 }
