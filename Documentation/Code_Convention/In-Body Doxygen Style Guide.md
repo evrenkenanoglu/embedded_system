@@ -84,14 +84,12 @@ Use this standard when writing or refactoring function implementation code to do
         // Dev note: Allocating on stack to guarantee zero heap fragmentation (Ignored by Doxygen)
         uint8_t buffer[128]; 
 
-        /// ### Step 1: Input Validation
         /// Validates parameters against static buffer constraints.
         if (len > sizeof(buffer)) 
         {
             return ERROR_INVALID_ARG;
         }
 
-        /// ### Step 2: Payload Cryptography
         /// @note Cryptographic hardware must be initialized prior to execution.
         /// Encrypts raw data directly within the local stack memory block.
         sys_error_t err = crypto_encrypt(payload, buffer, len);
