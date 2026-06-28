@@ -24,8 +24,6 @@
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
 
-static const char* TAG = "HAL_MEM_OTA";
-
 /** CONSTANTS *****************************************************************/
 
 /** TYPEDEFS ******************************************************************/
