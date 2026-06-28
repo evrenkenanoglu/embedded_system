@@ -1,4 +1,7 @@
+import hmac
+import hashlib
 import json
+import time
 import logging
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -30,14 +33,66 @@ def is_newer_version(current: str, latest: str) -> bool:
         return latest != current
 
 
-def verify_api_key(api_key_header_val: str):
-    """Asserts that the provided API key matches the server credentials."""
-    if not api_key_header_val or api_key_header_val != settings.API_KEY:
-        logger.warning(f"Unauthorized access attempt with API Key: '{api_key_header_val}'")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API validation token."
-        )
+def generate_download_token(filename: str, expires_in_sec: int = 300) -> str:
+    """Generates a secure, cryptographically signed, time-limited download token.
+    
+    Defaults to a 5-minute (300-second) expiration window.
+    """
+    expire_time = int(time.time()) + expires_in_sec
+    message = f"{filename}:{expire_time}".encode("utf-8")
+    
+    # Generate signature using SHA-256 HMAC keyed with the API security key
+    signature = hmac.new(
+        settings.API_KEY.encode("utf-8"), 
+        message, 
+        hashlib.sha256
+    ).hexdigest()
+    
+    return f"{expire_time}.{signature}"
+
+
+def verify_download_token(filename: str, token: str) -> bool:
+    """Verifies the validity and expiration window of a cryptographically signed token."""
+    try:
+        expire_str, signature = token.split(".", 1)
+        expire_time = int(expire_str)
+        
+        # 1. Assert token has not expired
+        if time.time() > expire_time:
+            logger.warning(f"Presigned token for '{filename}' has expired.")
+            return False
+            
+        # 2. Re-evaluate signature matches using constant-time comparison
+        message = f"{filename}:{expire_time}".encode("utf-8")
+        expected_sig = hmac.new(
+            settings.API_KEY.encode("utf-8"), 
+            message, 
+            hashlib.sha256
+    ).hexdigest()
+        
+        return hmac.compare_digest(expected_sig, signature)
+    except Exception:
+        return False
+
+
+def authenticate_request(request: Request, filename: str, token: str = None):
+    """Authorizes the request via either standard HTTP headers or a signed query token."""
+    api_key = request.headers.get(settings.API_KEY_HEADER)
+    
+    # 1. Authorize via valid administrative key in headers
+    if api_key and api_key == settings.API_KEY:
+        return
+
+    # 2. Authorize via presigned query token
+    if token and verify_download_token(filename, token):
+        return
+
+    # If both authentication vectors fail
+    logger.warning(f"Unauthorized access attempt to download '{filename}'")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid, missing, or expired download credentials."
+    )
 
 
 async def get_validated_file_response(filename: str) -> FileResponse:
@@ -72,11 +127,9 @@ async def ota_check(
     hw: str = Query(None, description="Backup query parameter for hardware")
 ):
     """Firmware availability checker configured entirely by dynamic settings."""
-    # Enforce API security verification dynamically
     api_key = request.headers.get(settings.API_KEY_HEADER)
-    verify_api_key(api_key)
+    authenticate_request(request, "manifest.json", api_key)
 
-    # Retrieve platform-agnostic identification configurations
     client_version = request.headers.get(settings.HEADER_VERSION_KEY) or ver
     client_hardware = request.headers.get(settings.HEADER_HARDWARE_KEY) or hw
 
@@ -121,9 +174,10 @@ async def ota_check(
         binary_path = update_info.get("binary_path", "")
         binary_name = Path(binary_path).name
 
-        # Construct download URLs dynamically using path definitions
+        # Generate signed transient download URL (Valid for 5 minutes)
+        token = generate_download_token(binary_name)
         base_url = str(request.base_url).rstrip("/")
-        download_url = f"{base_url}{DOWNLOAD_ROUTE_PREFIX}/{binary_name}"
+        download_url = f"{base_url}{DOWNLOAD_ROUTE_PREFIX}/{binary_name}?token={token}"
 
         return {
             "update_available": True,
@@ -140,12 +194,15 @@ async def ota_check(
     }
 
 
-# Route 1: Legacy check-route-derived download (/api/v1/ota/download/{filename})
+# Route 1: Legacy api-path download (/api/v1/ota/download/{filename})
 @router.get("/download/{filename}")
-async def ota_download(filename: str, request: Request):
-    """Serves binary files dynamically under the standard API prefix."""
-    api_key = request.headers.get(settings.API_KEY_HEADER)
-    verify_api_key(api_key)
+async def ota_download(
+    filename: str, 
+    request: Request,
+    token: str = Query(None, description="Temporary presigned query token")
+):
+    """Serves binary files dynamically using the presigned URL scheme."""
+    authenticate_request(request, filename, token)
 
     client_version = request.headers.get(settings.HEADER_VERSION_KEY)
     client_hardware = request.headers.get(settings.HEADER_HARDWARE_KEY)
@@ -159,10 +216,13 @@ async def ota_download(filename: str, request: Request):
 
 # Route 2: Dynamic direct download root endpoint (interpolates e.g., /firmware_storage/{filename})
 @direct_router.get(f"{DOWNLOAD_ROUTE_PREFIX}/{{filename}}")
-async def direct_ota_download(filename: str, request: Request):
-    """Serves binary files dynamically on the root directory path."""
-    api_key = request.headers.get(settings.API_KEY_HEADER)
-    verify_api_key(api_key)
+async def direct_ota_download(
+    filename: str, 
+    request: Request,
+    token: str = Query(None, description="Temporary presigned query token")
+):
+    """Serves binary files dynamically directly on the root storage path using signed query tokens."""
+    authenticate_request(request, filename, token)
 
     client_version = request.headers.get(settings.HEADER_VERSION_KEY)
     client_hardware = request.headers.get(settings.HEADER_HARDWARE_KEY)
