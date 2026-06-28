@@ -268,16 +268,13 @@ esp_err_t HttpsClient::_handle_event(esp_http_client_event_t* evt)
                 }
                 else if (_active_response_buf != nullptr)
                 {
-                    try
-                    {
-                        _active_response_buf->insert(
-                            _active_response_buf->end(), reinterpret_cast<const uint8_t*>(evt->data), reinterpret_cast<const uint8_t*>(evt->data) + evt->data_len);
-                    }
-                    catch (...)
-                    {
-                        _transaction_error = ERROR_OUT_OF_MEMORY;
-                        return ESP_FAIL;
-                    }
+                    /// Exception handling is disabled. Memory allocation failure in std::vector 
+                    /// will trigger standard system termination handlers automatically.
+                    _active_response_buf->insert(
+                        _active_response_buf->end(), 
+                        reinterpret_cast<const uint8_t*>(evt->data), 
+                        reinterpret_cast<const uint8_t*>(evt->data) + evt->data_len
+                    );
                 }
             }
         }

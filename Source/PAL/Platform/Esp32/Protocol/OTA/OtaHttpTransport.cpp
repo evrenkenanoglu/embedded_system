@@ -19,12 +19,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-OtaHttpTransport::OtaHttpTransport(
-    IHttpClient&       httpClient,
-    const std::string& url,
-    const std::string& serverCert,
-    uint32_t           timeoutMs
-)
+OtaHttpTransport::OtaHttpTransport(IHttpClient& httpClient, const std::string& url, const std::string& serverCert, uint32_t timeoutMs)
     : _httpClient(httpClient)
     , _url(url)
     , _serverCert(serverCert)
@@ -46,26 +41,19 @@ OtaHttpTransport::~OtaHttpTransport()
 
 sys_error_t OtaHttpTransport::connect()
 {
-    RETURN_IF_ERROR(
-        (_isConnected),
-        ERROR_SUCCESS
-    );
+    RETURN_IF_ERROR((_isConnected), ERROR_SUCCESS);
 
     /// Dynamic URL Resolution
     sys_error_t err = _parseUrl(_url, _host, _path, _port);
-    RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS),
-        err,
-        SYS_LOG_E("Failed to parse resource address targets!")
-    );
+    RETURN_IF_ERROR((err != ERROR_SUCCESS), err, SYS_LOG_E("Failed to parse resource address targets!"));
 
     /// Connection Setup
     HttpClientOptions_t clientOptions{};
-    clientOptions.host            = _host;
-    clientOptions.port            = _port;
-    clientOptions.use_tls         = (_port == 443);
-    clientOptions.timeout_ms      = _timeoutMs;
-    clientOptions.keep_alive      = true;
+    clientOptions.host       = _host;
+    clientOptions.port       = _port;
+    clientOptions.use_tls    = (_port == 443);
+    clientOptions.timeout_ms = _timeoutMs;
+    clientOptions.keep_alive = true;
 
     if (clientOptions.use_tls && !_serverCert.empty())
     {
@@ -74,11 +62,7 @@ sys_error_t OtaHttpTransport::connect()
     }
 
     err = _httpClient.connect(clientOptions);
-    RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS),
-        err,
-        SYS_LOG_E("Underlying HTTP socket failed to connect!")
-    );
+    RETURN_IF_ERROR((err != ERROR_SUCCESS), err, SYS_LOG_E("Underlying HTTP socket failed to connect!"));
 
     _isConnected = true;
     return ERROR_SUCCESS;
@@ -86,10 +70,7 @@ sys_error_t OtaHttpTransport::connect()
 
 sys_error_t OtaHttpTransport::disconnect()
 {
-    RETURN_IF_ERROR(
-        (!_isConnected),
-        ERROR_SUCCESS
-    );
+    RETURN_IF_ERROR((!_isConnected), ERROR_SUCCESS);
 
     _httpClient.disconnect();
     _isConnected = false;
@@ -100,21 +81,23 @@ sys_error_t OtaHttpTransport::disconnect()
 
 sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
 {
-    RETURN_IF_ERROR(
-        (!_isConnected),
-        ERROR_NOT_INITIALIZED,
-        SYS_LOG_E("HTTP Transport not connected!")
-    );
+    RETURN_IF_ERROR((!_isConnected), ERROR_NOT_INITIALIZED, SYS_LOG_E("HTTP Transport not connected!"));
 
     _streamCb     = callback;
     _isStreaming  = true;
     _expectedSize = 0;
 
-    int statusCode = 0;
+    int                     statusCode = 0;
     std::vector<HttpHeader> headers;
 
+    /// Server Configuration Header Mapping
+    headers.push_back({"X-Device-API-Key", "secure-device-token-abcde"}); // Matches server API_KEY
+    headers.push_back({"x-ESP32-version", "1.0.0"});                      // Matches server HEADER_VERSION_KEY
+    headers.push_back({"x-ESP32-hardware", "ESP32-S3-WROOM"});            // Matches server HEADER_HARDWARE_KEY
+
     /// Inline Wrapper Pipeline
-    auto intermediateCb = [this](const uint8_t* chunk, size_t chunkLen, bool isLastChunk) -> sys_error_t {
+    auto intermediateCb = [this](const uint8_t* chunk, size_t chunkLen, bool isLastChunk) -> sys_error_t
+    {
         if (!_isStreaming)
         {
             return ERROR_FAIL;
@@ -124,7 +107,7 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
         if (_expectedSize == 0 && _httpClient.nativeHandle() != nullptr)
         {
             esp_http_client_handle_t espClient = reinterpret_cast<esp_http_client_handle_t>(_httpClient.nativeHandle());
-            int64_t len = esp_http_client_get_content_length(espClient);
+            int64_t                  len       = esp_http_client_get_content_length(espClient);
             if (len > 0)
             {
                 _expectedSize = static_cast<size_t>(len);
@@ -139,24 +122,19 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
         return ERROR_SUCCESS;
     };
 
-    /// Send Transaction Executions
     sys_error_t err = _httpClient.sendRequest(
-        IHttpUri::HttpMethod::GET, // Method
-        _path,                      // Path
-        headers,                   // Headers
-        nullptr,                   // Body
-        0,                         // Body Length
-        statusCode,                // Out Status Code
-        intermediateCb             // Stream Callback
-    );
+        IHttpUri::HttpMethod::GET,
+        _path,
+        headers, // Updated vector containing server authentication headers
+        nullptr,
+        0,
+        statusCode,
+        intermediateCb);
 
     _isStreaming = false;
 
     RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS || statusCode != 200),
-        (err != ERROR_SUCCESS) ? err : ERROR_FAIL,
-        SYS_LOG_E("HTTP perform request execution failed! Status: %d", statusCode)
-    );
+        (err != ERROR_SUCCESS || statusCode != 200), (err != ERROR_SUCCESS) ? err : ERROR_FAIL, SYS_LOG_E("HTTP request rejected by OTA Server! Status: %d", statusCode));
 
     return ERROR_SUCCESS;
 }
@@ -174,15 +152,11 @@ size_t OtaHttpTransport::getExpectedSize() const
 
 sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort)
 {
-    RETURN_IF_ERROR(
-        (url.empty()),
-        ERROR_INVALID_ARG,
-        SYS_LOG_E("Address resolution parameters empty!")
-    );
+    RETURN_IF_ERROR((url.empty()), ERROR_INVALID_ARG, SYS_LOG_E("Address resolution parameters empty!"));
 
     const std::string protocolDelimiter = "://";
-    size_t protocolPos = url.find(protocolDelimiter);
-    size_t hostStart = (protocolPos == std::string::npos) ? 0 : protocolPos + protocolDelimiter.length();
+    size_t            protocolPos       = url.find(protocolDelimiter);
+    size_t            hostStart         = (protocolPos == std::string::npos) ? 0 : protocolPos + protocolDelimiter.length();
 
     bool isHttps = false;
     if (protocolPos != std::string::npos)
@@ -195,17 +169,17 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
         }
     }
 
-    size_t pathStart = url.find('/', hostStart);
+    size_t      pathStart = url.find('/', hostStart);
     std::string hostPortSegment;
     if (pathStart == std::string::npos)
     {
         hostPortSegment = url.substr(hostStart);
-        outPath = "/";
+        outPath         = "/";
     }
     else
     {
         hostPortSegment = url.substr(hostStart, pathStart - hostStart);
-        outPath = url.substr(pathStart);
+        outPath         = url.substr(pathStart);
     }
 
     size_t colonPos = hostPortSegment.find(':');
@@ -217,7 +191,7 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
     else
     {
         outHost = hostPortSegment.substr(0, colonPos);
-        
+
         std::string portStr = hostPortSegment.substr(colonPos + 1);
         if (portStr.empty())
         {
@@ -225,14 +199,11 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
         }
 
         /// Non-throwing Integer Parsing
-        char* endptr = nullptr;
-        long portVal = std::strtol(portStr.c_str(), &endptr, 10);
-        
+        char* endptr  = nullptr;
+        long  portVal = std::strtol(portStr.c_str(), &endptr, 10);
+
         RETURN_IF_ERROR(
-            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535),
-            ERROR_INVALID_ARG,
-            SYS_LOG_E("Parsed port number is invalid or out of range!")
-        );
+            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535), ERROR_INVALID_ARG, SYS_LOG_E("Parsed port number is invalid or out of range!"));
 
         outPort = static_cast<int>(portVal);
     }
