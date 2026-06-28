@@ -1,7 +1,7 @@
 import sys
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from src.api.ota import router as ota_router
+from src.api.ota import router as ota_router, direct_router as direct_ota_router
 from src.api.dashboard import router as dashboard_router
 from src.core.config import settings
 import uvicorn
@@ -20,6 +20,7 @@ app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="stat
 # Register system routes
 app.include_router(dashboard_router, tags=["Administrative Dashboard"])
 app.include_router(ota_router, prefix="/api/v1/ota", tags=["Device Firmware Updates"])
+app.include_router(direct_ota_router, tags=["Device Direct Firmware Updates"]) # Handles root /firmware_storage/ paths
 
 
 def verify_ssl_credentials():
@@ -47,13 +48,12 @@ def get_local_ip():
         s.close()
     return local_ip
 
+
 if __name__ == "__main__":
     verify_ssl_credentials()
 
-    # Local IP
+    # Local IP logs
     print(f"Starting Secure Local OTA Server at https://{settings.HOST if settings.HOST != '0.0.0.0' else 'localhost'}:{settings.PORT}")
-    # Public IP how to get network IP address in python
-
     print(f"Starting Secure Local OTA Server at https://{get_local_ip()}:{settings.PORT}")
     
     uvicorn.run(

@@ -20,7 +20,7 @@ def calculate_sha256(file_path: str) -> str:
 
 
 def update_manifest(hardware: str, version: str, filename: str, file_size: int, sha256_hash: str, release_notes: str):
-    """Safely updates the local manifest.json with the new upload metadata."""
+    """Safely updates the local manifest.json with the new upload metadata using settings."""
     manifest_path = settings.MANIFEST_FILE
     settings.FIRMWARE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -38,8 +38,9 @@ def update_manifest(hardware: str, version: str, filename: str, file_size: int, 
     if "updates" not in data:
         data["updates"] = {}
 
+    # Dynamically inject prefix path from configuration directory settings
     data["updates"][version] = {
-        "binary_path": f"/firmware_storage/{filename}",
+        "binary_path": f"/{settings.FIRMWARE_DIR.name}/{filename}",
         "file_size_bytes": file_size,
         "sha256": sha256_hash,
         "minimum_required_loader_version": settings.DEFAULT_MIN_LOADER_VERSION,
