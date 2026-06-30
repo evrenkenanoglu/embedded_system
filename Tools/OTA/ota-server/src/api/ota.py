@@ -128,6 +128,10 @@ async def ota_check(
 ):
     """Firmware availability checker configured entirely by dynamic settings."""
     api_key = request.headers.get(settings.API_KEY_HEADER)
+
+    # FOR THIS DIAGNOSTIC LOG :
+    logger.info(f"[DEBUG] Incoming Check Headers -> API-Key: {api_key}, Version: {request.headers.get(settings.HEADER_VERSION_KEY)}, Hardware: {request.headers.get(settings.HEADER_HARDWARE_KEY)}")
+    
     authenticate_request(request, "manifest.json", api_key)
 
     client_version = request.headers.get(settings.HEADER_VERSION_KEY) or ver
