@@ -13,7 +13,7 @@
 #include "mem_ota.hpp"
 #include "esp_image_format.h"
 #include "esp_log.h"
-#include "esp_ota_ops.h"
+#include "esp_partition.h"
 #include <cstring>
 
 #if CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
@@ -32,16 +32,30 @@
 
 /** VARIABLES *****************************************************************/
 
-/** LOCAL FUNCTIONS ***********************************************************/
+/** STATIC MEMBER FUNCTIONS ***************************************************/
+
+esp_err_t mem_ota::read_running_partition_cb(uint8_t* buf_p, size_t size, int src_offset, void* user_data)
+{
+    auto* self = static_cast<mem_ota*>(user_data);
+    return self->_handleReadRunning(buf_p, size, src_offset);
+}
+
+esp_err_t mem_ota::write_target_partition_cb(const uint8_t* buf_p, size_t size, void* user_data)
+{
+    auto* self = static_cast<mem_ota*>(user_data);
+    return self->_handleWriteTarget(buf_p, size);
+}
 
 /** FUNCTIONS *****************************************************************/
 
 mem_ota::mem_ota()
     : _updateHandle(0)
+    , _deltaOtaHandle(nullptr)
     , _updatePartition(nullptr)
     , _isInitialized(false)
     , _isOngoing(false)
     , _headerValidated(false)
+    , _isDelta(false)
 {
 }
 
@@ -95,13 +109,24 @@ sys_error_t mem_ota::begin(size_t imageSize)
 
     SYS_LOG_I("Writing to partition subtype %d at offset 0x%" PRIx32, _updatePartition->subtype, _updatePartition->address);
 
-    /// Begin the OTA update
-    esp_err_t err = esp_ota_begin(_updatePartition, imageSize, &_updateHandle);
-    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_begin failed: %s (0x%x)", ERROR_MESSAGE(err), err));
+    sys_error_t error;
+    if (_isDelta)
+    {
+        error = _beginDelta();
+    }
+    else
+    {
+        error = _beginFull(imageSize);
+    }
+
+    RETURN_ON_ERROR(
+        (error),                   // Expression
+        _updatePartition = nullptr // Cleanup
+    );
 
     _isOngoing       = true;
     _headerValidated = false;
-    SYS_LOG_I("OTA write session started successfully");
+    SYS_LOG_I("OTA write session started successfully (Mode: %s)", _isDelta ? "Delta" : "Full");
     return ERROR_SUCCESS;
 }
 
@@ -116,25 +141,14 @@ sys_error_t mem_ota::write(const uint8_t* data, size_t length)
     /// Validate input parameters
     RETURN_IF_ERROR((data == nullptr || length == 0), ERROR_INVALID_ARG, SYS_LOG_E("Cannot write: data or length is invalid"));
 
-    // Validate the image header if we haven't done so yet
-    if (!_headerValidated)
+    if (_isDelta)
     {
-        /// Validate the incoming image header
-        RETURN_ON_ERROR(                                                           //
-            (validateIncomingImageHeader(data, length)),                           // Expression
-            abort();                                                               // Cleanup
-            SYS_LOG_E("Incoming image header validation failed, aborting update"); // Error message
-        );
-
-        _headerValidated = true;
+        return _writeDelta(data, length);
     }
-
-    /// OTA write firmware data to partition
-    const esp_err_t err = esp_ota_write(_updateHandle, data, length);
-
-    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_write failed: %s (0x%x)", ERROR_MESSAGE(err), err));
-
-    return ERROR_SUCCESS;
+    else
+    {
+        return _writeFull(data, length);
+    }
 }
 
 sys_error_t mem_ota::end()
@@ -142,16 +156,20 @@ sys_error_t mem_ota::end()
     const bool initial_check = (_isInitialized != false) && (_isOngoing != false);
     RETURN_IF_ERROR(!initial_check, ERROR_INVALID_STATE, SYS_LOG_E("Cannot end OTA: HAL is not initialized or no active session in progress"));
 
-    /// End the OTA update and validate the written partition
-    const esp_err_t err = esp_ota_end(_updateHandle);
+    sys_error_t err;
+    if (_isDelta)
+    {
+        err = _endDelta();
+    }
+    else
+    {
+        err = _endFull();
+    }
 
-    /// Reset internal state
-    resetInternalState();
+    /// Reset internal state skipping partition reset to retain the update partition for boot setting
+    resetInternalState(true);
 
-    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_end failed: %s (0x%x)", ERROR_MESSAGE(err), err));
-
-    SYS_LOG_I("OTA write session completed and verified");
-    return ERROR_SUCCESS;
+    return err;
 }
 
 sys_error_t mem_ota::abort()
@@ -160,25 +178,33 @@ sys_error_t mem_ota::abort()
     {
         return ERROR_SUCCESS;
     }
-    /// Abort the OTA process
-    const esp_err_t err = esp_ota_abort(_updateHandle);
+
+    sys_error_t err;
+    if (_isDelta)
+    {
+        err = _abortDelta();
+    }
+    else
+    {
+        err = _abortFull();
+    }
 
     /// Always reset internal state to ensure no dangling handles or active states remain
     resetInternalState();
 
-    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_abort failed: %s (0x%x)", ERROR_MESSAGE(err), err));
-
-    SYS_LOG_I("OTA write session aborted");
-
-    return ERROR_SUCCESS;
+    return err;
 }
 
-void mem_ota::resetInternalState()
+void mem_ota::resetInternalState(bool skipPartitionReset)
 {
+    if (!skipPartitionReset)
+        _updatePartition = nullptr;
+
     _updateHandle    = 0;
-    _updatePartition = nullptr;
+    _deltaOtaHandle  = nullptr;
     _isOngoing       = false;
     _headerValidated = false;
+    _isDelta         = false;
 }
 
 sys_error_t mem_ota::setBootPartition()
@@ -266,4 +292,132 @@ sys_error_t mem_ota::markAppInvalid()
     RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("Failed to mark app invalid/rollback: %s (0x%x)", ERROR_MESSAGE(err), err));
 
     return ERROR_SUCCESS;
+}
+
+void mem_ota::setDeltaMode(bool isDelta)
+{
+    _isDelta = isDelta;
+}
+
+/** PRIVATE HELPER APIS (SEPARATED FULL AND DELTA OPERATIONS) *****************/
+
+sys_error_t mem_ota::_beginFull(size_t imageSize)
+{
+    /// Start the standard OTA process using the ESP-IDF OTA API
+    esp_err_t err = esp_ota_begin(_updatePartition, imageSize, &_updateHandle);
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_begin failed: %s (0x%x)", ERROR_MESSAGE(err), err));
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::_beginDelta()
+{
+    // Begin standard underlying OTA sequence first (OTA_SIZE_UNKNOWN works for delta mode)
+    esp_err_t err = esp_ota_begin(_updatePartition, OTA_SIZE_UNKNOWN, &_updateHandle);
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_begin failed: %s (0x%x)", ERROR_MESSAGE(err), err));
+
+    esp_delta_ota_cfg_t cfg     = {};
+    cfg.user_data               = this;
+    cfg.read_cb_with_user_data  = read_running_partition_cb;
+    cfg.write_cb_with_user_data = write_target_partition_cb;
+
+    _deltaOtaHandle = esp_delta_ota_init(&cfg);
+
+    RETURN_IF_ERROR((_deltaOtaHandle == nullptr),                                 // Expression
+                    ERROR_FAIL,                                                   // Error code
+                    SYS_LOG_E("Failed to initialize esp_delta_ota decompressor"); // Error message
+                    esp_ota_abort(_updateHandle);                                 // Cleanup
+                    _updateHandle = 0;                                            // Cleanup
+    );
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::_writeFull(const uint8_t* data, size_t length)
+{
+    if (!_headerValidated)
+    {
+        RETURN_ON_ERROR((validateIncomingImageHeader(data, length)), abort(); SYS_LOG_E("Incoming image header validation failed, aborting update"););
+        _headerValidated = true;
+    }
+
+    const esp_err_t err = esp_ota_write(_updateHandle, data, length);
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_write failed: %s (0x%x)", ERROR_MESSAGE(err), err));
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::_writeDelta(const uint8_t* data, size_t length)
+{
+    /// Feed the incoming delta patch data to the Delta OTA decompressor engine
+    esp_err_t err = esp_delta_ota_feed_patch(_deltaOtaHandle, data, length);
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_delta_ota_feed_patch failed: 0x%x", err));
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::_endFull()
+{
+    /// Finalize the standard OTA process using the ESP-IDF OTA API
+    const esp_err_t err = esp_ota_end(_updateHandle);
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_end failed: %s (0x%x)", ERROR_MESSAGE(err), err));
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::_endDelta()
+{
+    esp_err_t err = esp_delta_ota_finalize(_deltaOtaHandle);
+    RETURN_IF_ERROR((err != ESP_OK), ERROR_FAIL, SYS_LOG_E("esp_delta_ota_finalize failed: 0x%x", err));
+
+    esp_delta_ota_deinit(_deltaOtaHandle);
+    _deltaOtaHandle = nullptr;
+
+    const esp_err_t ota_err = esp_ota_end(_updateHandle);
+    _updateHandle           = 0;
+
+    RETURN_IF_ERROR(ota_err != ESP_OK, TRANSLATE_ERROR(ota_err), SYS_LOG_E("esp_ota_end failed: %s (0x%x)", ERROR_MESSAGE(ota_err), ota_err));
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("Delta patch finalization failed."));
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::_abortFull()
+{
+    const esp_err_t err = esp_ota_abort(_updateHandle);
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_abort failed: %s (0x%x)", ERROR_MESSAGE(err), err));
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::_abortDelta()
+{
+    /// If a delta OTA session is ongoing, deinitialize the Delta OTA decompressor engine
+    if (_deltaOtaHandle != nullptr)
+    {
+        esp_delta_ota_deinit(_deltaOtaHandle);
+        _deltaOtaHandle = nullptr;
+    }
+    const esp_err_t err = esp_ota_abort(_updateHandle);
+    RETURN_IF_ERROR(err != ESP_OK, TRANSLATE_ERROR(err), SYS_LOG_E("esp_ota_abort failed: %s (0x%x)", ERROR_MESSAGE(err), err));
+    return ERROR_SUCCESS;
+}
+
+esp_err_t mem_ota::_handleReadRunning(uint8_t* buf_p, size_t size, int src_offset)
+{
+    /// Read data from the currently running partition at the specified offset into the provided buffer
+    const esp_partition_t* running = esp_ota_get_running_partition();
+    RETURN_IF_ERROR((running == nullptr), ESP_FAIL);
+
+    return esp_partition_read(running, src_offset, buf_p, size);
+}
+
+esp_err_t mem_ota::_handleWriteTarget(const uint8_t* buf_p, size_t size)
+{
+    /// Validate the incoming firmware image header on the first write chunk before writing to the target partition
+    if (!_headerValidated)
+    {
+        /// Validate the reconstructed firmware image header from the decompressor output
+        const sys_error_t err = validateIncomingImageHeader(buf_p, size);
+        RETURN_IF_ERROR((err != ERROR_SUCCESS), ESP_FAIL, SYS_LOG_E("Reconstructed binary header validation failed."));
+
+        _headerValidated = true;
+    }
+    return esp_ota_write(_updateHandle, buf_p, size);
 }

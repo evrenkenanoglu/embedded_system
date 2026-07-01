@@ -324,6 +324,7 @@ void HttpsClient::_populate_config(const HttpClientOptions_t& options, esp_http_
     // Populate standard network parameters
     config.host              = options.host.c_str();
     config.port              = options.port;
+    config.path              = "/"; // Configured default path parameter to satisfy ESP-IDF structural validation
     config.transport_type    = options.use_tls ? HTTP_TRANSPORT_OVER_SSL : HTTP_TRANSPORT_OVER_TCP;
     config.timeout_ms        = options.timeout_ms;
     config.keep_alive_enable = options.keep_alive;

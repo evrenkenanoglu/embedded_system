@@ -92,6 +92,13 @@ public:
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
     virtual sys_error_t markAppInvalid() = 0;
+
+    /**
+     * @brief Set the OTA mode to either full or delta update.
+     *
+     * @param isDelta True for delta update mode, false for full update mode.
+     */
+    virtual void setDeltaMode(bool isDelta) = 0;
 };
 
 #endif // FILE_IHAL_MEM_OTA_H
