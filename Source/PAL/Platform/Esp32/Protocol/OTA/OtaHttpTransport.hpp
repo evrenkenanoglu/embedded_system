@@ -40,7 +40,7 @@ private:
     /**
      * @brief Direct extraction parser dividing URL targets.
      */
-    sys_error_t _parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort);
+    sys_error_t _parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps);
 
     IHttpClient& _httpClient;
     std::string  _url;

@@ -44,21 +44,22 @@ sys_error_t OtaHttpTransport::connect()
     RETURN_IF_ERROR((_isConnected), ERROR_SUCCESS);
 
     /// Dynamic URL Resolution
-    sys_error_t err = _parseUrl(_url, _host, _path, _port);
+    bool        isHttps = false;
+    sys_error_t err     = _parseUrl(_url, _host, _path, _port, isHttps);
     RETURN_IF_ERROR((err != ERROR_SUCCESS), err, SYS_LOG_E("Failed to parse resource address targets!"));
 
     /// Connection Setup
     HttpClientOptions_t clientOptions{};
     clientOptions.host       = _host;
     clientOptions.port       = _port;
-    clientOptions.use_tls    = (_port == 443);
+    clientOptions.use_tls    = isHttps; // Set by parsing results instead of hardcoded port verification
     clientOptions.timeout_ms = _timeoutMs;
     clientOptions.keep_alive = true;
 
     if (clientOptions.use_tls && !_serverCert.empty())
     {
         clientOptions.server_cert_pem = _serverCert.c_str();
-        clientOptions.server_cert_len = _serverCert.length();
+        clientOptions.server_cert_len = 0; // Must be 0 for PEM certificates
     }
 
     err = _httpClient.connect(clientOptions);
@@ -150,7 +151,7 @@ size_t OtaHttpTransport::getExpectedSize() const
     return _expectedSize;
 }
 
-sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort)
+sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps)
 {
     RETURN_IF_ERROR((url.empty()), ERROR_INVALID_ARG, SYS_LOG_E("Address resolution parameters empty!"));
 
@@ -158,14 +159,14 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
     size_t            protocolPos       = url.find(protocolDelimiter);
     size_t            hostStart         = (protocolPos == std::string::npos) ? 0 : protocolPos + protocolDelimiter.length();
 
-    bool isHttps = false;
+    outIsHttps = false;
     if (protocolPos != std::string::npos)
     {
         std::string protocol = url.substr(0, protocolPos);
         std::transform(protocol.begin(), protocol.end(), protocol.begin(), ::tolower);
         if (protocol == "https")
         {
-            isHttps = true;
+            outIsHttps = true;
         }
     }
 
@@ -186,7 +187,7 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
     if (colonPos == std::string::npos)
     {
         outHost = hostPortSegment;
-        outPort = isHttps ? 443 : 80;
+        outPort = outIsHttps ? 443 : 80;
     }
     else
     {
