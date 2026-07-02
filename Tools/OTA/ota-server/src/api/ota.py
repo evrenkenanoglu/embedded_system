@@ -68,7 +68,7 @@ def verify_download_token(filename: str, token: str) -> bool:
             settings.API_KEY.encode("utf-8"), 
             message, 
             hashlib.sha256
-    ).hexdigest()
+        ).hexdigest()
         
         return hmac.compare_digest(expected_sig, signature)
     except Exception:
@@ -129,7 +129,7 @@ async def ota_check(
     """Firmware availability checker configured entirely by dynamic settings."""
     api_key = request.headers.get(settings.API_KEY_HEADER)
 
-    # FOR THIS DIAGNOSTIC LOG :
+    # Diagnostic log
     logger.info(f"[DEBUG] Incoming Check Headers -> API-Key: {api_key}, Version: {request.headers.get(settings.HEADER_VERSION_KEY)}, Hardware: {request.headers.get(settings.HEADER_HARDWARE_KEY)}")
     
     authenticate_request(request, "manifest.json", api_key)
@@ -175,20 +175,47 @@ async def ota_check(
                 detail="Target binary metadata mismatch."
             )
 
+        # 1. Check if a pre-generated delta patch exists for the client's current version
+        patches_map = update_info.get("patches", {})
+        
+        if client_version in patches_map:
+            logger.info(f"Target delta patch found for client version {client_version} -> {latest_version}")
+            patch_info = patches_map[client_version]
+            patch_relative_path = patch_info.get("patch_path", "")
+            patch_filename = f"patches/{Path(patch_relative_path).name}"
+            
+            token = generate_download_token(patch_filename)
+            base_url = str(request.base_url).rstrip("/")
+            download_url = f"{base_url}{DOWNLOAD_ROUTE_PREFIX}/{patch_filename}?token={token}"
+
+            return {
+                "update_available": True,
+                "update_type": "delta",
+                "version": latest_version,
+                "url": download_url,
+                "size": patch_info.get("file_size_bytes"),
+                "sha256": patch_info.get("sha256"),          # SHA-256 of the patch binary itself
+                "target_sha256": update_info.get("sha256"),   # SHA-256 of final reconstructed binary
+                "notes": update_info.get("release_notes")
+            }
+
+        # 2. Fallback to Full update if no patch exists
+        logger.info(f"No matching delta patch found for version {client_version}. Delivering full binary.")
         binary_path = update_info.get("binary_path", "")
         binary_name = Path(binary_path).name
 
-        # Generate signed transient download URL (Valid for 5 minutes)
         token = generate_download_token(binary_name)
         base_url = str(request.base_url).rstrip("/")
         download_url = f"{base_url}{DOWNLOAD_ROUTE_PREFIX}/{binary_name}?token={token}"
 
         return {
             "update_available": True,
+            "update_type": "full",
             "version": latest_version,
             "url": download_url,
             "size": update_info.get("file_size_bytes"),
             "sha256": update_info.get("sha256"),
+            "target_sha256": update_info.get("sha256"),
             "notes": update_info.get("release_notes")
         }
 
@@ -198,14 +225,14 @@ async def ota_check(
     }
 
 
-# Route 1: Legacy api-path download (/api/v1/ota/download/{filename})
-@router.get("/download/{filename}")
+# Route 1: Legacy api-path download (/api/v1/ota/download/{filename:path})
+@router.get("/download/{filename:path}")
 async def ota_download(
     filename: str, 
     request: Request,
     token: str = Query(None, description="Temporary presigned query token")
 ):
-    """Serves binary files dynamically using the presigned URL scheme."""
+    """Serves binary files dynamically using the presigned URL scheme (supports subdirectories)."""
     authenticate_request(request, filename, token)
 
     client_version = request.headers.get(settings.HEADER_VERSION_KEY)
@@ -218,14 +245,14 @@ async def ota_download(
     return await get_validated_file_response(filename)
 
 
-# Route 2: Dynamic direct download root endpoint (interpolates e.g., /firmware_storage/{filename})
-@direct_router.get(f"{DOWNLOAD_ROUTE_PREFIX}/{{filename}}")
+# Route 2: Dynamic direct download root endpoint (interpolates e.g., /firmware_storage/{filename:path})
+@direct_router.get(f"{DOWNLOAD_ROUTE_PREFIX}/{{filename:path}}")
 async def direct_ota_download(
     filename: str, 
     request: Request,
     token: str = Query(None, description="Temporary presigned query token")
 ):
-    """Serves binary files dynamically directly on the root storage path using signed query tokens."""
+    """Serves binary files dynamically directly on the root storage path (supports subdirectories)."""
     authenticate_request(request, filename, token)
 
     client_version = request.headers.get(settings.HEADER_VERSION_KEY)

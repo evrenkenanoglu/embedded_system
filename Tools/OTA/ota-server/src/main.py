@@ -13,6 +13,7 @@ app = FastAPI(title=settings.PROJECT_NAME)
 settings.STATIC_DIR.mkdir(parents=True, exist_ok=True)
 settings.TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 settings.FIRMWARE_DIR.mkdir(parents=True, exist_ok=True)
+(settings.FIRMWARE_DIR / "patches").mkdir(parents=True, exist_ok=True) # Create patches subdir
 
 # Mount static assets (CSS, JS, Images) for the dashboard UI
 app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")
