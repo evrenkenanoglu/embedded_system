@@ -12,7 +12,7 @@
 #define MEM_OTA_HPP
 
 #include "HAL/IHAL/IHal_Mem_Ota.h"
-#include "esp_delta_ota.h" 
+#include "esp_delta_ota.h"
 #include "esp_ota_ops.h"
 
 /** INCLUDES ******************************************************************/
@@ -29,20 +29,22 @@ class mem_ota : public IHal_Mem_Ota
 {
 private:
     /** VARIABLES *************************************************************/
-    esp_ota_handle_t       _updateHandle;    // Handle for the OTA update process
-    esp_delta_ota_handle_t _deltaOtaHandle;  // Handle for the Delta OTA update process
-    const esp_partition_t* _updatePartition; // Pointer to the partition where the new firmware will be written
-    bool                   _isInitialized;   // Flag indicating whether the OTA memory interface has been initialized
-    bool                   _isOngoing;       // Flag indicating whether an OTA update session is currently in progress
-    bool                   _headerValidated; // Flag indicating whether the incoming firmware image header has been validated
-    bool                   _isDelta;         // Flag indicating whether the OTA update is a delta update
+    esp_ota_handle_t       _updateHandle;           // Handle for the OTA update process
+    esp_delta_ota_handle_t _deltaOtaHandle;         // Handle for the Delta OTA update process
+    const esp_partition_t* _updatePartition;        // Pointer to the partition where the new firmware will be written
+    bool                   _isInitialized;          // Flag indicating whether the OTA memory interface has been initialized
+    bool                   _isOngoing;              // Flag indicating whether an OTA update session is currently in progress
+    bool                   _headerValidated;        // Flag indicating whether the incoming firmware image header has been validated
+    bool                   _isDelta;                // Flag indicating whether the OTA update is a delta update
+    uint8_t                _headerAccumulator[320]; // Temp buffer to hold headers during micro-sized delta writes (min required: 288)
+    size_t                 _accumulatorCount;       // Number of bytes currently held inside the accumulator
 
     /** PRIVATE METHODS *******************************************************/
     sys_error_t validateIncomingImageHeader(const uint8_t* data, size_t length);
 
     // Static callbacks to feed the dynamic decompressor engine
-    static esp_err_t read_running_partition_cb(uint8_t *buf_p, size_t size, int src_offset, void *user_data);
-    static esp_err_t write_target_partition_cb(const uint8_t *buf_p, size_t size, void *user_data);
+    static esp_err_t read_running_partition_cb(uint8_t* buf_p, size_t size, int src_offset, void* user_data);
+    static esp_err_t write_target_partition_cb(const uint8_t* buf_p, size_t size, void* user_data);
 
     // Separated Standard (Full) private execution operations
     sys_error_t _beginFull(size_t imageSize);
@@ -57,8 +59,8 @@ private:
     sys_error_t _abortDelta();
 
     // Decompressor read/write implementation handlers
-    esp_err_t _handleReadRunning(uint8_t *buf_p, size_t size, int src_offset);
-    esp_err_t _handleWriteTarget(const uint8_t *buf_p, size_t size);
+    esp_err_t _handleReadRunning(uint8_t* buf_p, size_t size, int src_offset);
+    esp_err_t _handleWriteTarget(const uint8_t* buf_p, size_t size);
 
 public:
     mem_ota();
@@ -82,7 +84,7 @@ public:
     sys_error_t setBootPartition() override;
     sys_error_t markAppValid() override;
     sys_error_t markAppInvalid() override;
-    void setDeltaMode(bool isDelta) override;
+    void        setDeltaMode(bool isDelta) override;
 
 public:
     /** USER METHODS *******************************************************/

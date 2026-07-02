@@ -56,6 +56,7 @@ mem_ota::mem_ota()
     , _isOngoing(false)
     , _headerValidated(false)
     , _isDelta(false)
+    , _accumulatorCount(0)
 {
 }
 
@@ -200,11 +201,12 @@ void mem_ota::resetInternalState(bool skipPartitionReset)
     if (!skipPartitionReset)
         _updatePartition = nullptr;
 
-    _updateHandle    = 0;
-    _deltaOtaHandle  = nullptr;
-    _isOngoing       = false;
-    _headerValidated = false;
-    _isDelta         = false;
+    _updateHandle     = 0;
+    _deltaOtaHandle   = nullptr;
+    _isOngoing        = false;
+    _headerValidated  = false;
+    _isDelta          = false;
+    _accumulatorCount = 0;
 }
 
 sys_error_t mem_ota::setBootPartition()
@@ -410,14 +412,51 @@ esp_err_t mem_ota::_handleReadRunning(uint8_t* buf_p, size_t size, int src_offse
 
 esp_err_t mem_ota::_handleWriteTarget(const uint8_t* buf_p, size_t size)
 {
-    /// Validate the incoming firmware image header on the first write chunk before writing to the target partition
     if (!_headerValidated)
     {
-        /// Validate the reconstructed firmware image header from the decompressor output
-        const sys_error_t err = validateIncomingImageHeader(buf_p, size);
-        RETURN_IF_ERROR((err != ERROR_SUCCESS), ESP_FAIL, SYS_LOG_E("Reconstructed binary header validation failed."));
+        constexpr size_t min_header_size = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t);
 
-        _headerValidated = true;
+        /// 1. Fast Path: If the single chunk is already large enough and no bytes are accumulated, bypass entirely
+        if (_accumulatorCount == 0 && size >= min_header_size)
+        {
+            const sys_error_t err = validateIncomingImageHeader(buf_p, size);
+            RETURN_IF_ERROR((err != ERROR_SUCCESS), ESP_FAIL, SYS_LOG_E("Reconstructed binary header validation failed."));
+
+            _headerValidated = true;
+            return esp_ota_write(_updateHandle, buf_p, size);
+        }
+
+        /// 2. Accumulate incoming micro-chunks in the temporary buffer
+        size_t bytesToCopy = min_header_size - _accumulatorCount;
+        if (bytesToCopy > size)
+        {
+            bytesToCopy = size;
+        }
+
+        std::memcpy(_headerAccumulator + _accumulatorCount, buf_p, bytesToCopy);
+        _accumulatorCount += bytesToCopy;
+
+        /// 3. Once we accumulate the minimal size, run validation and write the block
+        if (_accumulatorCount >= min_header_size)
+        {
+            const sys_error_t err = validateIncomingImageHeader(_headerAccumulator, _accumulatorCount);
+            RETURN_IF_ERROR((err != ERROR_SUCCESS), ESP_FAIL, SYS_LOG_E("Accumulated binary header validation failed."));
+            _headerValidated = true;
+
+            /// Write the validated accumulated block directly to standard OTA ops
+            const esp_err_t ota_err = esp_ota_write(_updateHandle, _headerAccumulator, _accumulatorCount);
+            RETURN_IF_ERROR((ota_err != ESP_OK), ota_err);
+
+            /// Write any trailing data from the remaining slice of the current chunk
+            if (size > bytesToCopy)
+            {
+                return esp_ota_write(_updateHandle, buf_p + bytesToCopy, size - bytesToCopy);
+            }
+        }
+
+        return ESP_OK;
     }
+
+    // Standard fast path write for any blocks after validation succeeds
     return esp_ota_write(_updateHandle, buf_p, size);
 }
