@@ -171,7 +171,7 @@ esp_err_t HttpUri::handle_body_request(httpd_req_t* req)
     // Read the body into a buffer
     char req_buf[REQ_BUF_SZ] = {0};
 
-    int req_len = httpd_req_recv(req, req_buf, REQ_BUF_SZ);
+    int req_len = httpd_req_recv(req, req_buf, REQ_BUF_SZ - 1); // REQ_BUF_SZ - 1 for 
     if (req_len <= 0)
     {
         if (req_len == HTTPD_SOCK_ERR_TIMEOUT)
@@ -264,8 +264,10 @@ esp_err_t HttpUri::handle_websocket_frame(httpd_req_t* req)
     {
         SYS_LOG_W("WebSocket frame too large: %zu bytes (max %zu). Truncating.", ws_pkt.len, MAX_WS_FRAME_SZ);
     }
+    size_t max_read = (ws_pkt.len >= sizeof(buf)) ? (sizeof(buf) - 1) : ws_pkt.len;
 
-    httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len > sizeof(buf) ? sizeof(buf) : ws_pkt.len);
+    ws_pkt.len = max_read; // Some ESP-IDF versions do not update ws_pkt.len after reading
+    httpd_ws_recv_frame(req, &ws_pkt, max_read);
 
     SYS_LOG_D("Received WebSocket frame of type %d, length %zu from client FD %d", ws_pkt.type, ws_pkt.len, clientId);
 
