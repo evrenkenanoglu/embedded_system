@@ -2,11 +2,11 @@ import hashlib
 import json
 import os
 import logging
-from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from src.core.config import settings
-from src.core.patch import generate_delta_patch  # Imported modular generator function
+from src.core.patch import generate_delta_patch
 
 logger = logging.getLogger("uvicorn.error")
 router = APIRouter()
@@ -144,3 +144,91 @@ async def upload_firmware(
     update_manifest(hardware, version, file.filename, file_size, sha256_hash, release_notes)
 
     return RedirectResponse(url="/", status_code=303)
+
+
+@router.post("/delete/{version}")
+async def delete_version(version: str):
+    """Deletes the specified version metadata and cleans up its associated binary and patch files."""
+    manifest_path = settings.MANIFEST_FILE
+    if not manifest_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Manifest file not found."
+        )
+
+    with open(manifest_path, "r") as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail="Corrupted manifest file."
+            )
+
+    if "updates" not in data or version not in data["updates"]:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"Version {version} not found in manifest."
+        )
+
+    files_to_delete = []
+
+    # 1. Capture primary binary of the version being deleted
+    target_update = data["updates"][version]
+    bin_path_rel = target_update.get("binary_path")
+    if bin_path_rel:
+        bin_name = os.path.basename(bin_path_rel)
+        files_to_delete.append(settings.FIRMWARE_DIR / bin_name)
+
+    # 2. Capture patches to this version (stored in target version's patch configuration)
+    patches = target_update.get("patches", {})
+    for prev_ver, patch_meta in patches.items():
+        patch_path_rel = patch_meta.get("patch_path")
+        if patch_path_rel:
+            patch_name = os.path.basename(patch_path_rel)
+            files_to_delete.append(settings.FIRMWARE_DIR / "patches" / patch_name)
+
+    # 3. Capture and clear external patches originating from this version inside newer updates
+    for other_ver, other_data in list(data["updates"].items()):
+        if other_ver == version:
+            continue
+        other_patches = other_data.get("patches", {})
+        if version in other_patches:
+            patch_path_rel = other_patches[version].get("patch_path")
+            if patch_path_rel:
+                patch_name = os.path.basename(patch_path_rel)
+                files_to_delete.append(settings.FIRMWARE_DIR / "patches" / patch_name)
+            del other_data["patches"][version]
+
+    # 4. Remove target update configuration
+    del data["updates"][version]
+
+    # 5. Re-evaluate the latest_version dynamically
+    remaining_versions = list(data["updates"].keys())
+    if remaining_versions:
+        def semver_key(v):
+            try:
+                return [int(x) for x in v.split(".")]
+            except ValueError:
+                return [0]
+        sorted_versions = sorted(remaining_versions, key=semver_key)
+        data["latest_version"] = sorted_versions[-1]
+    else:
+        data["latest_version"] = ""
+
+    # 6. Delete all verified file assets from disk
+    for file_path in files_to_delete:
+        try:
+            if file_path.exists():
+                file_path.unlink()
+                logger.info(f"Successfully deleted local file: {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete file {file_path}: {e}")
+
+    # 7. Write clean state back to manifest.json
+    temp_path = manifest_path.with_suffix(".tmp")
+    with open(temp_path, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(temp_path, manifest_path)
+
+    return {"success": True, "message": f"Version {version} and relative assets deleted."}

@@ -14,6 +14,7 @@
             --primary: #10b981;
             --primary-hover: #059669;
             --danger: #ef4444;
+            --danger-hover: #dc2626;
         }
 
         * {
@@ -142,6 +143,28 @@
 
         button:hover {
             background-color: var(--primary-hover);
+        }
+
+        /* Delete Button Action Control */
+        .delete-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.15s ease-in-out;
+            width: auto;
+        }
+
+        .delete-btn:hover {
+            background-color: var(--danger);
+            color: #ffffff;
         }
 
         /* Manifest Status */
@@ -283,7 +306,7 @@
                         </div>
                         <div class="stat-box">
                             <div class="stat-label">Latest Version</div>
-                            <div class="stat-value">{{ manifest.latest_version }}</div>
+                            <div class="stat-value">{{ manifest.latest_version if manifest.latest_version else 'N/A' }}</div>
                         </div>
                     </div>
 
@@ -294,6 +317,13 @@
                                 <div class="release-item">
                                     <div class="release-header">
                                         <span class="release-version">v{{ version }}</span>
+                                        <button class="delete-btn" onclick="confirmDelete('{{ version }}')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
+                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                            </svg>
+                                            Delete
+                                        </button>
                                     </div>
                                     <div class="meta-grid">
                                         <div class="meta-item"><strong>File Path:</strong> {{ details.binary_path }}</div>
@@ -337,6 +367,28 @@
                 }
             });
         });
+
+        // Safe client deletion request handler with user verification prompt
+        async function confirmDelete(version) {
+            const confirmBox = confirm(`Are you sure you want to permanently delete firmware version v${version}?\n\nThis will remove it from manifest.json and physically delete the binary as well as all associated patch files from storage.`);
+            
+            if (confirmBox) {
+                try {
+                    const response = await fetch(`/delete/${version}`, {
+                        method: 'POST'
+                    });
+                    
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        const errorDetails = await response.json();
+                        alert(`Deletion failed: ${errorDetails.detail || 'Internal server error'}`);
+                    }
+                } catch (err) {
+                    alert(`Network connection failure: ${err.message}`);
+                }
+            }
+        }
     </script>
 </body>
 </html>
