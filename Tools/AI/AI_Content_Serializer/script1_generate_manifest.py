@@ -5,10 +5,12 @@ import config
 from src.scanner import build_tree_and_files
 from src.manifest_manager import save_manifest, write_text_file
 
+# --- ADDED IMPORT ---
+from src.selector_gui import select_files_interactively
+
 
 def parse_arguments() -> argparse.Namespace:
     """Parses command-line arguments for generating the manifest."""
-    # Resolve default paths relative to the OUT directory specified in config.py
     default_manifest = Path(config.OUTPUT_DIR) / config.DEFAULT_MANIFEST_NAME
     default_tree = Path(config.OUTPUT_DIR) / config.DEFAULT_TREE_NAME
 
@@ -48,7 +50,6 @@ def main():
         print(f"Error: Directory '{parent_dir}' does not exist.")
         return
 
-    # Dynamically ensure target output directories exist
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     tree_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -61,23 +62,26 @@ def main():
     write_text_file(tree_path, tree_text)
     print(f"Saved directory tree preview to: {tree_path}")
 
-    manifest_data = {
-        "parent_directory": str(parent_dir),
-        "tree_structure": tree_text,
-        "files": [],
-    }
-
+    # Build the default file list
+    initial_files = []
     for file_path in files_list:
         relative_path = file_path.relative_to(parent_dir)
-        manifest_data["files"].append(
+        initial_files.append(
             {"relative_path": str(relative_path), "include": True}
         )
 
+    # --- ADDED INTERACTIVE GUI STEP ---
+    print("Launching interactive file selector window...")
+    configured_files = select_files_interactively(initial_files)
+
+    manifest_data = {
+        "parent_directory": str(parent_dir),
+        "tree_structure": tree_text,
+        "files": configured_files,
+    }
+
     save_manifest(manifest_path, manifest_data)
-    print(f"Saved project manifest configuration to: {manifest_path}")
-    print(
-        "Open the JSON file to toggle 'include' values before running serialization."
-    )
+    print(f"Saved selected configuration to: {manifest_path}")
 
 
 if __name__ == "__main__":
