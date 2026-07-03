@@ -14,6 +14,9 @@ except ImportError:
 
 def parse_arguments():
     """Parses command-line arguments and returns the parsed options with default fallbacks."""
+    r"""Usage Example:
+    python upload_firmware.py -u https://localhost:8443/upload -d esp32-devkit-v1 -v 1.0.3 -n "Initial release upload" --insecure -f "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project.bin"
+    """
     parser = argparse.ArgumentParser(
         description="CLI utility to compile metadata and transfer firmware payloads to the OTA server.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -27,19 +30,19 @@ def parse_arguments():
     
     parser.add_argument(
         "-f", "--file", 
-        default="esp32_v1.0.3.bin", 
+        default=r"\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project.bin", 
         help="Local file path to the binary (.bin) payload"
     )
     
     parser.add_argument(
         "-d", "--hw", 
-        default="esp32-devkit-v1", 
+        default="ESP32-S3-WROOM", 
         help="Compatibly matching target hardware identification signature"
     )
     
     parser.add_argument(
         "-v", "--version", 
-        default="1.0.3", 
+        default="1.0.0", 
         help="Semantically ordered firmware version increment"
     )
     
@@ -110,3 +113,6 @@ def upload_binary(args):
 if __name__ == "__main__":
     parsed_args = parse_arguments()
     upload_binary(parsed_args)
+
+# python upload_firmware.py -u https://localhost:8443/upload -d ESP32-S3-WROOM -v 1.0.0  --insecure -f "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project.bin"
+# python upload_firmware.py -v 1.0.0  --insecure -f "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project.bin"
