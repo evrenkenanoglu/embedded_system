@@ -11,6 +11,9 @@ from src.selector_gui import select_files_interactively
 
 def parse_arguments() -> argparse.Namespace:
     """Parses command-line arguments for generating the manifest."""
+    r"""Usage Example:
+    python script1_generate_manifest.py /path/to/directory
+    """
     default_manifest = Path(config.OUTPUT_DIR) / config.DEFAULT_MANIFEST_NAME
     default_tree = Path(config.OUTPUT_DIR) / config.DEFAULT_TREE_NAME
 

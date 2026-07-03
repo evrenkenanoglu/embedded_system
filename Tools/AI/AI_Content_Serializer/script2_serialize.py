@@ -8,6 +8,9 @@ from src.serializer import generate_markdown
 
 def parse_arguments() -> argparse.Namespace:
     """Parses command-line arguments for the serialization step."""
+    r"""Usage Example:
+    python script2_serialize.py -m /path/to/manifest.json -o /path/to/output.md
+    """
     # Resolve default paths relative to the OUT directory specified in config.py
     default_manifest = Path(config.OUTPUT_DIR) / config.DEFAULT_MANIFEST_NAME
     default_output = Path(config.OUTPUT_DIR) / config.DEFAULT_SERIALIZATION_NAME

@@ -39,8 +39,14 @@ IGNORE_PATTERNS = [
     "*.db",
     "*.sqlite",
     "__init__.py",  # Ignore Python package init files
-    
+
     # Specific file names
     ".DS_Store",
     "Thumbs.db",
 ]
+
+
+# GUI Font configurations (No hardcoded values)
+GUI_FONT_FAMILY = "Arial"
+GUI_FONT_SIZE_BASE = 12  # Font size for buttons and general interface labels
+GUI_FONT_SIZE_TREE = 12  # Font size for the main interactive file tree paths
