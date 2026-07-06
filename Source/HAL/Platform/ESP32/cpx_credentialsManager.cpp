@@ -1,352 +1,31 @@
-/**
- * @file cpx_credentialsManager.cpp
- * @brief Source file for cpx_credentialsManager
- *
- * This file contains definitions for the cpx_credentialsManager class and related data types and functions.
+/** @file       cpx_credentialsManager.cpp
+ *  @brief      Source file for the credential orchestrator and persistence manager.
+ *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+ *              Permission to use, reproduce, copy, prepare derivative works,
+ *              modify, distribute, perform, display or sell this software and/or
+ *              its documentation for any purpose is prohibited without the express
+ *              written consent of Evren Kenanoglu.
+ *  @date       05/07/2026
  */
 
+/** INCLUDES ******************************************************************/
 #include "cpx_credentialsManager.hpp"
-#include <atomic>
-#include <string>
-// Logger include
+
+#define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
-static void keyGenerationTask(void* param);
+#include <cstring>
 
-cpx_credentialsManager::cpx_credentialsManager(IHAL_MEM& memDevice)
-    : _memDevice(memDevice)                                                        // Reference to the memory device for storing credentials
-    , _credentials{.privateKey = std::vector<unsigned char>(KEY_PEM_BUF_SIZE, 0),  // Initialize private key buffer
-                   .serverCert = std::vector<unsigned char>(CERT_PEM_BUF_SIZE, 0)} // Initialize server certificate buffer
-    , _charData{nullptr, 0, nullptr, 0}                                            // Initialize character data for credentials
-    , _keyGenTaskHandle(nullptr)                                                   // Task handle for key generation task
-    , _credentialMngrEventGroup(xEventGroupCreate())                               // Event group for credential manager events
-    , _mutex(nullptr)                                                              // Mutex for thread safety
-    , isKeyGenerationNeeded(false)                                                 // Flag to indicate if new key generation is needed
-{
-    _mutex = xSemaphoreCreateMutex(); // Create a mutex for thread safety
-}
+/** CONSTANTS *****************************************************************/
 
-cpx_credentialsManager::~cpx_credentialsManager()
-{
-    if (_mutex != nullptr)
-    {
-        vSemaphoreDelete(_mutex); // Delete the mutex
-        _mutex = nullptr;
-    }
+/** TYPEDEFS ******************************************************************/
 
-    // Stop any running key generation task
-    if (_keyGenTaskHandle != nullptr)
-    {
-        vTaskDelete(_keyGenTaskHandle);
-        _keyGenTaskHandle = nullptr;
-    }
+/** MACROS ********************************************************************/
 
-    CleanupOnError();
-}
+/** VARIABLES *****************************************************************/
 
-void cpx_credentialsManager::mbedtlsComponentsInit()
-{
-    mbedtls_pk_init(&_key);
-    mbedtls_ctr_drbg_init(&_ctr_drbg);
-    mbedtls_entropy_init(&_entropy);
-    mbedtls_x509write_crt_init(&_cert);
-    mbedtls_mpi_init(&_serial);
-}
+/** LOCAL FUNCTIONS ***********************************************************/
 
-void cpx_credentialsManager::CleanupOnError()
-{
-    mbedtls_pk_free(&_key);
-    mbedtls_ctr_drbg_free(&_ctr_drbg);
-    mbedtls_entropy_free(&_entropy);
-    mbedtls_x509write_crt_free(&_cert);
-    mbedtls_mpi_free(&_serial);
-}
-
-sys_error_t cpx_credentialsManager::init(void* params)
-{
-    return ERROR_NOT_IMPLEMENTED;
-}
-
-sys_error_t cpx_credentialsManager::deInit()
-{
-    return ERROR_NOT_IMPLEMENTED;
-}
-
-sys_error_t cpx_credentialsManager::start()
-{
-    SYS_LOG_I("Starting cpx_credentialsManager...");
-
-    // Check if the mutex is created
-    if (_mutex == nullptr)
-    {
-        SYS_LOG_E("Mutex not created for cpx_credentialsManager");
-        return ERROR_FAIL;
-    }
-
-    // Semaphore for thread safety
-    xSemaphoreTake(_mutex, portMAX_DELAY);
-
-    sys_error_t result = ERROR_SUCCESS;
-
-    RETURN_IF_ERROR_WITH_LOG(
-        (_memDevice.init() != ERROR_SUCCESS), // Expression
-        ERROR_INIT_FAILED,                    // Error code
-        "Failed to initialize memory device", // Error message
-        xSemaphoreGive(_mutex));              // Cleanup
-
-    // Clear and reuse the buffer before reading
-    memset(_credentials.serverCert.data(), 0, _credentials.serverCert.size());
-
-    // Check if the key already exists and is valid
-    bool serverCertExist = (_memDevice.readData(CERT_NVS_NAME, _credentials.serverCert.data(), _credentials.serverCert.size()) == ERROR_SUCCESS);
-    bool privateKeyExist = (_memDevice.readData(KEY_NVS_NAME, _credentials.privateKey.data(), _credentials.privateKey.size()) == ERROR_SUCCESS);
-
-    if (serverCertExist && privateKeyExist && !isKeyGenerationNeeded)
-    {
-        // Verify we have meaningful data (non-empty PEM)
-        if (strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) > 0)
-        {
-            SYS_LOG_I("Valid private key exists in storage");
-            xEventGroupSetBits(_credentialMngrEventGroup, KEY_GEN_COMPLETED); // Set event bit for key generation completed
-            xSemaphoreGive(_mutex);
-            return ERROR_SUCCESS;
-        }
-    }
-
-    // Reset event bits before creating task
-    if (_credentialMngrEventGroup != nullptr)
-    {
-        xEventGroupClearBits(_credentialMngrEventGroup, KEY_GEN_COMPLETED | KEY_GEN_FAILED);
-    }
-
-    BaseType_t isTaskCreated = xTaskCreate(
-        keyGenerationTask,
-        "key_gen_task",
-        8192,                 // Stack size - RSA generation needs more stack
-        this,                 // Pass the instance of cpx_credentialsManager
-        tskIDLE_PRIORITY + 1, // Task priority
-        &_keyGenTaskHandle    // Task handle
-    );
-
-    if (isTaskCreated != pdPASS)
-    {
-        SYS_LOG_E("Failed to create key generation task");
-        result = ERROR_FAIL;
-    }
-
-    // Release the mutex
-    xSemaphoreGive(_mutex);
-    return result;
-}
-
-sys_error_t cpx_credentialsManager::get(void* data)
-{
-
-    if (data == nullptr)
-    {
-        SYS_LOG_E("Invalid data pointer");
-        return ERROR_INVALID_ARG;
-    }
-
-    // Semaphore for thread safety
-    xSemaphoreTake(_mutex, portMAX_DELAY);
-
-    // Populate the _charData member
-    if (!_credentials.privateKey.empty() && !_credentials.serverCert.empty())
-    {
-        _charData.privateKeyPtr  = _credentials.privateKey.data();
-        _charData.privateKeySize = strlen(reinterpret_cast<const char*>(_charData.privateKeyPtr)) + 1; // Include null terminator
-
-        _charData.serverCertPtr  = _credentials.serverCert.data();
-        _charData.serverCertSize = strlen(reinterpret_cast<const char*>(_charData.serverCertPtr)) + 1; // Include null terminator
-
-        SYS_LOG_I("Returning stored credentials as char pointers");
-    }
-    else
-    {
-        _charData.privateKeyPtr  = nullptr;
-        _charData.privateKeySize = 0;
-        _charData.serverCertPtr  = nullptr;
-        _charData.serverCertSize = 0;
-
-        SYS_LOG_I("No stored credentials found, returning nullptr");
-    }
-
-    // Release the mutex
-    xSemaphoreGive(_mutex);
-
-    *static_cast<void**>(data) = &_charData;
-
-    return ERROR_SUCCESS;
-}
-
-sys_error_t cpx_credentialsManager::set(void* data)
-{
-    // Set the flag to indicate that key generation is needed
-    if (data != nullptr)
-    {
-        isKeyGenerationNeeded = *static_cast<bool*>(data);
-    }
-
-    return ERROR_SUCCESS;
-}
-
-sys_error_t cpx_credentialsManager::stop()
-{
-    return ERROR_NOT_IMPLEMENTED;
-}
-
-sys_error_t cpx_credentialsManager::generateAndStoreKeys()
-{
-    // Take the mutex to ensure thread safety
-    if (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE)
-    {
-        SYS_LOG_E("Failed to take mutex for key generation");
-        return ERROR_FAIL;
-    }
-
-    // Lambda to ensure mutex is released
-    auto releaseGuard = [this](const sys_error_t& res)
-    {
-        xSemaphoreGive(_mutex); // Ensure the mutex is released
-        return res;             // Return the result of the operation
-    };
-
-    // Generate new keys
-    if (generateKeys() != ERROR_SUCCESS)
-    {
-        SYS_LOG_E("Failed to generate keys");
-        return releaseGuard(ERROR_FAIL);
-    }
-
-    // Store the generated keys
-    if (storeKeys() != ERROR_SUCCESS)
-    {
-        SYS_LOG_E("Failed to store keys");
-        return releaseGuard(ERROR_FAIL);
-    }
-
-    isKeyGenerationNeeded = false; // Reset the flag after successful generation and storage
-
-    SYS_LOG_I("Keys generated and stored successfully");
-    return releaseGuard(ERROR_SUCCESS);
-}
-
-sys_error_t cpx_credentialsManager::generateKeys()
-{
-    // Init mbedTLS components
-    mbedtlsComponentsInit();
-
-    // Generate the keys
-    SYS_LOG_I("Generating Certificate and Private Key...");
-
-    // Step 1: Seed the random number generator
-    if (mbedtls_ctr_drbg_seed(&_ctr_drbg, mbedtls_entropy_func, &_entropy, NULL, 0) != 0)
-    {
-        SYS_LOG_E("Failed to seed RNG for key generation");
-        CleanupOnError();
-        return ERROR_FAIL;
-    }
-
-    // Step 2: Generate the RSA key
-    if (mbedtls_pk_setup(&_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) != 0 ||
-        mbedtls_rsa_gen_key(mbedtls_pk_rsa(_key), mbedtls_ctr_drbg_random, &_ctr_drbg, KEY_SIZE, 65537) != 0)
-    {
-        SYS_LOG_E("Failed to generate RSA key");
-        CleanupOnError();
-        return ERROR_FAIL;
-    }
-
-    // Step 3: Set up the certificate details
-    mbedtls_x509write_crt_set_subject_key(&_cert, &_key);
-    mbedtls_x509write_crt_set_issuer_key(&_cert, &_key); // Self-signed
-    mbedtls_x509write_crt_set_subject_name(&_cert, CERT_SUBJECT_NAME);
-    mbedtls_x509write_crt_set_issuer_name(&_cert, CERT_SUBJECT_NAME);
-
-    // Generate a serial number
-    unsigned char serial_raw[MBEDTLS_X509_RFC5280_MAX_SERIAL_LEN] = {0};
-    time_t        current_time                                    = time(NULL);
-    memcpy(serial_raw, &current_time, sizeof(current_time));
-    mbedtls_x509write_crt_set_serial_raw(&_cert, serial_raw, sizeof(current_time));
-
-    // Set validity period
-    char start_date[16], end_date[16];
-    strftime(start_date, sizeof(start_date), "%Y%m%d%H%M%S", gmtime(&current_time));
-    time_t end_time = current_time + (365 * 24 * 60 * 60 * 45); // 45 years validity
-    strftime(end_date, sizeof(end_date), "%Y%m%d%H%M%S", gmtime(&end_time));
-    mbedtls_x509write_crt_set_validity(&_cert, start_date, end_date);
-
-    // Set basic constraints
-    mbedtls_x509write_crt_set_basic_constraints(&_cert, 0, -1);
-
-    // Set key usage
-    mbedtls_x509write_crt_set_key_usage(&_cert, MBEDTLS_X509_KU_DIGITAL_SIGNATURE | MBEDTLS_X509_KU_KEY_ENCIPHERMENT);
-    mbedtls_x509write_crt_set_md_alg(&_cert, MBEDTLS_MD_SHA256);
-
-    // Step 4: Write the certificate and key to PEM format buffers
-    int ret = mbedtls_x509write_crt_pem(&_cert, _credentials.serverCert.data(), _credentials.serverCert.size(), mbedtls_ctr_drbg_random, &_ctr_drbg);
-    if (ret != 0 || mbedtls_pk_write_key_pem(&_key, _credentials.privateKey.data(), _credentials.privateKey.size()) != 0)
-    {
-        SYS_LOG_E("Failed to write private key or certificate to PEM format");
-        CleanupOnError();
-        return ERROR_FAIL;
-    }
-
-    // Cleanup mbedTLS components
-    CleanupOnError();
-
-    // Print the generated keys for debugging
-    SYS_LOG_I("Private Key Size: ");
-    SYS_LOG_I(std::to_string(_credentials.privateKey.size()).c_str());
-    SYS_LOG_I("Generated private key: ");
-    SYS_LOG_I(reinterpret_cast<const char*>(_credentials.privateKey.data()));
-
-    SYS_LOG_I("Server Certificate Size: ");
-    SYS_LOG_I(std::to_string(_credentials.serverCert.size()).c_str());
-    SYS_LOG_I("Generated server certificate: ");
-    SYS_LOG_I(reinterpret_cast<const char*>(_credentials.serverCert.data()));
-
-    return ERROR_SUCCESS;
-}
-
-sys_error_t cpx_credentialsManager::storeKeys()
-{
-    // Validate we have data to store
-    if (strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) == 0)
-    {
-        SYS_LOG_E("Invalid private key data - empty string");
-        return ERROR_FAIL;
-    }
-
-    if (strlen(reinterpret_cast<const char*>(_credentials.privateKey.data())) == 0)
-    {
-        SYS_LOG_E("Invalid certificate data - empty string");
-        return ERROR_FAIL;
-    }
-
-    // Store the private key in NVS
-    if (_memDevice.writeData(KEY_NVS_NAME, _credentials.privateKey.data(), _credentials.privateKey.size()) != ERROR_SUCCESS)
-    {
-        SYS_LOG_E("Failed to store private key in NVS");
-        return ERROR_FAIL;
-    }
-
-    // Store the certificate in NVS
-    if (_memDevice.writeData(CERT_NVS_NAME, _credentials.serverCert.data(), _credentials.serverCert.size()) != ERROR_SUCCESS)
-    {
-        SYS_LOG_E("Failed to store server certificate in NVS");
-        return ERROR_FAIL;
-    }
-
-    return ERROR_SUCCESS;
-}
-
-EventGroupHandle_t cpx_credentialsManager::getEventGroup() const
-{
-    return _credentialMngrEventGroup;
-}
-
-// Key generation task
 static void keyGenerationTask(void* param)
 {
     if (param == nullptr)
@@ -359,9 +38,262 @@ static void keyGenerationTask(void* param)
     cpx_credentialsManager* manager = static_cast<cpx_credentialsManager*>(param);
     bool                    success = (manager->generateAndStoreKeys() == ERROR_SUCCESS);
 
-    // Set appropriate event bits - this is thread-safe
     EventBits_t bits = success ? KEY_GEN_COMPLETED : KEY_GEN_FAILED;
     xEventGroupSetBits(manager->getEventGroup(), bits);
 
     vTaskDelete(NULL);
+}
+
+/** FUNCTIONS ************************************************* ***************/
+
+cpx_credentialsManager::cpx_credentialsManager(IHAL_MEM& memDevice, ICryptoEngine& cryptoEngine)
+    : _memDevice(memDevice)
+    , _cryptoEngine(cryptoEngine)
+    , _credentials()
+    , _charData()
+    , _keyGenTaskHandle(nullptr)
+    , _credentialMngrEventGroup(xEventGroupCreate())
+    , _mutex(xSemaphoreCreateMutex())
+    , _isKeyGenerationNeeded(false)
+{
+    _credentials.privateKey.resize(KEY_PEM_BUF_SIZE, 0);
+    _credentials.serverCert.resize(CERT_PEM_BUF_SIZE, 0);
+    std::memset(&_charData, 0, sizeof(_charData));
+}
+
+cpx_credentialsManager::~cpx_credentialsManager()
+{
+    if (_mutex != nullptr)
+    {
+        vSemaphoreDelete(_mutex);
+        _mutex = nullptr;
+    }
+
+    if (_keyGenTaskHandle != nullptr)
+    {
+        vTaskDelete(_keyGenTaskHandle);
+        _keyGenTaskHandle = nullptr;
+    }
+
+    if (_credentialMngrEventGroup != nullptr)
+    {
+        vEventGroupDelete(_credentialMngrEventGroup);
+        _credentialMngrEventGroup = nullptr;
+    }
+}
+
+sys_error_t cpx_credentialsManager::init(void* /*params*/)
+{
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_credentialsManager::deInit()
+{
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_credentialsManager::start()
+{
+    SYS_LOG_I("Starting cpx_credentialsManager...");
+
+    RETURN_IF_ERROR(
+        (_mutex == nullptr),                  // Expression
+        ERROR_FAIL,                           // Error code
+        SYS_LOG_E("Mutex allocation failure") // Error message
+    );
+
+    RETURN_IF_ERROR(
+        (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE),      // Expression
+        ERROR_FAIL,                                             // Error code
+        SYS_LOG_E("Failed to acquire credentials manager lock") // Error message
+    );
+
+    sys_error_t result = ERROR_SUCCESS;
+
+    RETURN_IF_ERROR(
+        (_memDevice.init() != ERROR_SUCCESS),            // Expression
+        ERROR_INIT_FAILED,                               // Error code
+        SYS_LOG_E("Failed to initialize memory device"), // Error message
+        xSemaphoreGive(_mutex)                           // Cleanup
+    );
+
+    std::memset(_credentials.serverCert.data(), 0, _credentials.serverCert.size());
+    std::memset(_credentials.privateKey.data(), 0, _credentials.privateKey.size());
+
+    bool serverCertExist = (_memDevice.readData(CERT_NVS_NAME, _credentials.serverCert.data(), _credentials.serverCert.size()) == ERROR_SUCCESS);
+    bool privateKeyExist = (_memDevice.readData(KEY_NVS_NAME, _credentials.privateKey.data(), _credentials.privateKey.size()) == ERROR_SUCCESS);
+
+    /// Check for pre-existing key validations [2].
+    if (serverCertExist && privateKeyExist && !_isKeyGenerationNeeded)
+    {
+        if (std::strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) > 0)
+        {
+            SYS_LOG_I("Valid private key assets exist in storage.");
+            xEventGroupSetBits(_credentialMngrEventGroup, KEY_GEN_COMPLETED);
+            xSemaphoreGive(_mutex);
+            return ERROR_SUCCESS;
+        }
+    }
+
+    if (_credentialMngrEventGroup != nullptr)
+    {
+        xEventGroupClearBits(_credentialMngrEventGroup, KEY_GEN_COMPLETED | KEY_GEN_FAILED);
+    }
+
+    /// Spawn key generation as an asynchronous low priority worker task.
+    BaseType_t isTaskCreated = xTaskCreate(keyGenerationTask, "key_gen_task", 8192, this, tskIDLE_PRIORITY + 1, &_keyGenTaskHandle);
+
+    RETURN_IF_ERROR(
+        (isTaskCreated != pdPASS),                         // Expression
+        ERROR_FAIL,                                        // Error code
+        SYS_LOG_E("Failed to create key generation task"), // Error message
+        xSemaphoreGive(_mutex)                             // Cleanup
+    );
+
+    xSemaphoreGive(_mutex);
+    return result;
+}
+
+sys_error_t cpx_credentialsManager::get(void* data)
+{
+    RETURN_IF_ERROR(
+        (data == nullptr),                // Expression
+        ERROR_INVALID_ARG,                // Error code
+        SYS_LOG_E("Invalid data pointer") // Error message
+    );
+
+    RETURN_IF_ERROR(
+        (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE),      // Expression
+        ERROR_FAIL,                                             // Error code
+        SYS_LOG_E("Failed to acquire credentials manager lock") // Error message
+    );
+
+    /// Expose certificate and key payload data to requesting protocols safely [2].
+    if (std::strlen(reinterpret_cast<const char*>(_credentials.privateKey.data())) > 0)
+    {
+        _charData.privateKeyPtr  = _credentials.privateKey.data();
+        _charData.privateKeySize = std::strlen(reinterpret_cast<const char*>(_charData.privateKeyPtr)) + 1;
+
+        _charData.serverCertPtr  = _credentials.serverCert.data();
+        _charData.serverCertSize = std::strlen(reinterpret_cast<const char*>(_charData.serverCertPtr)) + 1;
+
+        SYS_LOG_I("Exposing verified storage credentials.");
+    }
+    else
+    {
+        _charData.privateKeyPtr  = nullptr;
+        _charData.privateKeySize = 0;
+        _charData.serverCertPtr  = nullptr;
+        _charData.serverCertSize = 0;
+    }
+
+    xSemaphoreGive(_mutex);
+
+    *static_cast<void**>(data) = &_charData;
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_credentialsManager::set(void* data)
+{
+    if (data != nullptr)
+    {
+        _isKeyGenerationNeeded = *static_cast<bool*>(data);
+    }
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_credentialsManager::stop()
+{
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_credentialsManager::generateAndStoreKeys()
+{
+    RETURN_IF_ERROR(
+        (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE), // Expression
+        ERROR_FAIL,                                        // Error code
+        SYS_LOG_E("Failed to lock key generation task")    // Error message
+    );
+
+    RETURN_ON_ERROR(
+        _generateKeys(),                          // Expression
+        SYS_LOG_E("Generation sequence failed."), // Log Message
+        xSemaphoreGive(_mutex)                    // Cleanup
+    );
+
+    RETURN_ON_ERROR(
+        _storeKeys(),                          // Expression
+        SYS_LOG_E("Storage sequence failed."), // Log Message
+        xSemaphoreGive(_mutex)                 // Cleanup
+    );
+
+    _isKeyGenerationNeeded = false;
+    xSemaphoreGive(_mutex);
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_credentialsManager::_generateKeys()
+{
+    std::string privateKeyPem;
+
+    /// Use decoupled CryptoEngine to generate standard asymmetric private key [1, 2].
+    RETURN_ON_ERROR(
+        _cryptoEngine.generateKeyPair(ICryptoEngine::KEY_TYPE_RSA_2048, privateKeyPem), // Expression
+        SYS_LOG_E("Asymmetric keypair generation failed")                               // Log Message
+    );
+
+    ICryptoEngine::CertificateConfig config;
+    config.subjectName     = CERT_SUBJECT_NAME;
+    config.issuerName      = CERT_SUBJECT_NAME;
+    config.validitySeconds = 1419120000; // 45 years validity duration
+
+    std::string certificatePem;
+
+    /// Use decoupled CryptoEngine to create self-signed X.509 certificate [1, 2].
+    RETURN_ON_ERROR(
+        _cryptoEngine.generateSelfSignedCertificate(privateKeyPem, config, certificatePem), // Expression
+        SYS_LOG_E("Self-signed certificate generation failed")                              // Log Message
+    );
+
+    /// Safely copy generated string buffers into vector cache boundaries [2].
+    RETURN_IF_ERROR(
+        (privateKeyPem.length() >= _credentials.privateKey.size() || certificatePem.length() >= _credentials.serverCert.size()), // Expression
+        ERROR_OUT_OF_MEMORY,                                                                                                     // Error code
+        SYS_LOG_E("CryptoEngine returned payloads exceeding maximum PEM limits!")                                                // Error message
+    );
+
+    std::memcpy(_credentials.privateKey.data(), privateKeyPem.c_str(), privateKeyPem.length() + 1);
+    std::memcpy(_credentials.serverCert.data(), certificatePem.c_str(), certificatePem.length() + 1);
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t cpx_credentialsManager::_storeKeys()
+{
+    RETURN_IF_ERROR(
+        (std::strlen(reinterpret_cast<const char*>(_credentials.privateKey.data())) == 0 ||
+         std::strlen(reinterpret_cast<const char*>(_credentials.serverCert.data())) == 0), // Expression
+        ERROR_FAIL,                                                                        // Error code
+        SYS_LOG_E("Empty private key or certificate buffer, cannot write to NVS")          // Error message
+    );
+
+    RETURN_IF_ERROR(
+        (_memDevice.writeData(KEY_NVS_NAME, _credentials.privateKey.data(), _credentials.privateKey.size()) != ERROR_SUCCESS), // Expression
+        ERROR_FAIL,                                                                                                            // Error code
+        SYS_LOG_E("Failed to write private key to dynamic storage partitions")                                                 // Error message
+    );
+
+    RETURN_IF_ERROR(
+        (_memDevice.writeData(CERT_NVS_NAME, _credentials.serverCert.data(), _credentials.serverCert.size()) != ERROR_SUCCESS), // Expression
+        ERROR_FAIL,                                                                                                             // Error code
+        SYS_LOG_E("Failed to write server certificate to dynamic storage partitions")                                           // Error message
+    );
+
+    return ERROR_SUCCESS;
+}
+
+EventGroupHandle_t cpx_credentialsManager::getEventGroup() const
+{
+    return _credentialMngrEventGroup;
 }
