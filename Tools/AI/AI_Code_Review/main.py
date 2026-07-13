@@ -20,7 +20,7 @@ def main():
     model = args.model or DEFAULT_PROVIDERS[provider]["model"]
     api_key = get_api_key(provider, args.key)
 
-    # 1. Gather Target Code Content (Files vs Git Diff)
+    # 1. Gather Target Code Content (Files vs Unified Git Diff)
     if args.files:
         print(f"📂 Preparing static file review for {len(args.files)} file(s)...")
         code_content = read_code_files(args.files)
@@ -28,14 +28,19 @@ def main():
             print("❌ No valid files were successfully read. Exiting.")
             sys.exit(1)
     else:
-        print("🔍 No direct files supplied. Falling back to Git Diff...")
-        diff = get_git_diff()
+        compare_expr = args.diff_branch
+        if compare_expr:
+            print(f"🔍 Fetching raw branch-to-branch diff: {compare_expr}...")
+        else:
+            print("🔍 No direct files or compare branch supplied. Falling back to local Git Diff (HEAD)...")
+            
+        diff = get_git_diff(compare_expr)
         if not diff:
-            print("✅ No local changes found to review.")
+            print("✅ No modifications identified between branches. Review skipped.")
             sys.exit(0)
         code_content = f"--- TARGET GIT DIFF FOR REVIEW ---\n```diff\n{diff}\n```"
 
-    # 2. Compile instructions (Support multiple prompts)
+    # 2. Compile instructions
     instructions = load_multiple_templates(args.templates)
     
     # 3. Load structured report template format
@@ -47,13 +52,21 @@ def main():
     # 4. Construct complete prompt payload
     prompt = build_prompt(instructions, code_content, report_template)
 
-    # 5. Query LLM
+    # 5. Debug Logging (Outputs raw prompt transmitted)
+    if args.debug:
+        print("\n" + "[DEBUG] " + "="*45)
+        print("[DEBUG] RAW PROMPT TRANSMITTED TO LLM:")
+        print("[DEBUG] " + "="*45)
+        print(prompt)
+        print("[DEBUG] " + "="*45 + "\n")
+
+    # 6. Query LLM
     print(f"🚀 Querying {provider.upper()} (Model: {model})...")
     review_content = query_ai(provider, model, prompt, api_key, args.url)
 
-    # 6. Output Processing
+    # 7. Output Processing
     report = format_report(review_content, format_type=args.format)
-    save_report(report, output_file=args.output_file)
+    save_report(report, output_file=args.output_file, format_type=args.format)
 
 if __name__ == "__main__":
     main()
