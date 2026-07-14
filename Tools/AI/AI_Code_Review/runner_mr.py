@@ -48,10 +48,23 @@ def detect_target_branch():
     return "origin/main"
 
 
+def prefetch_branch(branch, repo_root):
+    """Ensures remote references are locally fetched to prevent 'unknown revision' errors."""
+    if branch.startswith("origin/"):
+        remote_branch = branch.split("origin/", 1)[1]
+        print(f"📡 Fetching tracking reference for remote branch: {remote_branch}...")
+        subprocess.run(
+            ["git", "fetch", "origin", remote_branch],
+            cwd=repo_root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="MR runner to fetch complete diff between branches "
-        "python runner_mr.py --source-branch features/power_bar_app-ai-review --target-branch origin/features/power_bar_app"
+        description="MR runner to fetch complete diff between branches"
     )
     parser.add_argument(
         "--source-branch",
@@ -93,11 +106,15 @@ def main():
     repo_root = get_repo_root()
     source = args.source_branch or detect_source_branch()
     target = args.target_branch or detect_target_branch()
-    compare_expr = f"{target}...{source}"
 
+    # 2. Pre-fetch target/source to update reference database
+    prefetch_branch(source, repo_root)
+    prefetch_branch(target, repo_root)
+
+    compare_expr = f"{target}...{source}"
     print(f"🔍 Comparing changes in '{source}' (source) against '{target}' (target)...")
 
-    # 2. Debug Logging (Outputs commits, files and branch metadata)
+    # 3. Debug Logging (Outputs commits, files and branch metadata)
     if args.debug:
         print("\n" + "[DEBUG] " + "=" * 45)
         print("[DEBUG] LOCAL REPOSITORY COMPARISON METADATA")
@@ -138,7 +155,7 @@ def main():
 
         print("[DEBUG] " + "=" * 45 + "\n")
 
-    # 3. Forward execution to main.py with branch diff target
+    # 4. Forward execution to main.py with branch diff target
     main_script = Path(__file__).parent.absolute() / "main.py"
     cmd = [
         sys.executable,
