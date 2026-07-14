@@ -1,4 +1,6 @@
+#!/usr/bin/env python3
 # script1_generate_manifest.py
+
 import argparse
 from pathlib import Path
 import config
@@ -11,19 +13,19 @@ from src.selector_gui import select_files_interactively
 
 def parse_arguments() -> argparse.Namespace:
     """Parses command-line arguments for generating the manifest."""
-    r"""Usage Example:
-    python script1_generate_manifest.py /path/to/directory
-    """
     default_manifest = Path(config.OUTPUT_DIR) / config.DEFAULT_MANIFEST_NAME
     default_tree = Path(config.OUTPUT_DIR) / config.DEFAULT_TREE_NAME
 
     parser = argparse.ArgumentParser(
-        description="Scan a folder to output a directory tree and a configurable JSON manifest."
+        description="Scan folders to output a directory tree and a configurable JSON manifest."
     )
     parser.add_argument(
-        "parent_dir",
+        "--input_dirs",
+        "-id",
         type=str,
-        help="Path to the parent directory to scan.",
+        nargs="+",  # Supports one or more directories
+        required=True,
+        help="Path to the parent directories to scan.",
     )
     parser.add_argument(
         "-o",
@@ -39,46 +41,63 @@ def parse_arguments() -> argparse.Namespace:
         default=str(default_tree),
         help=f"Path to save the visual directory tree (default: {default_tree}).",
     )
+
     return parser.parse_args()
 
 
 def main():
     args = parse_arguments()
 
-    parent_dir = Path(args.parent_dir).resolve()
     manifest_path = Path(args.output_manifest).resolve()
     tree_path = Path(args.output_tree).resolve()
-
-    if not parent_dir.exists() or not parent_dir.is_dir():
-        print(f"Error: Directory '{parent_dir}' does not exist.")
-        return
 
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     tree_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"Scanning target directory: {parent_dir}")
-    tree_lines, files_list = build_tree_and_files(parent_dir, parent_dir)
+    # Resolve and validate all input directories
+    resolved_dirs = []
+    for d in args.input_dirs:
+        input_dir = Path(d).resolve()
+        if not input_dir.exists() or not input_dir.is_dir():
+            print(f"Error: Directory '{input_dir}' does not exist.")
+            return
+        resolved_dirs.append(input_dir)
 
-    tree_content = [parent_dir.name] + tree_lines
-    tree_text = "\n".join(tree_content)
-
-    write_text_file(tree_path, tree_text)
-    print(f"Saved directory tree preview to: {tree_path}")
-
-    # Build the default file list
+    combined_tree_lines = []
     initial_files = []
-    for file_path in files_list:
-        relative_path = file_path.relative_to(parent_dir)
-        initial_files.append(
-            {"relative_path": str(relative_path), "include": True}
-        )
 
-    # --- ADDED INTERACTIVE GUI STEP ---
+    # Process each directory individually
+    for input_dir in resolved_dirs:
+        print(f"Scanning target directory: {input_dir}")
+        tree_lines, files_list = build_tree_and_files(input_dir, input_dir)
+
+        # Append visual tree structure for this base directory
+        combined_tree_lines.append(input_dir.name)
+        combined_tree_lines.extend(tree_lines)
+        combined_tree_lines.append("")  # Blank separator line
+
+        # Build file list tracking relative path and associated base_dir
+        for file_path in files_list:
+            relative_path = file_path.relative_to(input_dir)
+            initial_files.append(
+                {
+                    "base_dir": str(input_dir),
+                    "relative_path": str(relative_path),
+                    "include": True,
+                }
+            )
+
+    # Write combined directory tree
+    tree_text = "\n".join(combined_tree_lines).strip()
+    write_text_file(tree_path, tree_text)
+    print(f"Saved combined directory tree preview to: {tree_path}")
+
+    # Launch GUI selector step
     print("Launching interactive file selector window...")
     configured_files = select_files_interactively(initial_files)
 
     manifest_data = {
-        "parent_directory": str(parent_dir),
+        "input_directories": [str(d) for d in resolved_dirs],
         "tree_structure": tree_text,
         "files": configured_files,
     }
