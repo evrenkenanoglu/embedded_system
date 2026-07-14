@@ -4,17 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ project_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --border-color: #334155;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --bg-color: #09090b;
+            --card-bg: #18181b;
+            --card-hover: #202024;
+            --border-color: #27272a;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
             --primary: #10b981;
             --primary-hover: #059669;
+            --primary-glow: rgba(16, 185, 129, 0.15);
             --danger: #ef4444;
             --danger-hover: #dc2626;
+            --danger-glow: rgba(239, 68, 68, 0.15);
+            --warning: #f59e0b;
+            --warning-glow: rgba(245, 158, 11, 0.15);
+            --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
 
         * {
@@ -24,162 +34,179 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: var(--font-sans);
             background-color: var(--bg-color);
             color: var(--text-main);
-            line-height: 1.5;
-            padding: 2rem;
+            line-height: 1.6;
+            padding: 3rem 2rem;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
         header {
-            margin-bottom: 2rem;
+            margin-bottom: 3rem;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1rem;
+            padding-bottom: 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         h1 {
-            font-size: 1.875rem;
+            font-size: 2rem;
             font-weight: 700;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .status-badge {
-            background-color: rgba(16, 185, 129, 0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: var(--primary-glow);
             color: var(--primary);
-            padding: 0.25rem 0.75rem;
+            padding: 0.375rem 1rem;
             border-radius: 9999px;
-            font-size: 0.875rem;
+            font-size: 0.8125rem;
             font-weight: 600;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--primary);
         }
 
         .grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 2rem;
+            gap: 2.5rem;
+            align-items: start;
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
             .grid {
-                grid-template-columns: 1fr 2fr;
+                grid-template-columns: 380px 1fr;
             }
         }
 
         .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 0.5rem;
-            padding: 1.5rem;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
         }
 
         .card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
+            font-size: 1.375rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.02em;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.5rem;
+            padding-bottom: 0.75rem;
         }
 
-        /* Forms */
+        /* Forms styling */
         .form-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
         }
 
         label {
             display: block;
-            font-size: 0.875rem;
-            font-weight: 500;
+            font-size: 0.8125rem;
+            font-weight: 600;
             margin-bottom: 0.5rem;
             color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         input[type="text"],
+        input[type="number"],
+        select,
         textarea,
         input[type="file"] {
             width: 100%;
-            background-color: var(--bg-color);
+            background-color: #0c0c0e;
             border: 1px solid var(--border-color);
-            border-radius: 0.375rem;
-            padding: 0.625rem;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
             color: var(--text-main);
+            font-family: var(--font-sans);
             font-size: 0.875rem;
+            transition: all 0.2s ease;
         }
 
         input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus,
         textarea:focus {
-            outline: 2px solid var(--primary);
-            outline-offset: -1px;
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
         }
 
         input[type="file"] {
-            padding: 0.5rem;
+            padding: 0.625rem;
             cursor: pointer;
         }
 
         textarea {
             resize: vertical;
-            min-height: 100px;
+            min-height: 80px;
         }
 
-        button {
-            display: inline-block;
+        button.btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             width: 100%;
             background-color: var(--primary);
             color: #ffffff;
             font-weight: 600;
-            padding: 0.75rem;
+            padding: 0.875rem;
             border: none;
-            border-radius: 0.375rem;
+            border-radius: 0.5rem;
             cursor: pointer;
             font-size: 0.875rem;
-            transition: background-color 0.15s ease-in-out;
+            transition: all 0.2s ease;
         }
 
-        button:hover {
+        button.btn-primary:hover {
             background-color: var(--primary-hover);
+            transform: translateY(-1px);
         }
 
-        /* Delete Button Action Control */
-        .delete-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background-color: transparent;
-            color: var(--danger);
-            border: 1px solid var(--danger);
-            padding: 0.375rem 0.75rem;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            font-size: 0.75rem;
-            font-weight: 600;
-            transition: all 0.15s ease-in-out;
-            width: auto;
-        }
-
-        .delete-btn:hover {
-            background-color: var(--danger);
-            color: #ffffff;
-        }
-
-        /* Manifest Status */
+        /* Dashboard indicators */
         .manifest-overview {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 1.5rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
         }
 
         .stat-box {
-            flex: 1;
-            background-color: var(--bg-color);
+            background-color: #0c0c0e;
             border: 1px solid var(--border-color);
-            padding: 1rem;
-            border-radius: 0.375rem;
+            padding: 1.25rem;
+            border-radius: 0.75rem;
         }
 
         .stat-label {
@@ -187,73 +214,166 @@
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            font-weight: 600;
         }
 
         .stat-value {
-            font-size: 1.25rem;
+            font-size: 1.375rem;
             font-weight: 700;
-            margin-top: 0.25rem;
+            margin-top: 0.375rem;
+            letter-spacing: -0.02em;
         }
 
-        /* Updates List */
+        /* Channels Section styling */
+        .channel-section {
+            margin-top: 2rem;
+        }
+
+        .channel-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Updates List layout */
         .release-item {
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 0;
+            background-color: #121214;
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s ease;
         }
 
-        .release-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-
-        .release-item:first-child {
-            padding-top: 0;
+        .release-item:hover {
+            border-color: #3f3f46;
         }
 
         .release-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.75rem;
+        }
+
+        .release-meta-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
         .release-version {
-            font-size: 1.125rem;
-            font-weight: 600;
+            font-size: 1.25rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
             color: var(--primary);
+        }
+
+        .channel-badge {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-badge-item {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+
+        .status-active {
+            background-color: var(--primary-glow);
+            color: var(--primary);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-rollback {
+            background-color: var(--danger-glow);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
 
         .meta-grid {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
             font-size: 0.8125rem;
             color: var(--text-muted);
-            margin-bottom: 0.5rem;
+            margin-bottom: 1rem;
         }
 
-        @media (min-width: 640px) {
-            .meta-grid {
-                grid-template-columns: 1fr 1fr;
-            }
+        .meta-item {
+            background-color: #0c0c0e;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
         }
 
         .meta-item strong {
+            display: block;
             color: var(--text-main);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .meta-item code {
+            font-family: var(--font-mono);
+            color: #e4e4e7;
+            word-break: break-all;
         }
 
         .release-notes {
             font-size: 0.875rem;
-            background-color: var(--bg-color);
-            padding: 0.75rem;
-            border-radius: 0.25rem;
+            color: #d4d4d8;
+            background-color: #0c0c0e;
+            padding: 1rem;
+            border-radius: 0.5rem;
             border-left: 3px solid var(--primary);
+        }
+
+        /* Action elements */
+        .delete-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .delete-btn:hover {
+            background-color: var(--danger);
+            color: #ffffff;
+            border-color: var(--danger);
+            box-shadow: 0 0 12px var(--danger-glow);
         }
 
         .empty-state {
             text-align: center;
             color: var(--text-muted);
-            padding: 3rem 1rem;
+            padding: 5rem 2rem;
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
         }
     </style>
 </head>
@@ -261,11 +381,14 @@
     <div class="container">
         <header>
             <h1>{{ project_name }}</h1>
-            <span class="status-badge">System Online</span>
+            <span class="status-badge">
+                <span class="status-dot"></span>
+                System Online
+            </span>
         </header>
 
         <div class="grid">
-            <!-- Upload Firmware Column -->
+            <!-- Upload Column -->
             <div class="card">
                 <h2 class="card-title">Upload New Firmware</h2>
                 <form action="/upload" method="post" enctype="multipart/form-data">
@@ -280,9 +403,30 @@
                         <input type="text" id="version" name="version" placeholder="e.g., 1.0.1" required>
                     </div>
 
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="channel">Release Channel</label>
+                            <select id="channel" name="channel">
+                                <option value="stable" selected>Stable</option>
+                                <option value="beta">Beta</option>
+                                <option value="testing">Testing</option>
+                                <option value="development">Development</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="hsvn">Hardware SVN</label>
+                            <input type="number" id="hsvn" name="hsvn" value="1" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="canary_percentage">Canary Rollout (%)</label>
+                        <input type="number" id="canary_percentage" name="canary_percentage" value="100" min="0" max="100" required>
+                    </div>
+
                     <div class="form-group">
                         <label for="release_notes">Release Notes</label>
-                        <textarea id="release_notes" name="release_notes" placeholder="Describe fixes or additions in this release..."></textarea>
+                        <textarea id="release_notes" name="release_notes" placeholder="Describe updates or hotfixes..."></textarea>
                     </div>
 
                     <div class="form-group">
@@ -290,11 +434,11 @@
                         <input type="file" id="file" name="file" accept=".bin" required>
                     </div>
 
-                    <button type="submit">Publish Update</button>
+                    <button type="submit" class="btn-primary">Publish Release</button>
                 </form>
             </div>
 
-            <!-- Current Firmware Manifest Status Column -->
+            <!-- Active Release Directory Directory -->
             <div class="card">
                 <h2 class="card-title">Active Release Directory</h2>
                 
@@ -305,31 +449,63 @@
                             <div class="stat-value">{{ manifest.hardware_device }}</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-label">Latest Version</div>
-                            <div class="stat-value">{{ manifest.latest_version if manifest.latest_version else 'N/A' }}</div>
+                            <div class="stat-label">Total Released Builds</div>
+                            <div class="stat-value">
+                                {{ manifest.updates.keys() | list | length if manifest.updates else '0' }}
+                            </div>
                         </div>
                     </div>
 
-                    <h3>Firmware Deployments</h3>
-                    <div style="margin-top: 1rem;">
+                    <div class="channel-section">
+                        <h3 class="channel-title">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"></path>
+                            </svg>
+                            Deployments List
+                        </h3>
+
                         {% if manifest.updates %}
                             {% for version, details in manifest.updates.items() | reverse %}
                                 <div class="release-item">
                                     <div class="release-header">
-                                        <span class="release-version">v{{ version }}</span>
+                                        <div class="release-meta-left">
+                                            <span class="release-version">v{{ version }}</span>
+                                            <span class="channel-badge">{{ details.channel if details.channel else 'stable' }}</span>
+                                            
+                                            {% if details.status == 'active' %}
+                                                <span class="status-badge-item status-active">Active</span>
+                                            {% else %}
+                                                <span class="status-badge-item status-rollback">Soft-Rolled-Back</span>
+                                            {% endif %}
+                                        </div>
                                         <button class="delete-btn" onclick="confirmDelete('{{ version }}')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
                                                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
                                                 <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
                                             </svg>
-                                            Delete
+                                            Delete Build
                                         </button>
                                     </div>
                                     <div class="meta-grid">
-                                        <div class="meta-item"><strong>File Path:</strong> {{ details.binary_path }}</div>
-                                        <div class="meta-item"><strong>Payload Size:</strong> <span class="byte-size">{{ details.file_size_bytes }}</span></div>
+                                        <div class="meta-item">
+                                            <strong>Binary File</strong>
+                                            <code>{{ details.binary_path }}</code>
+                                        </div>
+                                        <div class="meta-item">
+                                            <strong>Payload Size</strong>
+                                            <span class="byte-size">{{ details.file_size_bytes }}</span>
+                                        </div>
+                                        <div class="meta-item">
+                                            <strong>Canary Target</strong>
+                                            <span>{{ details.canary_percentage if details.canary_percentage is defined else '100' }}%</span>
+                                        </div>
+                                        <div class="meta-item">
+                                            <strong>Hardware Anti-Rollback (HSVN)</strong>
+                                            <span>Level {{ details.hsvn if details.hsvn is defined else '1' }}</span>
+                                        </div>
                                         <div class="meta-item" style="grid-column: 1 / -1;">
-                                            <strong>SHA-256 Checksum:</strong> <code style="font-family: monospace; font-size: 0.75rem;">{{ details.sha256 }}</code>
+                                            <strong>SHA-256 Checksum</strong>
+                                            <code>{{ details.sha256 }}</code>
                                         </div>
                                     </div>
                                     {% if details.release_notes %}
@@ -338,13 +514,15 @@
                                 </div>
                             {% endfor %}
                         {% else %}
-                            <div class="empty-state">No binary updates registered in the manifest.</div>
+                            <div class="empty-state">No binary updates registered in the manifest directory.</div>
                         {% endif %}
                     </div>
                 {% else %}
                     <div class="empty-state">
-                        <p>No active firmware deployment found.</p>
-                        <p style="font-size: 0.875rem; margin-top: 0.5rem;">Fill out the form to register your first hardware profile and binary payload.</p>
+                        <p>No active firmware deployment profiles found.</p>
+                        <p style="font-size: 0.875rem; margin-top: 0.5rem; color: var(--text-muted);">
+                            Fill out the upload profile to configure your target hardware directory.
+                        </p>
                     </div>
                 {% endif %}
             </div>
@@ -352,7 +530,6 @@
     </div>
 
     <script>
-        // Formatter script to clean up file size presentation dynamically
         document.addEventListener("DOMContentLoaded", function() {
             document.querySelectorAll(".byte-size").forEach(function(el) {
                 const bytes = parseInt(el.textContent, 10);
@@ -368,9 +545,8 @@
             });
         });
 
-        // Safe client deletion request handler with user verification prompt
         async function confirmDelete(version) {
-            const confirmBox = confirm(`Are you sure you want to permanently delete firmware version v${version}?\n\nThis will remove it from manifest.json and physically delete the binary as well as all associated patch files from storage.`);
+            const confirmBox = confirm(`Permanently delete firmware version v${version}?\n\nThis will remove metadata entries and purge physical binaries and delta files.`);
             
             if (confirmBox) {
                 try {
@@ -382,10 +558,10 @@
                         window.location.reload();
                     } else {
                         const errorDetails = await response.json();
-                        alert(`Deletion failed: ${errorDetails.detail || 'Internal server error'}`);
+                        alert(`Purge execution failed: ${errorDetails.detail || 'Internal server error'}`);
                     }
                 } catch (err) {
-                    alert(`Network connection failure: ${err.message}`);
+                    alert(`Network infrastructure failure: ${err.message}`);
                 }
             }
         }

@@ -1,18 +1,22 @@
+# src/git_utils.py
 import sys
 import subprocess
 
-def get_git_diff():
-    """Retrieves staged and unstaged git diff compared to HEAD from the repository root."""
+def get_git_diff(compare_expression=None):
+    """Retrieves the unified git diff. If compare_expression is provided, compares two branches."""
     try:
         repo_root = subprocess.check_output(
             ["git", "rev-parse", "--show-toplevel"], 
-            text=True
+            encoding="utf-8"
         ).strip()
-        diff = subprocess.check_output(
-            ["git", "diff", "HEAD"], 
-            cwd=repo_root, 
-            text=True
-        )
+        
+        cmd = ["git", "diff"]
+        if compare_expression:
+            cmd.append(compare_expression)
+        else:
+            cmd.append("HEAD")
+            
+        diff = subprocess.check_output(cmd, cwd=repo_root, encoding="utf-8")
         return diff.strip()
     except subprocess.CalledProcessError as e:
         print(f"❌ Failed to get git diff: {e}")

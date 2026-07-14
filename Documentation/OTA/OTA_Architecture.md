@@ -1,6 +1,6 @@
 # OTA Update Framework Architecture Documentation
 
-This document describes the design, routing mechanisms, security models, and end-to-end execution flows of the modular, platform-independent Over-The-Air (OTA) update framework. The system is architected as a decoupled client-server pattern optimized for secure, resilient embedded applications.
+This document describes the design, routing mechanisms, security models, and end-to-end execution flows of the modular, platform-independent Over-The-Air (OTA) update framework.
 
 ---
 
@@ -49,7 +49,7 @@ The client framework is split into distinct abstraction layers to remain platfor
 ### Application Layer
 *   **Interfaces**: `IOtaManager`
 *   **Concrete Controller**: `OtaManager`
-*   **Role**: Manages high-level decisions, such as checking for update manifests, validating system power states, comparing firmware semantic versions (SemVer), and initiating system reboots after success.
+*   **Role**: Manages high-level decisions, such as checking for update manifests, validating system power states, comparing firmware semantic versions (SemVer), evaluating local anti-downgrade (HSVN), and initiating system reboots after success.
 
 ---
 
@@ -65,15 +65,19 @@ All download-related routes are dynamically bound to the physical directory name
 | **GET**  | `/`                               | Web Administrative Dashboard UI             | None (Browser)          |
 | **POST** | `/upload`                         | Dashboard form upload for new binaries      | None (Browser)          |
 | **GET**  | `/api/v1/ota/check`               | Evaluates hardware and version availability | Dynamic HTTP Header Key |
+| **POST** | `/api/v1/ota/status`              | Logs success/failure telemetry reports      | Dynamic HTTP Header Key |
 | **GET**  | `/api/v1/ota/download/{filename}` | Serves binaries using standard api prefix   | Dynamic Header OR Token |
 | **GET**  | `/<FIRMWARE_DIR>/{filename}`      | Root-level dynamic binary downloader        | Dynamic Header OR Token |
 
-### Security Implementations
+### Security & Operational Implementations
 
 *   **API Security Key Validation**: Clients must submit an authentication token via the header defined in `settings.API_KEY_HEADER` (e.g., `X-Device-API-Key: secure-device-token-abcde`).
-*   **Presigned Download Token Engine**: Direct file access routes (`/firmware_storage/{filename}`) require an HMAC SHA-256 signature passed as a query parameter (`token=`).
+*   **Anti-Downgrade HSVN Verification**: The target client sends its local Hardware Security Version Number (HSVN) via the header defined in `settings.HEADER_HSVN_KEY`. The server verifies that the client's current HSVN is not higher than the target firmware's HSVN to prevent unauthorized firmware rollbacks.
+*   **Canary Rollout Orchestration**: The `/check` endpoint uses a deterministic MD5 hash of the requesting device ID combined with the target version to verify if a device falls within the defined rollout percentile (`canary_percentage`), avoiding database lookups for state.
+*   **Automated Telemetry & Rollback Guardrails**: Devices invoke `/status` post-update. The server calculates failure rates dynamically. If the failed reports cross `settings.MAX_FAILURE_RATE_PERCENT` over a threshold of reports, the target version status is marked as `soft-rolled-back`, and update inquiries fall back automatically.
+*   **Presigned Download Token Engine**: Direct file access routes require an HMAC SHA-256 signature passed as a query parameter (`token=`).
     *   **Generation**: On a successful `/check` query, the server calculates a UNIX timestamp for expiration (default: +300 seconds) and generates a signature matching `sha256_hmac(key=API_KEY, msg="filename:expiration")`.
-    *   **Validation**: The download endpoint recreates the signature and enforces a strict expiration window. This mimics AWS S3 Presigned URLs and prevents unauthorized, persistent file access.
+    *   **Validation**: The download endpoint recreates the signature and enforces a strict expiration window.
 *   **Directory Traversal Protection**: All file requests are evaluated with path-resolution validation to ensure no requests escape the defined boundaries of `settings.FIRMWARE_DIR`:
     ```python
     file_path = (settings.FIRMWARE_DIR / filename).resolve()
@@ -85,7 +89,7 @@ All download-related routes are dynamically bound to the physical directory name
 
 ## 3. End-to-End Execution Sequence
 
-This sequence diagram illustrates a professional, secure dual-phase update cycle where the client performs an identity check, acquires a transient download token, and executes the stream download.
+This sequence diagram illustrates a secure dual-phase update cycle where the client performs identity verification, runs safety and rollout gates, acquires a transient download token, downloads the stream, and logs the execution outcome.
 
 ```
 [ ESP32 Client ]                                  [ FastAPI Host ]                       [ Local Disk / Storage ]
@@ -95,14 +99,20 @@ This sequence diagram illustrates a professional, secure dual-phase update cycle
        |      X-Device-API-Key: token                    |                                          |
        |      x-ESP32-version: 1.0.0                     |                                          |
        |      x-ESP32-hardware: S3-WROOM                 |                                          |
+       |      x-ESP32-device-id: MAC_ADDR                |                                          |
+       |      x-ESP32-channel: stable                    |                                          |
+       |      x-ESP32-hsvn: 1                            |                                          |
        |------------------------------------------------>|                                          |
        |                                                 | 2. Check update against manifest.json    |
        |                                                 |----------------------------------------->|
        |                                                 |<-----------------------------------------|
        |                                                 |                                          |
-       |                                                 | 3. If update available, generate:        |
-       |                                                 |    - Expiration: current_time + 300s     |
-       |                                                 |    - Token: hmac(filename + expiration)  |
+       |                                                 | 3. If update available:                  |
+       |                                                 |    - Run HSVN evaluation                 |
+       |                                                 |    - Run canary percentage check         |
+       |                                                 |    - Generate:                           |
+       |                                                 |       - Expiration: current_time + 300s  |
+       |                                                 |       - Token: hmac(file + expiration)   |
        |                                                 |                                          |
        | 4. Returns JSON Update Payload                  |                                          |
        |    - Update: True                               |                                          |
@@ -137,32 +147,36 @@ This sequence diagram illustrates a professional, secure dual-phase update cycle
        |--+                                              |                                          |
        |  |                                              |                                          |
        |<-+                                              |                                          |
+       |                                                 |                                          |
+       | ========================================================================================== |
+       |                                 PHASE 3: TELEMETRY REPORTING                               |
+       | ========================================================================================== |
+       |                                                 |                                          |
+       | 11. POST /api/v1/ota/status                     |                                          |
+       |     Payload: {device_id, status: "success",...} |                                          |
+       |------------------------------------------------>|                                          |
+       |                                                 | 12. Evaluate error metrics per version   |
+       |                                                 |     and apply automatic rolling rollback  |
+       |                                                 |     to manifest if threshold is breached. |
+       |                                                 |--+                                       |
+       |                                                 |  |                                       |
+       |                                                 |<-+                                       |
 ```
 
 ---
 
 ## 4. Key Client-Side Implementation Fixes
 
-The following architectural and implementation fixes are verified and embedded inside the C++ framework files to ensure runtime compliance and connectivity:
-
 ### Exception Safety (`-fno-exceptions`)
-Standard-library components that throw exceptions under memory limits or invalid parsing (such as `std::stoi` and nested `try/catch` scopes) were removed. 
-*   **URL Parsing**: Rewritten to utilize non-throwing `std::strtol` with strict `endptr` checking to validate port values:
-    ```cpp
-    char* endptr = nullptr;
-    long portVal = std::strtol(portStr.c_str(), &endptr, 10);
-    if (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535) {
-        return ERROR_INVALID_ARG;
-    }
-    ```
+Standard-library components that throw exceptions under memory limits or invalid parsing were removed. 
+*   **URL Parsing**: Uses non-throwing `std::strtol` with strict `endptr` checking to validate port values.
 *   **Out-Of-Memory Handling**: Structural operations (such as appending HTTP event data chunks to buffers via `std::vector::insert`) execute standard system termination handlers natively if a physical heap allocation failure occurs.
 
 ### Dynamic Port & TLS Scheme Matching
-In original tests, the SSL validation parameter (`clientOptions.use_tls`) was bound strictly to port `443`. To support custom secure ports (e.g. `8443`), `_parseUrl` was modified to output an `outIsHttps` boolean parameter. The client uses this boolean parameter directly to establish TLS handshakes, regardless of the port number.
+The client uses the boolean `outIsHttps` output directly to establish TLS handshakes, supporting custom secure ports (e.g. `8443`) regardless of the port value itself.
 
 ### ESP-IDF Configuration Path Compliance
-During initialization inside `HttpsClient::_populate_config()`, omitting the `.path` parameter triggered ESP-IDF system-level validation errors:
-```text
-E (1910) HTTP_CLIENT: config should have either URL or host & path
+The initialization parameters are populated with a default fallback path of `"/"`. The actual URI target is modified dynamically before transmitting requests via `sendRequest()`.
 ```
-To guarantee structural compliance, the initialization parameters are populated with a default fallback path of `"/"`. The actual URI target is modified dynamically before transmitting requests via `sendRequest()`.
+
+---

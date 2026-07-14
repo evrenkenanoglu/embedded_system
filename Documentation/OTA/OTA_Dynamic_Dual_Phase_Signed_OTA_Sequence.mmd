@@ -8,8 +8,8 @@ sequenceDiagram
     CA->>Server: Signs Certificate (signing.crt) using ca.key
 
     Note over ESP32, Server: PHASE 1: HANDSHAKE & MANIFEST CHECK
-    ESP32->>Server: GET /api/v1/ota/check <br> Headers: Device API Key, Version, HW ID
-    Server->>Server: Evaluates release directory <br> Signs full and patch binaries with signing.key [2]
+    ESP32->>Server: GET /api/v1/ota/check <br> Headers: Device API Key, Version, HW ID, Device ID, Channel, HSVN
+    Server->>Server: Checks release registry for Channel <br> Validates HSVN boundary condition <br> Evaluates deterministic Canary target logic
     Server-->>ESP32: Returns Payload: url, update_type, signature, target_signature, signing_cert (PEM)
 
     Note over ESP32: PHASE 2: VERIFICATION & STREAMING
@@ -22,10 +22,13 @@ sequenceDiagram
         Server-->>ESP32: Stream Binary Payload in Chunks
         ESP32->>ESP32: Decompress & Write to Flash (ota_next)
         ESP32->>ESP32: Calculate SHA-256 of written partition data
-        ESP32->>ESP32: mbedtls_pk_verify() <br> Verify hash against target_signature using Public Key [2]
+        ESP32->>ESP32: mbedtls_pk_verify() <br> Verify hash against target_signature using Public Key
         alt Signature is Invalid
             ESP32->>ESP32: Abort & Erase partition (Prevent corrupt/malicious execution)
+            ESP32->>Server: POST /api/v1/ota/status (failure, error_code)
         else Signature is Valid
             ESP32->>ESP32: Set Active Boot Partition & Reboot
+            ESP32->>Server: POST /api/v1/ota/status (success)
+            Note over Server: Server monitors status reports and applies auto-rollback if failure limits breached
         end
     end

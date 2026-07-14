@@ -82,6 +82,16 @@ def parse_args():
         "--output-file",
         help="Path to save the generated review report"
     )
+    parser.add_argument(
+        "--diff-branch",
+        help="Compare branch expression (e.g. origin/main...feature_branch) to fetch raw diff content directly"
+    )
+
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable verbose debug logging of raw diffs, files, and commits"
+    )
     return parser.parse_args()
 
 def get_api_key(provider, cli_key):
