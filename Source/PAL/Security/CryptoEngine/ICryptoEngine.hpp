@@ -5,6 +5,7 @@
  *              modify, distribute, perform, display or sell this software and/or
  *              its documentation for any purpose is prohibited without the express
  *              written consent of Evren Kenanoglu.
+ *  @author     Evren Kenanoglu
  *  @date       05/07/2026
  */
 
@@ -163,7 +164,36 @@ public:
     virtual sys_error_t computeHmac(HashType type, const uint8_t* key, size_t keyLen, const uint8_t* data, size_t dataLen, uint8_t* outMac) = 0;
 
     /*========================================================================*/
-    /* 5. ASYMMETRIC SIGNATURE GENERATION & VALIDATION                        */
+    /* 5. PROGRESSIVE HASHING APIS (For Block-by-Block calculations)          */
+    /*========================================================================*/
+
+    /**
+     * @brief Progressive SHA hash initialization.
+     * 
+     * @param[in]  type            The hashing algorithm to use.
+     * @return sys_error_t         ERROR_SUCCESS on success.
+     */
+    virtual sys_error_t hashStart(HashType type) = 0;
+
+    /**
+     * @brief Progressive SHA hash update with incoming data block.
+     * 
+     * @param[in]  data            Raw block bytes buffer.
+     * @param[in]  len             Length of data block buffer.
+     * @return sys_error_t         ERROR_SUCCESS on success.
+     */
+    virtual sys_error_t hashUpdate(const uint8_t* data, size_t len) = 0;
+
+    /**
+     * @brief Progressive SHA hash finalization.
+     * 
+     * @param[out] outHash         Target destination buffer for computed hash (min 32 bytes for SHA-256).
+     * @return sys_error_t         ERROR_SUCCESS on success.
+     */
+    virtual sys_error_t hashFinish(uint8_t* outHash) = 0;
+
+    /*========================================================================*/
+    /* 6. ASYMMETRIC SIGNATURE GENERATION & VALIDATION                        */
     /*========================================================================*/
 
     /**
@@ -192,6 +222,18 @@ public:
      *
      * @return sys_error_t         ERROR_SUCCESS on success, ERROR_AUTH_FAILED on mismatch.
      */
-    virtual sys_error_t
-    verifySignature(KeyType type, const std::string& publicKeyPemOrCert, const uint8_t* hash, size_t hashLen, const uint8_t* signature, size_t signatureLen) = 0;
+    virtual sys_error_t verifySignature(KeyType type, const std::string& publicKeyPemOrCert, const uint8_t* hash, size_t hashLen, const uint8_t* signature, size_t signatureLen) = 0;
+
+    /*========================================================================*/
+    /* 7. CERTIFICATE CHAIN VALIDATION                                        */
+    /*========================================================================*/
+
+    /**
+     * @brief Verifies if the target certificate chains back directly to the Root CA certificate [2].
+     * 
+     * @param[in]  rootCaPem       PEM-encoded Root CA certificate string.
+     * @param[in]  signingCertPem  PEM-encoded target signing certificate string.
+     * @return sys_error_t         ERROR_SUCCESS on successful validation.
+     */
+    virtual sys_error_t verifyCertificateChain(const std::string& rootCaPem, const std::string& signingCertPem) = 0;
 };

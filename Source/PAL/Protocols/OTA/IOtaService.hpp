@@ -15,18 +15,19 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <string>
 
 /**
  * @brief Representation of the OTA life cycle states.
  */
 enum class OtaState : uint8_t
 {
-    Idle = 0,       ///< Service is inactive and waiting for triggers
-    Downloading,    ///< Currently pulling payload data from the transport stream
-    Verifying,      ///< Executing partition integrity and signature validation
-    Applying,       ///< Writing boot properties to set the target execution partition
-    Success,        ///< Flash update cycle succeeded
-    Failed          ///< An error occurred during execution
+    Idle = 0,    ///< Service is inactive and waiting for triggers
+    Downloading, ///< Currently pulling payload data from the transport stream
+    Verifying,   ///< Executing partition integrity and signature validation
+    Applying,    ///< Writing boot properties to set the target execution partition
+    Success,     ///< Flash update cycle succeeded
+    Failed       ///< An error occurred during execution
 };
 
 /**
@@ -34,10 +35,13 @@ enum class OtaState : uint8_t
  */
 struct OtaOptions_t
 {
-    std::string url;                ///< Target download URL for the firmware binary
-    std::string serverCert;         ///< Root certificate string for TLS validation
-    size_t      chunkSize{4096};    ///< Size of the local write buffer
-    uint32_t    timeoutMs{30000};   ///< Socket transfer and response timeouts
+    std::string url;              ///< Target download URL
+    std::string serverCert;       ///< Root CA cert for TLS negotiation [2]
+    size_t      chunkSize{4096};  ///< Chunk size mapping
+    uint32_t    timeoutMs{30000}; ///< Socket timeouts
+    std::string signingCert;      ///< Firmware signing certificate PEM [2]
+    std::string signature;        ///< Transport download signature [2]
+    std::string targetSignature;  ///< Reconstructed app signature [2]
 };
 
 /**
@@ -51,7 +55,7 @@ using OtaProgressCb_t = std::function<void(OtaState state, size_t bytesReceived,
 /**
  * @class IOtaService
  * @brief Core PAL orchestrator abstract class managing binary partition flash updates.
- * 
+ *
  * @note Thread-Safety: Implementations of this interface must provide external synchronization
  *       mechanisms or internal lockouts if accessed by concurrent tasks.
  */
@@ -82,8 +86,8 @@ public:
      *
      * @param[in]  options    Configuration options containing buffer sizes and constraints.
      * @param[in]  progressCb Callback structure to propagate system status modifications.
-     * 
-     * @return sys_error_t ERROR_SUCCESS if successful, otherwise an error status code.
+     *
+     * @return sys_error_t     ERROR_SUCCESS if successful, otherwise an error status code.
      */
     virtual sys_error_t startUpdate(const OtaOptions_t& options, OtaProgressCb_t progressCb) = 0;
 

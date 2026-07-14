@@ -1,6 +1,6 @@
 /** @file       mem_ota.hpp
- *  @brief      Memory implementation
- *  @copyright  (c) 2023- Evren Kenanoglu - All Rights Reserved
+ *  @brief      Platform-specific flash partition driver for ESP32 OTA memory operations.
+ *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
  *              Permission to use, reproduce, copy, prepare derivative works,
  *              modify, distribute, perform, display or sell this software and/or
  *              its documentation for any purpose is prohibited without the express
@@ -8,12 +8,13 @@
  *  @author     Evren Kenanoglu
  *  @date       17/06/2026
  */
-#ifndef MEM_OTA_HPP
-#define MEM_OTA_HPP
+
+#pragma once
 
 #include "HAL/IHAL/IHal_Mem_Ota.h"
-#include "esp_delta_ota.h"
-#include "esp_ota_ops.h"
+
+#include <esp_delta_ota.h>
+#include <esp_ota_ops.h>
 
 /** INCLUDES ******************************************************************/
 
@@ -23,7 +24,10 @@
 
 /**
  * @class mem_ota
- * @brief Memory implementation
+ * @brief Platform-specific flash driver implementing physical sector OTA writing on ESP32.
+ *
+ * @note Thread-Safety: This class is not thread-safe and must be accessed exclusively from
+ *       a single task context.
  */
 class mem_ota : public IHal_Mem_Ota
 {
@@ -40,7 +44,15 @@ private:
     size_t                 _accumulatorCount;       // Number of bytes currently held inside the accumulator
 
     /** PRIVATE METHODS *******************************************************/
-    sys_error_t validateIncomingImageHeader(const uint8_t* data, size_t length);
+
+    /**
+     * @brief Cryptographically and structurally validates the incoming firmware image header.
+     *
+     * @param[in] data   Pointer to the start of the firmware image data.
+     * @param[in] length Length of the available header data buffer.
+     * @return sys_error_t ERROR_SUCCESS on successful validation.
+     */
+    sys_error_t _validateIncomingImageHeader(const uint8_t* data, size_t length);
 
     // Static callbacks to feed the dynamic decompressor engine
     static esp_err_t read_running_partition_cb(uint8_t* buf_p, size_t size, int src_offset, void* user_data);
@@ -85,9 +97,17 @@ public:
     sys_error_t markAppValid() override;
     sys_error_t markAppInvalid() override;
     void        setDeltaMode(bool isDelta) override;
+    sys_error_t read(size_t offset, uint8_t* buffer, size_t length) override;
+    size_t      getPartitionSize() const override;
 
 public:
     /** USER METHODS *******************************************************/
+
+    /**
+     * @brief Resets the internal state properties of the driver.
+     *
+     * @param[in] skipPartitionReset Set to true to preserve the active update partition target.
+     */
     void resetInternalState(bool skipPartitionReset = false);
 };
 
@@ -96,5 +116,3 @@ public:
 /** VARIABLES *****************************************************************/
 
 /** FUNCTIONS *****************************************************************/
-
-#endif // MEM_OTA_HPP

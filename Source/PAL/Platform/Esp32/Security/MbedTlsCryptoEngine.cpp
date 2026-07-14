@@ -30,9 +30,19 @@
 
 /** FUNCTIONS *****************************************************************/
 
-MbedTlsCryptoEngine::MbedTlsCryptoEngine() {}
+MbedTlsCryptoEngine::MbedTlsCryptoEngine()
+    : _hashActive(false)
+    , _activeHashType(HASH_TYPE_SHA_256)
+{
+    mbedtls_sha256_init(&_sha256Ctx);
+    mbedtls_sha512_init(&_sha512Ctx);
+}
 
-MbedTlsCryptoEngine::~MbedTlsCryptoEngine() {}
+MbedTlsCryptoEngine::~MbedTlsCryptoEngine()
+{
+    mbedtls_sha256_free(&_sha256Ctx);
+    mbedtls_sha512_free(&_sha512Ctx);
+}
 
 sys_error_t MbedTlsCryptoEngine::_seedRng(EntropyContext& entropy, DrbgContext& drbg)
 {
@@ -319,6 +329,96 @@ sys_error_t MbedTlsCryptoEngine::computeHmac(HashType type, const uint8_t* key, 
     return ERROR_SUCCESS;
 }
 
+sys_error_t MbedTlsCryptoEngine::hashStart(HashType type)
+{
+    RETURN_IF_ERROR(
+        (_hashActive),                                                  // Expression
+        ERROR_INVALID_STATE,                                            // Error code
+        SYS_LOG_E("Another progressive hash session is already active") // Error message
+    );
+
+    int ret         = 0;
+    _activeHashType = type;
+
+    if (type == HASH_TYPE_SHA_256)
+    {
+        ret = mbedtls_sha256_starts(&_sha256Ctx, 0);
+    }
+    else if (type == HASH_TYPE_SHA_512)
+    {
+        ret = mbedtls_sha512_starts(&_sha512Ctx, 0);
+    }
+    else
+    {
+        return ERROR_INVALID_ARG;
+    }
+
+    RETURN_IF_ERROR(
+        (ret != 0),                                                          // Expression
+        ERROR_FAIL,                                                          // Error code
+        SYS_LOG_E("Failed to start progressive hash context: -0x%04X", -ret) // Error message
+    );
+
+    _hashActive = true;
+    return ERROR_SUCCESS;
+}
+
+sys_error_t MbedTlsCryptoEngine::hashUpdate(const uint8_t* data, size_t len)
+{
+    RETURN_IF_ERROR(
+        (!_hashActive),                                         // Expression
+        ERROR_INVALID_STATE,                                    // Error code
+        SYS_LOG_E("Progressive hash calculation is not active") // Error message
+    );
+
+    int ret = 0;
+    if (_activeHashType == HASH_TYPE_SHA_256)
+    {
+        ret = mbedtls_sha256_update(&_sha256Ctx, data, len);
+    }
+    else if (_activeHashType == HASH_TYPE_SHA_512)
+    {
+        ret = mbedtls_sha512_update(&_sha512Ctx, data, len);
+    }
+
+    RETURN_IF_ERROR(
+        (ret != 0),                                                   // Expression
+        ERROR_FAIL,                                                   // Error code
+        SYS_LOG_E("Failed to update progressive hash: -0x%04X", -ret) // Error message
+    );
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t MbedTlsCryptoEngine::hashFinish(uint8_t* outHash)
+{
+    RETURN_IF_ERROR(
+        (!_hashActive),                                                     // Expression
+        ERROR_INVALID_STATE,                                                // Error code
+        SYS_LOG_E("Cannot finish hash: progressive hashing is not active.") // Error message
+    );
+
+    int ret = 0;
+    if (_activeHashType == HASH_TYPE_SHA_256)
+    {
+        ret = mbedtls_sha256_finish(&_sha256Ctx, outHash);
+    }
+    else if (_activeHashType == HASH_TYPE_SHA_512)
+    {
+        ret = mbedtls_sha512_finish(&_sha512Ctx, outHash);
+    }
+
+    _hashActive = false;
+
+    RETURN_IF_ERROR(
+        (ret != 0),                                                   // Expression
+        ERROR_FAIL,                                                   // Error code
+        SYS_LOG_E("Failed to finish progressive hash: -0x%04X", -ret) // Error message
+    );
+
+    return ERROR_SUCCESS;
+}
+
 sys_error_t MbedTlsCryptoEngine::signHash(KeyType type, const std::string& privateKeyPem, const uint8_t* hash, size_t hashLen, uint8_t* outSignature, size_t& outSignatureLen)
 {
     EntropyContext entropy;
@@ -355,14 +455,8 @@ sys_error_t MbedTlsCryptoEngine::signHash(KeyType type, const std::string& priva
     return ERROR_SUCCESS;
 }
 
-sys_error_t MbedTlsCryptoEngine::verifySignature(
-    KeyType            type,               //
-    const std::string& publicKeyPemOrCert, //
-    const uint8_t*     hash,               //
-    size_t             hashLen,            //
-    const uint8_t*     signature,          //
-    size_t             signatureLen        //
-)
+sys_error_t
+MbedTlsCryptoEngine::verifySignature(KeyType type, const std::string& publicKeyPemOrCert, const uint8_t* hash, size_t hashLen, const uint8_t* signature, size_t signatureLen)
 {
     PkContext         pk;
     mbedtls_md_type_t mdType = (hashLen == 32) ? MBEDTLS_MD_SHA256 : MBEDTLS_MD_SHA512;
@@ -394,6 +488,49 @@ sys_error_t MbedTlsCryptoEngine::verifySignature(
         (ret != 0),                                                   // Expression
         ERROR_FAIL,                                                   // Error code
         SYS_LOG_E("Signature check validation failed: -0x%04X", -ret) // Error message
+    );
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t MbedTlsCryptoEngine::verifyCertificateChain(const std::string& rootCaPem, const std::string& signingCertPem)
+{
+    mbedtls_x509_crt rootCa;
+    mbedtls_x509_crt signingCert;
+    mbedtls_x509_crt_init(&rootCa);
+    mbedtls_x509_crt_init(&signingCert);
+
+    /// Parse the trusted Root CA anchor certificate.
+    int ret = mbedtls_x509_crt_parse(&rootCa, reinterpret_cast<const unsigned char*>(rootCaPem.c_str()), rootCaPem.length() + 1);
+    if (ret != 0)
+    {
+        mbedtls_x509_crt_free(&rootCa);
+        mbedtls_x509_crt_free(&signingCert);
+        SYS_LOG_E("Failed to parse Root CA certificate: -0x%04X", -ret);
+        return ERROR_FAIL;
+    }
+
+    /// Parse the incoming dynamic firmware-signing certificate [2].
+    ret = mbedtls_x509_crt_parse(&signingCert, reinterpret_cast<const unsigned char*>(signingCertPem.c_str()), signingCertPem.length() + 1);
+    if (ret != 0)
+    {
+        mbedtls_x509_crt_free(&rootCa);
+        mbedtls_x509_crt_free(&signingCert);
+        SYS_LOG_E("Failed to parse signing certificate: -0x%04X", -ret);
+        return ERROR_FAIL;
+    }
+
+    /// Perform chain verification check [2].
+    uint32_t flags = 0;
+    ret            = mbedtls_x509_crt_verify(&signingCert, &rootCa, nullptr, nullptr, &flags, nullptr, nullptr);
+
+    mbedtls_x509_crt_free(&rootCa);
+    mbedtls_x509_crt_free(&signingCert);
+
+    RETURN_IF_ERROR(
+        (ret != 0 || flags != 0),                                                                         // Expression
+        ERROR_FAIL,                                                                                       // Error code
+        SYS_LOG_E("X.509 chain verification check failed! -0x%04X (flags: 0x%08" PRIx32 ")", -ret, flags) // Error message
     );
 
     return ERROR_SUCCESS;

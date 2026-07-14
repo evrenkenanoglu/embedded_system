@@ -29,7 +29,7 @@
  * @brief Concrete implementation of cryptographic primitives wrapping mbedTLS contexts.
  *
  * @note Thread-Safety: This implementation utilizes local-scope dynamic allocations for context wrappers,
- *       ensuring thread-safety and reentrancy.
+ *       ensuring thread-safety and reentrancy. Progressive hashing is stateful per-instance.
  */
 class MbedTlsCryptoEngine : public ICryptoEngine
 {
@@ -176,6 +176,11 @@ private:
      */
     sys_error_t _seedRng(EntropyContext& entropy, DrbgContext& drbg);
 
+    mbedtls_sha256_context _sha256Ctx;
+    mbedtls_sha512_context _sha512Ctx;
+    bool                   _hashActive;
+    HashType               _activeHashType;
+
 public:
     MbedTlsCryptoEngine();
     ~MbedTlsCryptoEngine() override;
@@ -222,6 +227,12 @@ public:
         uint8_t*       outMac   //
         ) override;
 
+    sys_error_t hashStart(HashType type) override;
+
+    sys_error_t hashUpdate(const uint8_t* data, size_t len) override;
+
+    sys_error_t hashFinish(uint8_t* outHash) override;
+
     sys_error_t signHash(
         KeyType            type,           //
         const std::string& privateKeyPem,  //
@@ -238,5 +249,10 @@ public:
         size_t             hashLen,            //
         const uint8_t*     signature,          //
         size_t             signatureLen        //
+        ) override;
+
+    sys_error_t verifyCertificateChain(
+        const std::string& rootCaPem,     //
+        const std::string& signingCertPem //
         ) override;
 };
