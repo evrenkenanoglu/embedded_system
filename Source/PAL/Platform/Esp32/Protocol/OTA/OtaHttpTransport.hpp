@@ -14,6 +14,7 @@
 #include "PAL/Protocols/OTA/IOtaTransport.hpp"
 
 #include <string>
+#include <vector>
 
 /**
  * @class OtaHttpTransport
@@ -36,6 +37,13 @@ public:
 
     size_t getExpectedSize() const override;
 
+    /**
+     * @brief Configure custom verification headers to be sent with the stream download request.
+     *
+     * @param[in] headers Vector of custom HTTP headers.
+     */
+    void setHeaders(const std::vector<HttpHeader>& headers);
+
 private:
     /**
      * @brief Direct extraction parser dividing URL targets.
@@ -51,8 +59,9 @@ private:
     std::string _path;
     int         _port;
 
-    size_t        _expectedSize;
-    bool          _isConnected;
-    bool          _isStreaming;
-    OtaStreamCb_t _streamCb;
+    size_t                  _expectedSize;
+    bool                    _isConnected;
+    bool                    _isStreaming;
+    OtaStreamCb_t           _streamCb;
+    std::vector<HttpHeader> _customHeaders;
 };

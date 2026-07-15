@@ -31,6 +31,7 @@ OtaHttpTransport::OtaHttpTransport(IHttpClient& httpClient, const std::string& u
     , _isConnected(false)
     , _isStreaming(false)
     , _streamCb(nullptr)
+    , _customHeaders()
 {
 }
 
@@ -52,7 +53,7 @@ sys_error_t OtaHttpTransport::connect()
     HttpClientOptions_t clientOptions{};
     clientOptions.host       = _host;
     clientOptions.port       = _port;
-    clientOptions.use_tls    = isHttps; // Set by parsing results instead of hardcoded port verification
+    clientOptions.use_tls    = isHttps;
     clientOptions.timeout_ms = _timeoutMs;
     clientOptions.keep_alive = true;
 
@@ -89,12 +90,15 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
     _expectedSize = 0;
 
     int                     statusCode = 0;
-    std::vector<HttpHeader> headers;
+    std::vector<HttpHeader> headers    = _customHeaders;
 
-    /// Server Configuration Header Mapping
-    headers.push_back({"X-Device-API-Key", "secure-device-token-abcde"}); // Matches server API_KEY
-    headers.push_back({"x-ESP32-version", "1.0.0"});                      // Matches server HEADER_VERSION_KEY
-    headers.push_back({"x-ESP32-hardware", "ESP32-S3-WROOM"});            // Matches server HEADER_HARDWARE_KEY
+    /// Fallback to default credentials if custom parameters were not injected
+    if (headers.empty())
+    {
+        headers.push_back({"X-Device-API-Key", "secure-device-token-abcde"});
+        headers.push_back({"x-ESP32-version", "1.0.0"});
+        headers.push_back({"x-ESP32-hardware", "ESP32-S3-WROOM"});
+    }
 
     /// Inline Wrapper Pipeline
     auto intermediateCb = [this](const uint8_t* chunk, size_t chunkLen, bool isLastChunk) -> sys_error_t
@@ -126,16 +130,20 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
     sys_error_t err = _httpClient.sendRequest(
         IHttpUri::HttpMethod::GET,
         _path,
-        headers, // Updated vector containing server authentication headers
+        headers,
         nullptr,
         0,
         statusCode,
-        intermediateCb);
+        intermediateCb
+    );
 
     _isStreaming = false;
 
     RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS || statusCode != 200), (err != ERROR_SUCCESS) ? err : ERROR_FAIL, SYS_LOG_E("HTTP request rejected by OTA Server! Status: %d", statusCode));
+        (err != ERROR_SUCCESS || statusCode != 200),
+        (err != ERROR_SUCCESS) ? err : ERROR_FAIL,
+        SYS_LOG_E("HTTP request rejected by OTA Server! Status: %d", statusCode)
+    );
 
     return ERROR_SUCCESS;
 }
@@ -149,6 +157,11 @@ sys_error_t OtaHttpTransport::stopStream()
 size_t OtaHttpTransport::getExpectedSize() const
 {
     return _expectedSize;
+}
+
+void OtaHttpTransport::setHeaders(const std::vector<HttpHeader>& headers)
+{
+    _customHeaders = headers;
 }
 
 sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps)
@@ -204,7 +217,10 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
         long  portVal = std::strtol(portStr.c_str(), &endptr, 10);
 
         RETURN_IF_ERROR(
-            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535), ERROR_INVALID_ARG, SYS_LOG_E("Parsed port number is invalid or out of range!"));
+            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535),
+            ERROR_INVALID_ARG,
+            SYS_LOG_E("Parsed port number is invalid or out of range!")
+        );
 
         outPort = static_cast<int>(portVal);
     }
