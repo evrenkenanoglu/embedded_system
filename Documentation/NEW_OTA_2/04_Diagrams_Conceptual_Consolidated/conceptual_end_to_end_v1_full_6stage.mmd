@@ -1,0 +1,108 @@
+flowchart TD
+    classDef setup fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef server fill:#1e293b,stroke:#a1a1aa,stroke-width:1px,color:#f8fafc;
+    classDef client fill:#1e293b,stroke:#3b82f6,stroke-width:1px,color:#f8fafc;
+    classDef decision fill:#1e293b,stroke:#f59e0b,stroke-width:1px,color:#f8fafc;
+    classDef endpoint fill:#0f172a,stroke:#ef4444,stroke-width:1px,color:#f8fafc;
+    classDef success fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+
+    subgraph Stage1 [Stage 1: PKI Setup & Keys Creation - The Trusted Foundations]
+        RootCA["Root CA ca.crt / ca.key<br/>(Master Trust Anchor)"]
+        DevKeys["Developer signing.key / signing.crt<br/>(Delegated Keys)"]
+        ROM_Anchor["ESP32 Flash: ca.crt<br/>(Embedded trust anchor)"]
+        
+        RootCA -- "Signs & issues certificates" --> DevKeys
+        RootCA -- "Pre-installed in factory" --> ROM_Anchor
+    end
+
+    subgraph Stage2 [Stage 2: Server-Side Code Signing - Locking the Box]
+        FW_Code["New Compiled Firmware<br/>(Embedded_IoT_v1.0.0-dev2.bin)"]
+        SHA_Compute["Compute SHA-256 Hash Digest"]
+        Hash_Result["32-Byte Hash Digest"]
+        Dev_Signer["ECDSA Signer (sign_file)"]
+        DevKeys_Private["Developer Private Key (signing.key)"]
+        target_signature["target_signature<br/>(The Signature Seal)"]
+        Manifest["manifest.json Database<br/>(Release channel metadata)"]
+
+        FW_Code -- "Feeds raw binary bytes" --> SHA_Compute
+        SHA_Compute -- "Generates unique file fingerprint" --> Hash_Result
+        Hash_Result -- "Feeds message digest input" --> Dev_Signer
+        DevKeys_Private -- "Signs fingerprint mathematically" --> Dev_Signer
+        Dev_Signer -- "Creates hex-encoded signature" --> target_signature
+        target_signature -- "Written as release metadata" --> Manifest
+        FW_Code -- "Written to storage directory" --> Manifest
+    end
+
+    subgraph Stage3 [Stage 3: Gateway Handshake - The Security Guard]
+        Client_Check["GET /api/v1/ota/check<br/>(Headers: Key, Version, HW-ID, MAC, Channel, HSVN)"]
+        Verify_Auth{"Validate X-Device-API-Key"}
+        HW_Check{"Does Client Hardware<br/>match Manifest Profile?"}
+        SemVer_Check{"Is latest_version > client_version?"}
+        HSVN_Check{"Is client_hsvn <= target_hsvn?"}
+        Canary_Check{"Run Deterministic Canary Check:<br/>MD5(device_id + version) % 100 < canary_pct?"}
+        Payload_Gen["Generate Transient Signed Token & JSON Update Payload"]
+
+        Client_Check --> Verify_Auth
+        Verify_Auth -- "Authorized" --> HW_Check
+        HW_Check -- "Matched" --> SemVer_Check
+        SemVer_Check -- "Newer Version Found" --> HSVN_Check
+        HSVN_Check -- "Valid (Anti-rollback OK)" --> Canary_Check
+        Canary_Check -- "In rollout group" --> Payload_Gen
+    end
+
+    subgraph Stage4 [Stage 4: Client-Side Transport & Flash Writing]
+        Verify_Cert_Chain{"Verify signing_cert against ca.crt<br/>(mbedtls_x509_crt_verify)"}
+        Set_Ota_Mode["Set Flash Driver Mode: setDeltaMode isDelta"]
+        Get_Stream["GET /firmware_storage/patches/...bin?token=..."]
+        Write_Loop{"isDelta == true?"}
+        Feed_Delta["esp_delta_ota_feed_patch<br/>(Decompress & write to Partition)"]
+        Feed_Full["esp_ota_write<br/>(Write raw binary directly)"]
+        End_Write["Finalize flash write (esp_ota_end)"]
+
+        Payload_Gen -- "Returns update payload" --> Verify_Cert_Chain
+        Verify_Cert_Chain -- "Valid (Chain trusted)" --> Set_Ota_Mode
+        Set_Ota_Mode -- "Connect to presigned URL" --> Get_Stream
+        Get_Stream -- "Streams compressed binary bytes" --> Write_Loop
+        Write_Loop -- "Yes" --> Feed_Delta
+        Write_Loop -- "No" --> Feed_Full
+        Feed_Delta --> End_Write
+        Feed_Full --> End_Write
+    end
+
+    subgraph Stage5 [Stage 5: Final Cryptographic Signature Checks]
+        Calculate_Hash["Calculate SHA-256 hash of partition<br/>CONSTRAINED to exact target_size"]
+        Verify_Sig_Check{"Verify computed hash against target_signature<br/>(mbedtls_pk_verify)"}
+        Switch_Boot["Set Active Boot Partition (esp_ota_set_boot_partition)"]
+        Abort_Wipe["Wipe target partition & Abort"]
+
+        End_Write --> Calculate_Hash
+        Calculate_Hash -- "Feeds 32-byte calculated hash" --> Verify_Sig_Check
+        Verify_Sig_Check -- "Authentic (mbedtls_pk_verify == 0)" --> Switch_Boot
+        Verify_Sig_Check -- "Failed / Tampered" --> Abort_Wipe
+    end
+
+    subgraph Stage6 [Stage 6: Telemetry Loop & Auto-Rollback Guardrails]
+        Post_Success["POST /api/v1/ota/status<br/>{ status: success, target_version }"]
+        Post_Failure["POST /api/v1/ota/status<br/>{ status: failure, target_version, error_code }"]
+        Sanitize_Logs["Sanitize device_id (replace colons with dashes)<br/>and append payload to local JSON"]
+        Rollback_Calc{"Total reports >= threshold?"}
+        Fail_Rate_Calc{"Failure rate >= allowed limit?"}
+        Revert_Manifest["Deactivate target version in manifest.json<br/>Revert active channel latest_version to stable"]
+        Reboot_Done["Reboot Device (esp_restart)"]
+
+        Switch_Boot --> Post_Success
+        Abort_Wipe --> Post_Failure
+        Post_Success --> Sanitize_Logs
+        Post_Failure --> Sanitize_Logs
+        Sanitize_Logs --> Rollback_Calc
+        Rollback_Calc -- "Yes" --> Fail_Rate_Calc
+        Fail_Rate_Calc -- "Yes (Rollback Triggered)" --> Revert_Manifest
+        Post_Success -- "Reboot" --> Reboot_Done
+    end
+
+    class RootCA,DevKeys,ROM_Anchor,ESP_Trust setup;
+    class FW_Code,SHA_Compute,Hash_Result,Dev_Signer,DevKeys_Private,target_signature,Manifest server;
+    class Client_Check,Payload_Gen,Get_Stream,End_Write,Calculate_Hash,Post_Success,Post_Failure,Sanitize_Logs,Revert_Manifest client;
+    class Verify_Auth,HW_Check,SemVer_Check,HSVN_Check,Canary_Check,Verify_Cert_Chain,Write_Loop,Verify_Sig_Check,Rollback_Calc,Fail_Rate_Calc decision;
+    class Abort_Wipe endpoint;
+    class Switch_Boot,Reboot_Done success;

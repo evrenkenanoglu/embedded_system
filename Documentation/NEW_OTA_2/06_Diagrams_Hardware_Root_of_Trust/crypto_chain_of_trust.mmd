@@ -1,0 +1,30 @@
+graph TD
+    classDef hardware fill:#1e293b,stroke:#ef4444,stroke-width:2px,color:#f8fafc;
+    classDef bootloader fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+    classDef application fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#f8fafc;
+    classDef metadata fill:#0f172a,stroke:#64748b,stroke-width:1px,stroke-dasharray: 5 5,color:#94a3b8;
+
+    subgraph Hardware Layer [Physical Silicon Security]
+        eFuses[OTP eFuses] -->|Contains Hash Digest| SB_Key[Secure Boot V2 Public Key]
+        FlashEnc[Hardware AES Key] -->|Transparent Decryption| SPI_Flash[Encrypted SPI Flash]
+        MonotonicFuse[Monotonic Anti-Rollback eFuse] -->|Hardware HSVN Constraint| ROM_Boot
+    end
+
+    subgraph Bootloader Layer [Static ROM Boot Validation]
+        ROM_Boot[ROM Bootloader] -->|Verifies Signature on Reset| SB_Key
+        ROM_Boot -->|Decrypts Flash via| FlashEnc
+        ROM_Boot -->|Enforces HSVN Minimum Boundary Check| ROM_Boot
+        ROM_Boot -->|Executes Verified Image| AppPartition[Active App Partition]
+    end
+
+    subgraph Application Layer [Dynamic PKI Update Verification]
+        AppPartition -->|Reads Embedded Trust Anchor| Root_CA[Root CA Certificate ca.crt]
+        Root_CA -->|Verifies Chain of Trust| Sign_Cert[Firmware Signing Cert signing.crt]
+        Sign_Cert -->|Extracts| CodeSign_Key[Code Signing Public Key]
+        CodeSign_Key -->|Verifies Binary Authenticity| ECDSA_Sig[ECDSA SHA-256 Signatures]
+        AppPartition -->|Enforces Update Channels & Canary Gates| AppPartition
+    end
+
+    class eFuses,SB_Key,FlashEnc,SPI_Flash,MonotonicFuse hardware;
+    class ROM_Boot bootloader;
+    class AppPartition,Root_CA,Sign_Cert,CodeSign_Key,ECDSA_Sig application;

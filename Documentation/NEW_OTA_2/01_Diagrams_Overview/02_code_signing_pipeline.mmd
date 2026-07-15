@@ -1,0 +1,22 @@
+%% Diagram 2: Server-Side Code-Signing Pipeline
+%% Purpose: path of a newly compiled binary through the publishing pipeline.
+flowchart TD
+    A["Compile Firmware<br/>build toolchain output"] --> B["target.bin<br/>the raw compiled binary"]:::artifact
+
+    B --> C["Calculate SHA-256 Hash<br/>fingerprints the exact bytes<br/>of target.bin"]:::hash
+
+    C --> D["hash_digest<br/>32-byte fixed-length fingerprint"]:::artifact
+
+    D --> E["Encrypt digest with Private Key<br/>signing.key (developer's private key)<br/>performs asymmetric encryption"]:::sign
+
+    E --> F["target_signature<br/>the resulting Digital Signature"]:::artifact
+
+    G["signing.crt<br/>Developer Certificate<br/>(public half, proves identity)"]:::cert
+
+    B & D & F & G --> H["Write manifest.json entry<br/>bundles: metadata, signing.crt,<br/>target_signature, target_size, hash"]:::manifest
+
+    classDef artifact fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+    classDef hash fill:#E1F5EE,stroke:#0F6E56,color:#04342C
+    classDef sign fill:#FAECE7,stroke:#993C1D,color:#4A1B0C
+    classDef cert fill:#EEEDFE,stroke:#534AB7,color:#26215C
+    classDef manifest fill:#FBEAF0,stroke:#993556,color:#4B1528

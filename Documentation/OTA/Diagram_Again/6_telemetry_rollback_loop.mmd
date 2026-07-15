@@ -1,0 +1,24 @@
+%% Diagram 6: Telemetry Status & Automated Rollback Loop
+%% Purpose: self-healing closed-loop monitoring cycle of the active fleet.
+flowchart TD
+    A["Boot into new firmware<br/>(from Diagram 5)"] --> B["Run Application Self-Test<br/>on-device health checks<br/>(connectivity, sensors, crash-free boot)"]:::device
+
+    B --> C["POST status report<br/>to server Telemetry Loop<br/>{device_id, version, test_result}"]:::device
+
+    C --> D["Sanitize Device Identifier<br/>server-side: validate format,<br/>strip/escape, prevent injection"]:::server
+
+    D --> E["Record result<br/>append to per-version<br/>telemetry store"]:::server
+
+    E --> F["Calculate Failure Rate<br/>failures / total reports<br/>for this specific firmware version"]:::server
+
+    F --> G{"Failure rate ><br/>configured threshold?"}
+
+    G -->|"No"| H["Continue monitoring<br/>version stays live on channel"]:::pass
+    G -->|"Yes"| I["Trigger Soft Rollback<br/>update manifest.json:<br/>mark version unhealthy,<br/>point channel at last-known-good"]:::rollback
+
+    I -.->|"feeds back into"| J(("Next device handshake<br/>(Diagram 3) now serves<br/>the rolled-back version"))
+
+    classDef device fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+    classDef server fill:#E6F1FB,stroke:#185FA5,color:#042C53
+    classDef pass fill:#EAF3DE,stroke:#3B6D11,color:#173404
+    classDef rollback fill:#FCEBEB,stroke:#A32D2D,color:#501313

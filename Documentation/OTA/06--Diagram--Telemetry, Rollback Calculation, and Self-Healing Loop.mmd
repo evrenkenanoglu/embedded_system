@@ -1,0 +1,59 @@
+flowchart TD
+    classDef report fill:#1e293b,stroke:#a1a1aa,stroke-width:1px,color:#f8fafc;
+    classDef process fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef decision fill:#1e293b,stroke:#f59e0b,stroke-width:1px,color:#f8fafc;
+    classDef abort fill:#0f172a,stroke:#ef4444,stroke-width:1px,color:#f8fafc;
+    classDef success fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+
+    subgraph ClientReporting [1. Device Outcome Transmission]
+        otaResult["Evaluate OTA Update Outcome on ESP32<br/>(Check signature success or watchdog boot loop)"]
+        sendReport["Post Status Payload to /api/v1/ota/status<br/>(JSON: device_id, previous_version, target_version, status, error_code)"]
+    end
+
+    subgraph ServerSanitization [2. Cross-Platform Log Sanitization]
+        receivePost["Receive POST Status on Server"]
+        sanitizeId["Sanitize device_id to avoid Windows filesystem conflicts<br/>(Replace colons with dashes: F4-12-FA-40-67-30)"]
+        writeJSON["Append Telemetry Event to device_F4-12-FA-40-67-30.json"]
+    end
+
+    subgraph ServerEvaluation [3. Failure Rate Evaluation]
+        scanLogs["Scan local telemetry directory for target_version logs"]
+        aggregate["Aggregate Metrics: successes and failures count"]
+        thresholdCheck{"Total reports >= MIN_REPORTS_FOR_ROLLBACK?"}
+        rateCheck{"Failure rate >= MAX_FAILURE_RATE_PERCENT?"}
+    end
+
+    subgraph ServerRollback [4. Automated Manifest Deactivation]
+        logAlert["Log CRITICAL Auto-Rollback Warning"]
+        softRollback["Update target version status to soft-rolled-back in manifest.json"]
+        revertChannel["Point active channel latest_version to last stable active release"]
+        atomicSave["Atomically Save Manifest via Temporary File<br/>(Write manifest.json.tmp -> Replace manifest.json)"]
+    end
+
+    exitNoAction(["Return 200: Status Recorded (Rollback evaluation bypassed)"])
+    exitRollbackComplete(["Return 200: Status Recorded (Rollback executed successfully)"])
+
+    otaResult --> sendReport
+    sendReport --> receivePost
+    receivePost --> sanitizeId
+    sanitizeId --> writeJSON
+    writeJSON --> scanLogs
+    scanLogs --> aggregate
+    aggregate --> thresholdCheck
+
+    thresholdCheck -- "No" --> exitNoAction
+    thresholdCheck -- "Yes" --> rateCheck
+
+    rateCheck -- "No" --> exitNoAction
+    rateCheck -- "Yes" --> logAlert
+
+    logAlert --> softRollback
+    softRollback --> revertChannel
+    revertChannel --> atomicSave
+    atomicSave --> exitRollbackComplete
+
+    class otaResult,sendReport,receivePost,writeJSON,scanLogs,aggregate,softRollback,revertChannel,atomicSave report;
+    class sanitizeId,logAlert process;
+    class thresholdCheck,rateCheck decision;
+    class exitNoAction abort;
+    class exitRollbackComplete success;
