@@ -10,6 +10,7 @@
 
 /** INCLUDES ******************************************************************/
 #include "PAL/Platform/Esp32/Protocol/OTA/OtaService.hpp"
+#include "PAL/Security/CryptoEngine/ICryptoEngine.hpp"
 
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
@@ -27,6 +28,34 @@
 /** VARIABLES *****************************************************************/
 
 /** LOCAL FUNCTIONS ***********************************************************/
+
+namespace
+{
+    /**
+     * @brief Converts a hexadecimal string into its raw byte array representation.
+     */
+    bool hexToBytes(const std::string& hex, std::vector<uint8_t>& outBytes)
+    {
+        if (hex.length() % 2 != 0)
+        {
+            return false;
+        }
+        outBytes.clear();
+        outBytes.reserve(hex.length() / 2);
+        for (size_t i = 0; i < hex.length(); i += 2)
+        {
+            std::string byteString = hex.substr(i, 2);
+            char*       endptr     = nullptr;
+            long        byteVal    = std::strtol(byteString.c_str(), &endptr, 16);
+            if (endptr == byteString.c_str() || *endptr != '\0')
+            {
+                return false;
+            }
+            outBytes.push_back(static_cast<uint8_t>(byteVal));
+        }
+        return true;
+    }
+} // namespace
 
 /** FUNCTIONS *****************************************************************/
 
@@ -107,11 +136,11 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
         /// Delegate X.509 chain verification directly to the CryptoEngine [1, 2].
         sys_error_t verifyErr = _cryptoEngine.verifyCertificateChain(options.serverCert, options.signingCert);
 
-        RETURN_IF_ERROR((verifyErr != ERROR_SUCCESS),                                                              // Expression
-                        verifyErr,                                                                                 // Error code
-                        SYS_LOG_E("[PKI] Dynamic signing certificate chain verification failed against Root CA!"), // Error message
-                        _memOta.deInit();                                                                          // Cleanup
-                        _state.store(OtaState::Failed)                                                             // Cleanup
+        RETURN_IF_ERROR((verifyErr != ERROR_SUCCESS),                                              // Expression
+                        verifyErr,                                                                 // Error code
+                        SYS_LOG_E("[PKI] Dynamic signing certificate chain verification failed!"), // Error message
+                        _memOta.deInit();                                                          // Cleanup
+                        _state.store(OtaState::Failed)                                             // Cleanup
         );
 
         SYS_LOG_I("[PKI] Dynamic signing certificate validated successfully against trust anchor.");
@@ -147,6 +176,9 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
         _state.store(OtaState::Failed);
         return err;
     }
+
+    /// Dynamically route write target logic based on the identified download payload type
+    _memOta.setDeltaMode(options.isDelta);
 
     err = _memOta.begin(_totalSize);
     if (err != ERROR_SUCCESS)
@@ -200,13 +232,16 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
     }
 
     /// 2. If signatures are active, execute cryptographic code-sign validation [2].
-    if (!options.signingCert.empty() && !options.signature.empty())
+    if (!options.signingCert.empty() && (!options.signature.empty() || !options.targetSignature.empty()))
     {
-        SYS_LOG_I("[PKI] Decoding HEX transport signature payload...");
+        // Select the appropriate target signature to verify against the reconstructed target partition
+        const std::string& signatureToVerify = (options.isDelta && !options.targetSignature.empty()) ? options.targetSignature : options.signature;
+
+        SYS_LOG_I("[PKI] Decoding HEX target signature payload...");
 
         uint8_t     rawSignature[128];
         size_t      sigLen = 0;
-        sys_error_t hexErr = _hexStringToBytes(options.signature, rawSignature, sigLen);
+        sys_error_t hexErr = _hexStringToBytes(signatureToVerify, rawSignature, sigLen);
         if (hexErr != ERROR_SUCCESS)
         {
             _memOta.deInit();
@@ -217,7 +252,7 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
         SYS_LOG_I("[PKI] Calculating SHA-256 target partition digest...");
 
         uint8_t     calculatedHash[32];
-        sys_error_t hashErr = _calculatePartitionHash(calculatedHash);
+        sys_error_t hashErr = _calculatePartitionHash(options.targetSize, calculatedHash);
         if (hashErr != ERROR_SUCCESS)
         {
             _memOta.deInit();
@@ -225,11 +260,17 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
             return hashErr;
         }
 
-        SYS_LOG_I("[PKI] Verifying cryptographic signature against validated certificate public key context...");
+        SYS_LOG_I("[PKI] Verifying cryptographic signature against public key context...");
 
         /// Delegate verification to the CryptoEngine, keeping memory drivers completely separate [1, 2].
-        sys_error_t sigErr =
-            _cryptoEngine.verifySignature(ICryptoEngine::KEY_TYPE_EC_SECP256R1, options.signingCert, calculatedHash, sizeof(calculatedHash), rawSignature, sigLen);
+        sys_error_t sigErr = _cryptoEngine.verifySignature(
+            ICryptoEngine::KEY_TYPE_EC_SECP256R1, //
+            options.signingCert,                  //
+            calculatedHash,                       //
+            sizeof(calculatedHash),               //
+            rawSignature,                         //
+            sigLen                                //
+        );
 
         if (sigErr != ERROR_SUCCESS)
         {
@@ -339,7 +380,7 @@ sys_error_t OtaService::_handleTransportChunk(const uint8_t* data, size_t length
     return ERROR_SUCCESS;
 }
 
-sys_error_t OtaService::_calculatePartitionHash(uint8_t* outHash)
+sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outHash)
 {
     size_t partitionSize = _memOta.getPartitionSize();
 
@@ -349,14 +390,16 @@ sys_error_t OtaService::_calculatePartitionHash(uint8_t* outHash)
         SYS_LOG_E("Update partition size is zero, cannot hash") // Error message
     );
 
+    /// Constrain hashing bounds using exact reassembled file size metric
+    size_t sizeLeft = (targetSize > 0 && targetSize <= partitionSize) ? targetSize : partitionSize;
+
     /// Use the decoupled progressive hashing APIs of the ICryptoEngine [1, 2].
     RETURN_ON_ERROR(
         _cryptoEngine.hashStart(ICryptoEngine::HASH_TYPE_SHA_256), // Expression
-        SYS_LOG_E("Failed to start SHA-256 calculation")           // Log
+        SYS_LOG_E("Failed to start SHA-256 calculation")           // Log message
     );
 
-    size_t  offset   = 0;
-    size_t  sizeLeft = partitionSize;
+    size_t  offset = 0;
     uint8_t readBuffer[4096];
 
     while (sizeLeft > 0)

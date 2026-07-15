@@ -35,13 +35,18 @@ enum class OtaState : uint8_t
  */
 struct OtaOptions_t
 {
-    std::string url;              ///< Target download URL
-    std::string serverCert;       ///< Root CA cert for TLS negotiation [2]
-    size_t      chunkSize{4096};  ///< Chunk size mapping
-    uint32_t    timeoutMs{30000}; ///< Socket timeouts
-    std::string signingCert;      ///< Firmware signing certificate PEM [2]
-    std::string signature;        ///< Transport download signature [2]
-    std::string targetSignature;  ///< Reconstructed app signature [2]
+    std::string url;              ///< Target download URL for the firmware binary
+    std::string serverCert;       ///< Root certificate string for TLS validation
+    size_t      chunkSize{4096};  ///< Size of the local write buffer
+    uint32_t    timeoutMs{30000}; ///< Socket transfer and response timeouts
+
+    // Cryptographic validation parameters matching the advanced server schema
+    std::string signature;       ///< Hex signature of the downloaded binary payload
+    std::string targetSignature; ///< Hex signature of the final reassembled application binary
+    std::string signingCert;     ///< PEM-encoded certificate used to sign the firmware payload
+
+    bool   isDelta{false}; ///< Flag indicating if the update payload is a delta patch
+    size_t targetSize{0};  ///< The exact size of the final reassembled application binary in bytes
 };
 
 /**
@@ -87,7 +92,7 @@ public:
      * @param[in]  options    Configuration options containing buffer sizes and constraints.
      * @param[in]  progressCb Callback structure to propagate system status modifications.
      *
-     * @return sys_error_t     ERROR_SUCCESS if successful, otherwise an error status code.
+     * @return sys_error_t ERROR_SUCCESS if successful, otherwise an error status code.
      */
     virtual sys_error_t startUpdate(const OtaOptions_t& options, OtaProgressCb_t progressCb) = 0;
 
