@@ -1,3 +1,4 @@
+import os
 import hmac
 import hashlib
 import json
@@ -43,7 +44,6 @@ def is_in_canary_group(device_id: str, target_version: str, target_percentage: i
         return False
     hash_payload = f"{device_id}:{target_version}".encode("utf-8")
     hash_digest = hashlib.md5(hash_payload).hexdigest()
-    # Modulo yields deterministic value [0..99]
     hash_value = int(hash_digest, 16) % 100
     return hash_value < target_percentage
 
@@ -111,9 +111,12 @@ async def get_validated_file_response(filename: str) -> FileResponse:
 
 
 def log_telemetry(report: TelemetryReport):
-    """Saves structured telemetry payload to local storage directory."""
+    """Saves structured telemetry payload to local storage directory, sanitizing path delimiters."""
     settings.TELEMETRY_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_file = settings.TELEMETRY_LOG_DIR / f"device_{report.device_id}.json"
+    
+    # Sanitize the device_id for Windows OS filesystem compatibility (replace colons with dashes)
+    safe_device_id = report.device_id.replace(":", "-")
+    log_file = settings.TELEMETRY_LOG_DIR / f"device_{safe_device_id}.json"
     
     device_history = []
     if log_file.exists():
@@ -143,7 +146,6 @@ def evaluate_auto_rollback(target_version: str):
         try:
             with open(file_path, "r") as f:
                 history = json.load(f)
-                # Parse entries for the specific target version
                 for entry in history:
                     if entry.get("target_version") == target_version:
                         if entry.get("status") == "success":
@@ -182,7 +184,6 @@ def _soft_rollback_version_in_manifest(target_version: str):
         target_update["status"] = "soft-rolled-back"
         target_channel = target_update.get("channel", settings.DEFAULT_CHANNEL)
 
-        # Re-evaluate latest channel version map excluding this failed target
         remaining_versions_in_channel = [
             v for v, info in data.get("updates", {}).items() 
             if info.get("channel") == target_channel and info.get("status") == "active"
@@ -197,7 +198,6 @@ def _soft_rollback_version_in_manifest(target_version: str):
             sorted_versions = sorted(remaining_versions_in_channel, key=semver_key)
             data["channels"][target_channel]["latest_version"] = sorted_versions[-1]
         else:
-            # Revert latest version indicator to previous stable if empty
             data["channels"][target_channel]["latest_version"] = ""
 
         temp_path = settings.MANIFEST_FILE.with_suffix(".tmp")
@@ -269,7 +269,6 @@ async def ota_check(
             detail=f"Incompatible hardware profile. Target: {client_hardware}, Required: {manifest_hardware}"
         )
 
-    # Evaluate the active targeted release channel version
     latest_channel_version = manifest.get("channels", {}).get(client_channel, {}).get("latest_version")
     
     if latest_channel_version and is_newer_version(client_version, latest_channel_version):
@@ -280,7 +279,6 @@ async def ota_check(
                 detail="Version metadata unavailable or de-activated."
             )
 
-        # Anti-Downgrade Check: Verify HSVN constraint
         target_hsvn = update_info.get("hsvn", settings.DEFAULT_HSVN)
         if client_hsvn > target_hsvn:
             logger.warning(
@@ -292,7 +290,6 @@ async def ota_check(
                 "message": "Update aborted: Hardware anti-downgrade boundary protection active."
             }
 
-        # Canary Target Calculation Check
         canary_percent = update_info.get("canary_percentage", settings.DEFAULT_CANARY_PERCENTAGE)
         if not is_in_canary_group(client_device_id, latest_channel_version, canary_percent):
             logger.info(f"Device '{client_device_id}' bypassed: Not targeted in {canary_percent}% canary rollout group.")
@@ -304,7 +301,6 @@ async def ota_check(
         patches_map = update_info.get("patches", {})
         signing_cert_pem = get_signing_certificate_pem()
         
-        # Scenario A: Deliver Delta patch
         if client_version in patches_map:
             logger.info(f"Target delta patch matched: Client version {client_version} -> {latest_channel_version}")
             patch_info = patches_map[client_version]
@@ -325,11 +321,11 @@ async def ota_check(
                 "signature": patch_info.get("signature"),
                 "target_sha256": update_info.get("sha256"),
                 "target_signature": update_info.get("signature"),
+                "target_size": update_info.get("file_size_bytes"), # Sends exact reassembled binary size
                 "signing_cert": signing_cert_pem,
                 "notes": update_info.get("release_notes")
             }
 
-        # Scenario B: Deliver Complete binary fallback
         logger.info(f"Delivering full binary updates.")
         binary_path = update_info.get("binary_path", "")
         binary_name = Path(binary_path).name
@@ -348,6 +344,7 @@ async def ota_check(
             "signature": update_info.get("signature"),
             "target_sha256": update_info.get("sha256"),
             "target_signature": update_info.get("signature"),
+            "target_size": update_info.get("file_size_bytes"), # Sends exact application binary size
             "signing_cert": signing_cert_pem,
             "notes": update_info.get("release_notes")
         }
@@ -364,7 +361,6 @@ async def ota_download(
     request: Request,
     token: str = Query(None, description="Temporary presigned query token")
 ):
-    """Serves binary files dynamically using the presigned URL scheme."""
     authenticate_request(request, filename, token)
     return await get_validated_file_response(filename)
 
@@ -375,6 +371,5 @@ async def direct_ota_download(
     request: Request,
     token: str = Query(None, description="Temporary presigned query token")
 ):
-    """Serves binary files dynamically directly on the root storage path."""
     authenticate_request(request, filename, token)
     return await get_validated_file_response(filename)
