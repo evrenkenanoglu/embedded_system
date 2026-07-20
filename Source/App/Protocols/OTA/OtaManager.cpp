@@ -20,6 +20,32 @@
 #include <cstring>
 #include <new>
 
+/** INCLUDES ******************************************************************/
+
+/** CONSTANTS *****************************************************************/
+
+namespace
+{
+    constexpr uint16_t DEFAULT_HTTP_PORT            = 80;
+    constexpr uint16_t DEFAULT_HTTPS_PORT           = 443;
+    constexpr uint32_t DEFAULT_HTTP_TIMEOUT_MS      = 10000;
+    constexpr uint32_t DEFAULT_TELEMETRY_TIMEOUT_MS = 10000;
+    constexpr uint32_t DEFAULT_DOWNLOAD_TIMEOUT_MS  = 30000;
+    constexpr size_t   DEFAULT_DOWNLOAD_CHUNK_SIZE  = 8192;
+    constexpr long     MAX_VALID_PORT_NUMBER        = 65535;
+    constexpr int      PARSE_RADIX_DECIMAL          = 10;
+} // namespace
+
+/** TYPEDEFS ******************************************************************/
+
+/** MACROS ********************************************************************/
+
+/** VARIABLES *****************************************************************/
+
+/** LOCAL FUNCTIONS ***********************************************************/
+
+/** FUNCTIONS *****************************************************************/
+
 OtaManager::OtaManager(IOtaService& otaService, IHttpClient& httpClient)
     : _mutex()
     , _otaService(otaService)
@@ -148,7 +174,7 @@ sys_error_t OtaManager::checkForUpdates(OtaCheckResult& outResult)
 
     std::string host;
     std::string path;
-    int         port    = 80;
+    int         port    = DEFAULT_HTTP_PORT;
     bool        isHttps = false;
 
     sys_error_t parseErr = _parseUrl(_options.gatewayUrl, host, path, port, isHttps);
@@ -164,7 +190,7 @@ sys_error_t OtaManager::checkForUpdates(OtaCheckResult& outResult)
     clientOptions.use_tls         = isHttps;
     clientOptions.server_cert_pem = _options.serverCert.empty() ? nullptr : _options.serverCert.c_str();
     clientOptions.server_cert_len = 0;
-    clientOptions.timeout_ms      = 10000;
+    clientOptions.timeout_ms      = DEFAULT_HTTP_TIMEOUT_MS;
 
     sys_error_t err = _httpClient.connect(clientOptions);
     RETURN_IF_ERROR(
@@ -282,8 +308,8 @@ sys_error_t OtaManager::executeUpdate()
     OtaOptions_t serviceOptions{};
     serviceOptions.endpoint        = _pendingUrl;
     serviceOptions.serverCert      = _options.serverCert;
-    serviceOptions.chunkSize       = 8192;
-    serviceOptions.timeoutMs       = 30000;
+    serviceOptions.chunkSize       = DEFAULT_DOWNLOAD_CHUNK_SIZE;
+    serviceOptions.timeoutMs       = DEFAULT_DOWNLOAD_TIMEOUT_MS;
     serviceOptions.signature       = _pendingSignature;
     serviceOptions.targetSignature = _pendingTargetSignature;
     serviceOptions.signingCert     = _pendingSigningCert;
@@ -319,7 +345,7 @@ sys_error_t OtaManager::_sendTelemetryReport(const std::string& statusStr, sys_e
 {
     std::string host;
     std::string path;
-    int         port    = 80;
+    int         port    = DEFAULT_HTTP_PORT;
     bool        isHttps = false;
 
     sys_error_t parseErr = _parseUrl(_options.gatewayUrl, host, path, port, isHttps);
@@ -335,7 +361,7 @@ sys_error_t OtaManager::_sendTelemetryReport(const std::string& statusStr, sys_e
     telemetryOptions.use_tls         = isHttps;
     telemetryOptions.server_cert_pem = _options.serverCert.empty() ? nullptr : _options.serverCert.c_str();
     telemetryOptions.server_cert_len = 0;
-    telemetryOptions.timeout_ms      = 10000;
+    telemetryOptions.timeout_ms      = DEFAULT_TELEMETRY_TIMEOUT_MS;
 
     sys_error_t err = _httpClient.connect(telemetryOptions);
     RETURN_IF_ERROR(
@@ -449,7 +475,7 @@ sys_error_t OtaManager::_parseUrl(const std::string& url, std::string& outHost, 
     if (colonPos == std::string::npos)
     {
         outHost = hostPortSegment;
-        outPort = outIsHttps ? 443 : 80;
+        outPort = outIsHttps ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT;
     }
     else
     {
@@ -462,12 +488,12 @@ sys_error_t OtaManager::_parseUrl(const std::string& url, std::string& outHost, 
         }
 
         char* endptr  = nullptr;
-        long  portVal = std::strtol(portStr.c_str(), &endptr, 10);
+        long  portVal = std::strtol(portStr.c_str(), &endptr, PARSE_RADIX_DECIMAL);
 
         RETURN_IF_ERROR(
-            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535), // Expression
-            ERROR_INVALID_ARG,                                                                // Error code
-            SYS_LOG_E("Parsed port number is invalid or out of range!")                       // Error message
+            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > MAX_VALID_PORT_NUMBER), // Expression
+            ERROR_INVALID_ARG,                                                                                // Error code
+            SYS_LOG_E("Parsed port number is invalid or out of range!")                                       // Error message
         );
 
         outPort = static_cast<int>(portVal);
