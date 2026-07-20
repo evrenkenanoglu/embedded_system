@@ -12,9 +12,7 @@ from pathlib import Path
 DEFAULT_PROVIDER = "gemini"
 
 DEFAULT_TEMPLATES = [
-    # "prompts/freeRtos_review.md",
-    "prompts/code_convention_review.md",
-    "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Documentation/Code_Convention",
+    "prompts/freeRtos_review.md",
 ]
 
 DEFAULT_FILES = [
