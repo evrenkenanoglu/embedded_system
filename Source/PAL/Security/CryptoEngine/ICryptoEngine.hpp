@@ -11,12 +11,15 @@
 
 #pragma once
 
+// 1. Local Project / Protocol / HAL Headers
 #include "System/system.h"
+
+// 2. C++ Standard Library Headers
 #include <string>
 
 /**
  * @class ICryptoEngine
- * @brief High-level summary of the class's responsibility to abstract cryptographic functions.
+ * @brief Generic abstract class defining cryptographic functions for asymmetric, symmetric, and hashing algorithms.
  *
  * @note Thread-Safety: Implementations of this interface must be stateless or reentrant,
  *       allowing secure concurrent execution from multiple task contexts.
@@ -44,7 +47,8 @@ public:
         uint32_t    validitySeconds; // Validity period in seconds
     };
 
-    virtual ~ICryptoEngine() {}
+public:
+    virtual ~ICryptoEngine() = default;
 
     /*========================================================================*/
     /* 1. ASYMMETRIC KEY & CERTIFICATE GENERATION                             */
@@ -169,7 +173,7 @@ public:
 
     /**
      * @brief Progressive SHA hash initialization.
-     * 
+     *
      * @param[in]  type            The hashing algorithm to use.
      * @return sys_error_t         ERROR_SUCCESS on success.
      */
@@ -177,7 +181,7 @@ public:
 
     /**
      * @brief Progressive SHA hash update with incoming data block.
-     * 
+     *
      * @param[in]  data            Raw block bytes buffer.
      * @param[in]  len             Length of data block buffer.
      * @return sys_error_t         ERROR_SUCCESS on success.
@@ -186,7 +190,7 @@ public:
 
     /**
      * @brief Progressive SHA hash finalization.
-     * 
+     *
      * @param[out] outHash         Target destination buffer for computed hash (min 32 bytes for SHA-256).
      * @return sys_error_t         ERROR_SUCCESS on success.
      */
@@ -222,7 +226,8 @@ public:
      *
      * @return sys_error_t         ERROR_SUCCESS on success, ERROR_AUTH_FAILED on mismatch.
      */
-    virtual sys_error_t verifySignature(KeyType type, const std::string& publicKeyPemOrCert, const uint8_t* hash, size_t hashLen, const uint8_t* signature, size_t signatureLen) = 0;
+    virtual sys_error_t
+    verifySignature(KeyType type, const std::string& publicKeyPemOrCert, const uint8_t* hash, size_t hashLen, const uint8_t* signature, size_t signatureLen) = 0;
 
     /*========================================================================*/
     /* 7. CERTIFICATE CHAIN VALIDATION                                        */
@@ -230,7 +235,7 @@ public:
 
     /**
      * @brief Verifies if the target certificate chains back directly to the Root CA certificate [2].
-     * 
+     *
      * @param[in]  rootCaPem       PEM-encoded Root CA certificate string.
      * @param[in]  signingCertPem  PEM-encoded target signing certificate string.
      * @return sys_error_t         ERROR_SUCCESS on successful validation.

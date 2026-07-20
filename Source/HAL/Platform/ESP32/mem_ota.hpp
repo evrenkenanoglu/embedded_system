@@ -16,12 +16,6 @@
 #include <esp_delta_ota.h>
 #include <esp_ota_ops.h>
 
-/** INCLUDES ******************************************************************/
-
-/** CONSTANTS *****************************************************************/
-
-/** TYPEDEFS ******************************************************************/
-
 /**
  * @class mem_ota
  * @brief Platform-specific flash driver implementing physical sector OTA writing on ESP32.
@@ -32,24 +26,23 @@
 class mem_ota : public IHal_Mem_Ota
 {
 private:
-    /** VARIABLES *************************************************************/
-    esp_ota_handle_t       _updateHandle;           // Handle for the OTA update process
-    esp_delta_ota_handle_t _deltaOtaHandle;         // Handle for the Delta OTA update process
-    const esp_partition_t* _updatePartition;        // Pointer to the partition where the new firmware will be written
-    bool                   _isInitialized;          // Flag indicating whether the OTA memory interface has been initialized
-    bool                   _isOngoing;              // Flag indicating whether an OTA update session is currently in progress
-    bool                   _headerValidated;        // Flag indicating whether the incoming firmware image header has been validated
-    bool                   _isDelta;                // Flag indicating whether the OTA update is a delta update
-    uint8_t                _headerAccumulator[320]; // Temp buffer to hold headers during micro-sized delta writes (min required: 288)
-    size_t                 _accumulatorCount;       // Number of bytes currently held inside the accumulator
+    esp_ota_handle_t       _updateHandle;           ///< Handle for the OTA update process
+    esp_delta_ota_handle_t _deltaOtaHandle;         ///< Handle for the Delta OTA update process
+    const esp_partition_t* _updatePartition;        ///< Pointer to the partition where the new firmware will be written
+    bool                   _isInitialized;          ///< Flag indicating whether the OTA memory interface has been initialized
+    bool                   _isOngoing;              ///< Flag indicating whether an OTA update session is currently in progress
+    bool                   _headerValidated;        ///< Flag indicating whether the incoming firmware image header has been validated
+    bool                   _isDelta;                ///< Flag indicating whether the OTA update is a delta update
+    uint8_t                _headerAccumulator[320]; ///< Temp buffer to hold headers during micro-sized delta writes (min required: 288)
+    size_t                 _accumulatorCount;       ///< Number of bytes currently held inside the accumulator
 
-    /** PRIVATE METHODS *******************************************************/
-
+private:
     /**
      * @brief Cryptographically and structurally validates the incoming firmware image header.
      *
      * @param[in] data   Pointer to the start of the firmware image data.
      * @param[in] length Length of the available header data buffer.
+     * 
      * @return sys_error_t ERROR_SUCCESS on successful validation.
      */
     sys_error_t _validateIncomingImageHeader(const uint8_t* data, size_t length);
@@ -86,6 +79,7 @@ public:
     mem_ota(mem_ota&&)            = delete;
     mem_ota& operator=(mem_ota&&) = delete;
 
+public:
     /** INTERFACE METHODS *****************************************************/
     sys_error_t init(void* params = nullptr) override;
     sys_error_t deInit() override;
@@ -101,8 +95,6 @@ public:
     size_t      getPartitionSize() const override;
 
 public:
-    /** USER METHODS *******************************************************/
-
     /**
      * @brief Resets the internal state properties of the driver.
      *
@@ -110,9 +102,3 @@ public:
      */
     void resetInternalState(bool skipPartitionReset = false);
 };
-
-/** MACROS ********************************************************************/
-
-/** VARIABLES *****************************************************************/
-
-/** FUNCTIONS *****************************************************************/

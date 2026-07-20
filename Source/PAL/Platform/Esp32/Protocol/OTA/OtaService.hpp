@@ -10,10 +10,12 @@
 
 #pragma once
 
+// 1. Local Project / Protocol / HAL Headers
 #include "HAL/IHAL/IHal_Mem_Ota.h"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
 #include "PAL/Protocols/OTA/IOtaTransport.hpp"
 
+// 2. C++ Standard Library Headers
 #include <atomic>
 #include <string>
 
@@ -23,13 +25,36 @@ class ICryptoEngine;
 /**
  * @class OtaService
  * @brief Concrete PAL service class coordinating storage interfaces, network transports, and crypto verification.
+ *
+ * @note Thread-Safety: This class provides partial safety via atomic state variables, but must be externally
+ *       synchronized if concurrently invoked for update procedures.
  */
 class OtaService : public IOtaService
 {
 public:
+    /**
+     * @brief Construct a new OtaService object.
+     *
+     * @param[in] transport    Reference to the network transport pipeline.
+     * @param[in] memOta       Reference to the HAL memory OTA storage interface.
+     * @param[in] cryptoEngine Reference to the system cryptographic verification engine.
+     */
     OtaService(IOtaTransport& transport, IHal_Mem_Ota& memOta, ICryptoEngine& cryptoEngine);
+
+    /**
+     * @brief Destroy the OtaService object and release associated resources.
+     */
     ~OtaService() override;
 
+    // Explicitly block copy mechanics to enforce unique ownership
+    OtaService(const OtaService&)            = delete;
+    OtaService& operator=(const OtaService&) = delete;
+
+    // Explicitly block move mechanics unless specifically designed
+    OtaService(OtaService&&)            = delete;
+    OtaService& operator=(OtaService&&) = delete;
+
+public:
     sys_error_t init() override;
     sys_error_t deInit() override;
     sys_error_t startUpdate(const OtaOptions_t& options, OtaProgressCb_t progressCb) override;
@@ -57,6 +82,7 @@ private:
      *
      * @param[in]  targetSize   The exact size of the application binary in bytes.
      * @param[out] outHash      Buffer to store the calculated SHA-256 hash (min 32 bytes).
+     *
      * @return sys_error_t ERROR_SUCCESS if successful, otherwise an error status code.
      */
     sys_error_t _calculatePartitionHash(size_t targetSize, uint8_t* outHash);
@@ -67,10 +93,12 @@ private:
      * @param[in]  hex      Hexadecimal input string.
      * @param[out] outBytes Buffer to write parsed raw bytes into.
      * @param[out] outLen   The final parsed byte count.
+     *
      * @return sys_error_t ERROR_SUCCESS if successful, otherwise ERROR_INVALID_ARG.
      */
     sys_error_t _hexStringToBytes(const std::string& hex, uint8_t* outBytes, size_t& outLen);
 
+private:
     IOtaTransport&        _transport;
     IHal_Mem_Ota&         _memOta;
     ICryptoEngine&        _cryptoEngine;

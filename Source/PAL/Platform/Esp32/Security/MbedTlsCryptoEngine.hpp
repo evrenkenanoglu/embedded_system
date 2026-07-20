@@ -10,9 +10,11 @@
 
 #pragma once
 
+// 1. Local Project / Protocol / HAL Headers
 #include "PAL/Security/CryptoEngine/ICryptoEngine.hpp"
 #include "System/system.h"
 
+// 2. Third-Party / ESP-IDF SDK Headers
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/gcm.h>
@@ -22,6 +24,7 @@
 #include <mbedtls/sha512.h>
 #include <mbedtls/x509_crt.h>
 
+// 3. C++ Standard Library Headers
 #include <string>
 
 /**
@@ -166,25 +169,43 @@ private:
         mbedtls_md_context_t _ctx;
     };
 
+private:
     /**
      * @brief Seeds the random number generator context.
      *
      * @param[in,out] entropy Reusable entropy accumulator context.
      * @param[in,out] drbg    RNG driver context.
      *
-     * @return sys_error_t    ERROR_SUCCESS on success.
+     * @return sys_error_t    ERROR_SUCCESS on success, otherwise an error status code.
      */
     sys_error_t _seedRng(EntropyContext& entropy, DrbgContext& drbg);
 
+private:
     mbedtls_sha256_context _sha256Ctx;
     mbedtls_sha512_context _sha512Ctx;
     bool                   _hashActive;
     HashType               _activeHashType;
 
 public:
+    /**
+     * @brief Construct a new MbedTlsCryptoEngine object.
+     */
     MbedTlsCryptoEngine();
+
+    /**
+     * @brief Destroy the MbedTlsCryptoEngine object and release contexts.
+     */
     ~MbedTlsCryptoEngine() override;
 
+    // Explicitly block copy mechanics to enforce unique ownership
+    MbedTlsCryptoEngine(const MbedTlsCryptoEngine&)            = delete;
+    MbedTlsCryptoEngine& operator=(const MbedTlsCryptoEngine&) = delete;
+
+    // Explicitly block move mechanics unless specifically designed
+    MbedTlsCryptoEngine(MbedTlsCryptoEngine&&)            = delete;
+    MbedTlsCryptoEngine& operator=(MbedTlsCryptoEngine&&) = delete;
+
+public:
     sys_error_t generateKeyPair(KeyType type, std::string& outPrivateKeyPem) override;
 
     sys_error_t generateSelfSignedCertificate(
@@ -228,9 +249,7 @@ public:
         ) override;
 
     sys_error_t hashStart(HashType type) override;
-
     sys_error_t hashUpdate(const uint8_t* data, size_t len) override;
-
     sys_error_t hashFinish(uint8_t* outHash) override;
 
     sys_error_t signHash(

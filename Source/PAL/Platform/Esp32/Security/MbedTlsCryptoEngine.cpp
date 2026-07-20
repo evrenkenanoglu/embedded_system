@@ -9,11 +9,15 @@
  */
 
 /** INCLUDES ******************************************************************/
+
+// 1. Matching Header File
 #include "MbedTlsCryptoEngine.hpp"
 
+// 2. Local Project / Protocol / HAL Headers
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
+// 3. C++ Standard Library Headers
 #include <cstring>
 #include <ctime>
 #include <vector>
@@ -66,7 +70,7 @@ sys_error_t MbedTlsCryptoEngine::generateKeyPair(KeyType type, std::string& outP
     /// Seed the hardware-based random number generator.
     RETURN_ON_ERROR(
         _seedRng(entropy, drbg),                                           // Expression
-        SYS_LOG_E("Failed to seed hardware-based random number generator") // Cleanup
+        SYS_LOG_E("Failed to seed hardware-based random number generator") // Log message
     );
 
     int ret = 0;
@@ -123,7 +127,7 @@ sys_error_t MbedTlsCryptoEngine::generateSelfSignedCertificate(const std::string
     /// Seed the hardware-based random number generator.
     RETURN_ON_ERROR(
         _seedRng(entropy, drbg),                                           // Expression
-        SYS_LOG_E("Failed to seed dynamic RNG for certificate generation") // Cleanup
+        SYS_LOG_E("Failed to seed dynamic RNG for certificate generation") // Log message
     );
 
     /// Parse signing private key to establish authentication context.
@@ -191,7 +195,7 @@ sys_error_t MbedTlsCryptoEngine::getRandomBytes(uint8_t* outBuffer, size_t len)
     /// Seed the hardware-based random number generator.
     RETURN_ON_ERROR(
         _seedRng(entropy, drbg),                                   // Expression
-        SYS_LOG_E("Failed to seed RNG for random byte generation") // Cleanup
+        SYS_LOG_E("Failed to seed RNG for random byte generation") // Log message
     );
 
     /// Read securely generated random bytes from seeded RNG.
@@ -428,7 +432,7 @@ sys_error_t MbedTlsCryptoEngine::signHash(KeyType type, const std::string& priva
     /// Seed the hardware-based random number generator.
     RETURN_ON_ERROR(
         _seedRng(entropy, drbg),                                         // Expression
-        SYS_LOG_E("Failed to seed RNG for dynamic signature generation") // Cleanup
+        SYS_LOG_E("Failed to seed RNG for dynamic signature generation") // Log message
     );
 
     /// Parse signing private key to establish authentication context.

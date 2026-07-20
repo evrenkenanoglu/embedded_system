@@ -8,16 +8,34 @@
  *  @date       27/06/2026
  */
 
+/** INCLUDES ******************************************************************/
+
+// 1. Matching Header File
 #include "PAL/Platform/Esp32/Protocol/OTA/OtaHttpTransport.hpp"
 
+// 2. Local Project / Protocol / HAL Headers
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
 
+// 3. Third-Party / ESP-IDF SDK Headers
 #include <esp_http_client.h>
 
+// 4. C++ Standard Library Headers
 #include <algorithm>
 #include <cstdlib>
+
+/** CONSTANTS *****************************************************************/
+
+/** TYPEDEFS ******************************************************************/
+
+/** MACROS ********************************************************************/
+
+/** VARIABLES *****************************************************************/
+
+/** LOCAL FUNCTIONS ***********************************************************/
+
+/** FUNCTIONS *****************************************************************/
 
 OtaHttpTransport::OtaHttpTransport(IHttpClient& httpClient, const std::string& url, const std::string& serverCert, uint32_t timeoutMs)
     : _httpClient(httpClient)
@@ -42,12 +60,20 @@ OtaHttpTransport::~OtaHttpTransport()
 
 sys_error_t OtaHttpTransport::connect()
 {
-    RETURN_IF_ERROR((_isConnected), ERROR_SUCCESS);
+    RETURN_IF_ERROR(
+        (_isConnected), // Expression
+        ERROR_SUCCESS   // Error code
+    );
 
     /// Dynamic URL Resolution
     bool        isHttps = false;
     sys_error_t err     = _parseUrl(_url, _host, _path, _port, isHttps);
-    RETURN_IF_ERROR((err != ERROR_SUCCESS), err, SYS_LOG_E("Failed to parse resource address targets!"));
+
+    RETURN_IF_ERROR(
+        (err != ERROR_SUCCESS),                                // Expression
+        err,                                                   // Error code
+        SYS_LOG_E("Failed to parse resource address targets!") // Error message
+    );
 
     /// Connection Setup
     HttpClientOptions_t clientOptions{};
@@ -64,7 +90,12 @@ sys_error_t OtaHttpTransport::connect()
     }
 
     err = _httpClient.connect(clientOptions);
-    RETURN_IF_ERROR((err != ERROR_SUCCESS), err, SYS_LOG_E("Underlying HTTP socket failed to connect!"));
+
+    RETURN_IF_ERROR(
+        (err != ERROR_SUCCESS),                                // Expression
+        err,                                                   // Error code
+        SYS_LOG_E("Underlying HTTP socket failed to connect!") // Error message
+    );
 
     _isConnected = true;
     return ERROR_SUCCESS;
@@ -72,7 +103,10 @@ sys_error_t OtaHttpTransport::connect()
 
 sys_error_t OtaHttpTransport::disconnect()
 {
-    RETURN_IF_ERROR((!_isConnected), ERROR_SUCCESS);
+    RETURN_IF_ERROR(
+        (!_isConnected), // Expression
+        ERROR_SUCCESS    // Error code
+    );
 
     _httpClient.disconnect();
     _isConnected = false;
@@ -83,7 +117,11 @@ sys_error_t OtaHttpTransport::disconnect()
 
 sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
 {
-    RETURN_IF_ERROR((!_isConnected), ERROR_NOT_INITIALIZED, SYS_LOG_E("HTTP Transport not connected!"));
+    RETURN_IF_ERROR(
+        (!_isConnected),                           // Expression
+        ERROR_NOT_INITIALIZED,                     // Error code
+        SYS_LOG_E("HTTP Transport not connected!") // Error message
+    );
 
     _streamCb     = callback;
     _isStreaming  = true;
@@ -127,22 +165,14 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
         return ERROR_SUCCESS;
     };
 
-    sys_error_t err = _httpClient.sendRequest(
-        IHttpUri::HttpMethod::GET,
-        _path,
-        headers,
-        nullptr,
-        0,
-        statusCode,
-        intermediateCb
-    );
+    sys_error_t err = _httpClient.sendRequest(IHttpUri::HttpMethod::GET, _path, headers, nullptr, 0, statusCode, intermediateCb);
 
     _isStreaming = false;
 
     RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS || statusCode != 200),
-        (err != ERROR_SUCCESS) ? err : ERROR_FAIL,
-        SYS_LOG_E("HTTP request rejected by OTA Server! Status: %d", statusCode)
+        (err != ERROR_SUCCESS || statusCode != 200),                             // Expression
+        (err != ERROR_SUCCESS) ? err : ERROR_FAIL,                               // Error code
+        SYS_LOG_E("HTTP request rejected by OTA Server! Status: %d", statusCode) // Error message
     );
 
     return ERROR_SUCCESS;
@@ -166,7 +196,11 @@ void OtaHttpTransport::setHeaders(const std::vector<HttpHeader>& headers)
 
 sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps)
 {
-    RETURN_IF_ERROR((url.empty()), ERROR_INVALID_ARG, SYS_LOG_E("Address resolution parameters empty!"));
+    RETURN_IF_ERROR(
+        (url.empty()),                                    // Expression
+        ERROR_INVALID_ARG,                                // Error code
+        SYS_LOG_E("Address resolution parameters empty!") // Error message
+    );
 
     const std::string protocolDelimiter = "://";
     size_t            protocolPos       = url.find(protocolDelimiter);
@@ -217,9 +251,9 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
         long  portVal = std::strtol(portStr.c_str(), &endptr, 10);
 
         RETURN_IF_ERROR(
-            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535),
-            ERROR_INVALID_ARG,
-            SYS_LOG_E("Parsed port number is invalid or out of range!")
+            (endptr == portStr.c_str() || *endptr != '\0' || portVal < 0 || portVal > 65535), // Expression
+            ERROR_INVALID_ARG,                                                                // Error code
+            SYS_LOG_E("Parsed port number is invalid or out of range!")                       // Error message
         );
 
         outPort = static_cast<int>(portVal);

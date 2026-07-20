@@ -10,8 +10,10 @@
 
 #pragma once
 
+// 1. Local Project / Protocol / HAL Headers
 #include "System/errorTranslateHandler.h"
 
+// 2. C++ Standard Library Headers
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -51,6 +53,7 @@ struct OtaOptions_t
 
 /**
  * @brief Callback signature to broadcast progress updates to listening applications.
+ * 
  * @param[in] state         The current operational status of the state machine.
  * @param[in] bytesReceived Total amount of firmware bytes written to flash.
  * @param[in] totalBytes    The expected total binary length of the incoming payload.

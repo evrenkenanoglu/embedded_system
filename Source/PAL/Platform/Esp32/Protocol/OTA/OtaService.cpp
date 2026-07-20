@@ -9,13 +9,17 @@
  */
 
 /** INCLUDES ******************************************************************/
-#include "PAL/Platform/Esp32/Protocol/OTA/OtaService.hpp"
-#include "PAL/Security/CryptoEngine/ICryptoEngine.hpp"
 
+// 1. Matching Header File
+#include "PAL/Platform/Esp32/Protocol/OTA/OtaService.hpp"
+
+// 2. Local Project / Protocol / HAL Headers
+#include "PAL/Security/CryptoEngine/ICryptoEngine.hpp"
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
 
+// 3. C++ Standard Library Headers
 #include <cstdlib>
 #include <cstring>
 
@@ -429,7 +433,7 @@ sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outH
 
 sys_error_t OtaService::_hexStringToBytes(const std::string& hex, uint8_t* outBytes, size_t& outLen)
 {
-    /// if the hex string length is odd, it's invalid
+    /// If the hex string length is odd, it's invalid
     if (hex.length() % 2 != 0)
     {
         return ERROR_INVALID_ARG;
