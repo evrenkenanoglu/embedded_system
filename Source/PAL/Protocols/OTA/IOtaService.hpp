@@ -37,7 +37,7 @@ enum class OtaState : uint8_t
  */
 struct OtaOptions_t
 {
-    std::string url;              ///< Target download URL for the firmware binary
+    std::string endpoint;         ///< Target remote connection identifier or endpoint location for the firmware binary
     std::string serverCert;       ///< Root certificate string for TLS validation
     size_t      chunkSize{4096};  ///< Size of the local write buffer
     uint32_t    timeoutMs{30000}; ///< Socket transfer and response timeouts
@@ -53,7 +53,7 @@ struct OtaOptions_t
 
 /**
  * @brief Callback signature to broadcast progress updates to listening applications.
- * 
+ *
  * @param[in] state         The current operational status of the state machine.
  * @param[in] bytesReceived Total amount of firmware bytes written to flash.
  * @param[in] totalBytes    The expected total binary length of the incoming payload.

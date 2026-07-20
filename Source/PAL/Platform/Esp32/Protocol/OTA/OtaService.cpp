@@ -156,8 +156,8 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
         _progressCb(_state.load(), 0, _totalSize);
     }
 
-    /// Establish Transport Connection.
-    sys_error_t err = _transport.connect();
+    /// Establish Transport Connection using stateless dynamic endpoint connection string.
+    sys_error_t err = _transport.connect(options.endpoint);
 
     RETURN_IF_ERROR(
         (err != ERROR_SUCCESS),                                   // Expression
