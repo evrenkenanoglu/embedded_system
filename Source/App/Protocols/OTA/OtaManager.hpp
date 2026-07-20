@@ -11,7 +11,7 @@
 #pragma once
 
 #include "App/Protocols/OTA/IOtaManager.hpp"
-#include "PAL/Protocols/IHttpClient.hpp"
+#include "PAL/Protocols/HTTP/IHttpClient.hpp"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
 #include <mutex>
 #include <string>
@@ -42,7 +42,7 @@ public:
     sys_error_t executeUpdate() override;
 
     sys_error_t validateCurrentFirmware() override;
-    sys_error_t rebootSystem() override;
+    void        rebootSystem() override;
 
     /**
      * @brief Computes next periodic trigger interval applying standard randomization.

@@ -196,7 +196,7 @@ sys_error_t OtaManager::checkForUpdates(OtaCheckResult& outResult)
 
     RETURN_IF_ERROR(
         (responsePayload.max_size() == responsePayload.size()),               // Expression
-        ERROR_NO_MEM,                                                         // Error code
+        ERROR_OUT_OF_MEMORY,                                                  // Error code
         SYS_LOG_E("OOM constraint breached during parsing segment assembly.") // Error message
     );
 
@@ -280,7 +280,7 @@ sys_error_t OtaManager::executeUpdate()
     SYS_LOG_I("Preconditions verified. Starting Stage 2 Stream Download: Type [%s]", _pendingType.c_str());
 
     OtaOptions_t serviceOptions{};
-    serviceOptions.url             = _pendingUrl;
+    serviceOptions.endpoint        = _pendingUrl;
     serviceOptions.serverCert      = _options.serverCert;
     serviceOptions.chunkSize       = 8192;
     serviceOptions.timeoutMs       = 30000;
@@ -395,7 +395,7 @@ sys_error_t OtaManager::validateCurrentFirmware()
     return ERROR_SUCCESS;
 }
 
-sys_error_t OtaManager::rebootSystem()
+void OtaManager::rebootSystem()
 {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -403,11 +403,10 @@ sys_error_t OtaManager::rebootSystem()
     {
         SYS_LOG_I("Executing platform soft reboot via callback...");
         _platformHooks.rebootSystem();
-        return ERROR_SUCCESS;
+        return;
     }
 
     SYS_LOG_E("System reboot failed: No system reset callback registered.");
-    return ERROR_FAIL;
 }
 
 sys_error_t OtaManager::_parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps)
