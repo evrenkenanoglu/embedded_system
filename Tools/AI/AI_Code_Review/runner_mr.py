@@ -64,6 +64,7 @@ def prefetch_branch(branch, repo_root):
 
 def main():
     parser = argparse.ArgumentParser(
+        usage="runner_mr.py [--source-branch SOURCE_BRANCH] [--target-branch TARGET_BRANCH] [--provider PROVIDER] [--templates TEMPLATES ...] [--debug]",
         description="MR runner to fetch complete diff between branches"
     )
     parser.add_argument(
