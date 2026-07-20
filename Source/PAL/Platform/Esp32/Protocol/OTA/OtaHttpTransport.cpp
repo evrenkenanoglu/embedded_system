@@ -37,9 +37,8 @@
 
 /** FUNCTIONS *****************************************************************/
 
-OtaHttpTransport::OtaHttpTransport(IHttpClient& httpClient, const std::string& url, const std::string& serverCert, uint32_t timeoutMs)
+OtaHttpTransport::OtaHttpTransport(IHttpClient& httpClient, const std::string& serverCert, uint32_t timeoutMs)
     : _httpClient(httpClient)
-    , _url(url)
     , _serverCert(serverCert)
     , _timeoutMs(timeoutMs)
     , _host("")
@@ -58,7 +57,7 @@ OtaHttpTransport::~OtaHttpTransport()
     disconnect();
 }
 
-sys_error_t OtaHttpTransport::connect()
+sys_error_t OtaHttpTransport::connect(const std::string& endpoint)
 {
     RETURN_IF_ERROR(
         (_isConnected), // Expression
@@ -67,7 +66,7 @@ sys_error_t OtaHttpTransport::connect()
 
     /// Dynamic URL Resolution
     bool        isHttps = false;
-    sys_error_t err     = _parseUrl(_url, _host, _path, _port, isHttps);
+    sys_error_t err     = _parseUrl(endpoint, _host, _path, _port, isHttps);
 
     RETURN_IF_ERROR(
         (err != ERROR_SUCCESS),                                // Expression

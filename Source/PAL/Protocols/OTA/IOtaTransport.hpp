@@ -20,11 +20,11 @@
 
 /**
  * @brief Stream callback logic for pushing incoming raw data buffers.
- * 
+ *
  * @param[in] chunk        Pointer to the raw binary buffer segment.
  * @param[in] chunkLen     Byte length of the current segment.
  * @param[in] isLastChunk  Set to true when the transaction concludes.
- * 
+ *
  * @return sys_error_t ERROR_SUCCESS if the chunk is processed successfully, otherwise an error status code.
  */
 using OtaStreamCb_t = std::function<sys_error_t(const uint8_t* chunk, size_t chunkLen, bool isLastChunk)>;
@@ -44,9 +44,10 @@ public:
     /**
      * @brief Activates the underlying network connection to the target source.
      *
+     * @param[in] endpoint Target remote resource or channel location descriptor.
      * @return sys_error_t ERROR_SUCCESS if successful, otherwise an error status code.
      */
-    virtual sys_error_t connect() = 0;
+    virtual sys_error_t connect(const std::string& endpoint) = 0;
 
     /**
      * @brief Closes network connections and frees transport socket handles.

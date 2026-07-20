@@ -32,11 +32,10 @@ public:
      * @brief Construct a new OtaHttpTransport object.
      *
      * @param[in] httpClient Reference to the underlying HTTP client interface.
-     * @param[in] url        Target download URL.
      * @param[in] serverCert Root certificate string for server validation.
      * @param[in] timeoutMs  Socket timeout in milliseconds.
      */
-    OtaHttpTransport(IHttpClient& httpClient, const std::string& url, const std::string& serverCert, uint32_t timeoutMs);
+    OtaHttpTransport(IHttpClient& httpClient, const std::string& serverCert, uint32_t timeoutMs);
 
     /**
      * @brief Destroy the OtaHttpTransport object.
@@ -52,7 +51,7 @@ public:
     OtaHttpTransport& operator=(OtaHttpTransport&&) = delete;
 
 public:
-    sys_error_t connect() override;
+    sys_error_t connect(const std::string& endpoint) override;
     sys_error_t disconnect() override;
     sys_error_t startStream(OtaStreamCb_t callback) override;
     sys_error_t stopStream() override;
@@ -74,20 +73,19 @@ private:
      * @param[out] outPath    Extracted resource path.
      * @param[out] outPort    Extracted port number.
      * @param[out] outIsHttps Set to true if the schema is HTTPS.
-     * 
+     *
      * @return sys_error_t ERROR_SUCCESS if parsing succeeded, otherwise an error status code.
      */
     sys_error_t _parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps);
 
 private:
-    IHttpClient&            _httpClient;
-    std::string             _url;
-    std::string             _serverCert;
-    uint32_t                _timeoutMs;
+    IHttpClient& _httpClient;
+    std::string  _serverCert;
+    uint32_t     _timeoutMs;
 
-    std::string             _host;
-    std::string             _path;
-    int                     _port;
+    std::string _host;
+    std::string _path;
+    int         _port;
 
     size_t                  _expectedSize;
     bool                    _isConnected;
