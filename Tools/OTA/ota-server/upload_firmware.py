@@ -1,26 +1,26 @@
-"""upload_firmware.py - Utility to upload firmware payloads and metadata to the OTA server.
+# """upload_firmware.py - Utility to upload firmware payloads and metadata to the OTA server.
 
-Usage:
-    python upload_firmware.py --url https://192.168.0.172:8443/upload \
-        --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev1.bin" \
-        --hw "ESP32-S3-WROOM" \
-        --version "1.0.0-dev1" \
-        --notes "Baseline development build with diagnostics" \
-        --channel "development" \
-        --hsvn 1 \
-        --canary 100 \
-        --insecure
+# Usage:
+#     python upload_firmware.py --url https://192.168.0.172:8443/upload \
+#         --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev1.bin" \
+#         --hw "ESP32-S3-WROOM" \
+#         --version "1.0.0-dev1" \
+#         --notes "Baseline development build with diagnostics" \
+#         --channel "development" \
+#         --hsvn 1 \
+#         --canary 100 \
+#         --insecure
 
-    python upload_firmware.py --url https://192.168.0.172:8443/upload \
-        --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev2.bin" \
-        --hw "ESP32-S3-WROOM" \
-        --version "1.0.0-dev2" \
-        --notes "Baseline development build with diagnostics" \
-        --channel "development" \
-        --hsvn 1 \
-        --canary 100 \
-        --insecure
-"""
+#     python upload_firmware.py --url https://192.168.0.172:8443/upload \
+#         --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev2.bin" \
+#         --hw "ESP32-S3-WROOM" \
+#         --version "1.0.0-dev2" \
+#         --notes "Baseline development build with diagnostics" \
+#         --channel "development" \
+#         --hsvn 1 \
+#         --canary 100 \
+#         --insecure
+# """
 import argparse
 import os
 import sys
@@ -156,3 +156,8 @@ def upload_binary(args):
 if __name__ == "__main__":
     parsed_args = parse_arguments()
     upload_binary(parsed_args)
+
+
+
+# python upload_firmware.py --url https://192.168.0.172:8443/upload --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev1.bin" --hw "ESP32-S3-WROOM" --version "1.0.0-dev1" --notes "Baseline development build with diagnostics" --channel "development" --hsvn 1 --canary 100 --insecure
+# python upload_firmware.py --url https://192.168.0.172:8443/upload --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev2.bin" --hw "ESP32-S3-WROOM" --version "1.0.0-dev2" --notes "Baseline development build with diagnostics" --channel "development" --hsvn 1 --canary 100 --insecure

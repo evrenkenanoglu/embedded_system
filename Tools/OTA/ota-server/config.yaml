@@ -1,0 +1,101 @@
+# ==============================================================================
+# OTA Server Configuration & Root Environment
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment & Base Path Definitions
+# Supports absolute paths or relative placeholders (e.g., "{project_root_dir}/...")
+# ------------------------------------------------------------------------------
+environment:
+  project_root_dir: "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW"                 # Workspace Root Directory
+  server_root_dir: "{project_root_dir}/embedded_system/Tools/OTA/ota-server"        # OTA Server Working Directory
+
+# ------------------------------------------------------------------------------
+# 2. Server Runtime & Network Binding
+# ------------------------------------------------------------------------------
+server:
+  project_name: "Local Secure OTA Server"                           # Application title in dashboard & OpenAPI
+  host: "0.0.0.0"                                                   # Interface bind address (0.0.0.0 for all interfaces)
+  port: 8443                                                        # Secure HTTPS binding port
+  reload: true                                                      # Auto-reload on code modifications (Development only)
+
+# ------------------------------------------------------------------------------
+# 3. Server Filesystem Storage Paths
+# Paths can be absolute or relative to 'server_root_dir'
+# ------------------------------------------------------------------------------
+paths:
+  cert_dir: "{project_root_dir}/certificates"                        # Target folder for SSL & Signing certs/keys
+  firmware_dir: "{server_root_dir}/firmware_storage"                # Storage root for uploaded .bin files and delta patches
+  templates_dir: "{server_root_dir}/src/templates"                  # Jinja2 HTML templates for Web Dashboard UI
+  static_dir: "{server_root_dir}/src/static"                        # Static web assets (CSS, JS, frontend images)
+  telemetry_dir: "{server_root_dir}/telemetry_logs"                 # Ingested client status and failure reports
+  manifest_filename: "manifest.json"                                # Metadata database cataloging versions & delta chains
+
+# ------------------------------------------------------------------------------
+# 4. Cryptographic PKI & Certificate Authority (CA) Settings
+# ------------------------------------------------------------------------------
+certificates:
+  # Root Certificate Authority (Self-signed Trust Anchor embedded into ESP32)
+  ca:
+    common_name: "MyLocalRootCA"
+    key_size: 4096                                                  # RSA key size (in bits)
+    validity_days: 3650                                             # CA certificate lifetime (10 years)
+    cert_file: "ca.crt"                                             # Stored inside 'cert_dir'
+    key_file: "ca.key"                                              # Stored inside 'cert_dir'
+
+  # Server TLS Certificate (Signed by local Root CA for HTTPS transport security)
+  server:
+    common_name: "ota-server.local"
+    key_size: 2048                                                  # RSA key size (in bits)
+    validity_days: 365                                              # Server certificate lifetime (1 year)
+    cert_file: "server.crt"                                         # Stored inside 'cert_dir'
+    key_file: "server.key"                                          # Stored inside 'cert_dir'
+    dns_sans:                                                       # Static DNS Subject Alternative Names
+      - "localhost"
+      - "ota-server.local"
+    ip_sans:                                                        # Static IP Subject Alternative Names
+      - "127.0.0.1"
+
+  # Firmware Code Signing Infrastructure (ECDSA SECP256R1 for binary origin validation)
+  signing:
+    common_name: "Firmware Code Signing Cert"
+    organization: "Enterprise IoT"
+    validity_days: 365                                              # Code signing certificate validity
+    cert_file: "signing.crt"                                        # Stored inside 'cert_dir'
+    key_file: "signing.key"                                         # Stored inside 'cert_dir'
+
+# ------------------------------------------------------------------------------
+# 5. Security, Ingestion Auth & Presigned Token Access
+# ------------------------------------------------------------------------------
+auth:
+  api_key_header: "X-Device-API-Key"                                # Custom HTTP header used by devices for auth
+  api_key: "secure-device-token-abcde"                              # Pre-shared secret key expected from IoT devices
+  token_expiration_seconds: 300                                     # Presigned HMAC URL time-to-live for binary streaming
+
+# ------------------------------------------------------------------------------
+# 6. Device Identification & Handshake HTTP Headers
+# ------------------------------------------------------------------------------
+client_headers:
+  version: "x-ESP32-version"                                        # Current firmware SemVer header
+  hardware: "x-ESP32-hardware"                                      # Target hardware platform model header
+  device_id: "x-ESP32-device-id"                                    # MAC or UUID unique device identifier header
+  channel: "x-ESP32-channel"                                        # Deployment ring channel header
+  hsvn: "x-ESP32-hsvn"                                              # Hardware Security Version Number (anti-downgrade) header
+
+# ------------------------------------------------------------------------------
+# 7. Deployment Rules, Binary Chunking & Rollout Defaults
+# ------------------------------------------------------------------------------
+deployment:
+  default_channel: "stable"                                         # Default deployment ring when not specified
+  default_min_loader_version: "1.0.0"                               # Minimum client bootloader requirement
+  default_hsvn: 1                                                   # Initial Hardware Security Version baseline
+  default_canary_percentage: 100                                    # Default canary rollout cohort percentage (0-100)
+  firmware_extension: ".bin"                                        # Permitted upload binary file extension
+  chunk_size_bytes: 8192                                            # Network streaming buffer size (8 KB)
+
+# ------------------------------------------------------------------------------
+# 8. Fleet Telemetry & Automatic Rollback Policy
+# ------------------------------------------------------------------------------
+rollback:
+  max_failure_rate_percent: 10.0                                    # Failure rate threshold to trigger emergency rollback
+  min_reports_for_rollback: 5                                       # Minimum sample size before rollback evaluation triggers
