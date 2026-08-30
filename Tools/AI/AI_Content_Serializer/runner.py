@@ -10,8 +10,7 @@ from pathlib import Path
 # CONFIGURATION DEFAULTS (Hardcode your preferences here)
 # ==============================================================================
 DEFAULT_INPUT_DIRS = [
-    "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Documentation/Code_Convention",
-    "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Source/HAL/IHAL",
+    "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/",
 ]
 
 DEFAULT_MANIFEST_PATH = "Out/manifest.json"
