@@ -1,0 +1,87 @@
+# ==============================================================================
+# Project-Specific Provisioning Configuration
+# ==============================================================================
+
+# Root Directory Variables
+environment:
+  project_root_dir: "."                           # Workspace Root (e.g., C:/.../SMART_PLUGS/SW)
+  embedded_system_dir: "{project_root_dir}/embedded_system"
+
+# Paths & File Definitions
+paths:
+  partitions_csv: "{project_root_dir}/partitions.csv"
+  output_dir: "{embedded_system_dir}/build/provisioning"
+  firmware_dir: "{embedded_system_dir}/build"
+  keys_dir: "{embedded_system_dir}/keys"
+  certs_dir: "{embedded_system_dir}/certs"
+  audit_dir: "{embedded_system_dir}/build/audit_logs"
+  server_manifest: "{project_root_dir}/server/manifest.json"
+
+# 1. Generic NVS Partition Generation
+nvs_generation:
+  target_partition: "fctry"
+  template_csv: "{embedded_system_dir}/Source/Scripts/provisioning/nvs/templates/nvs_ota_template.csv"
+  output_key_bin: "{embedded_system_dir}/build/provisioning/nvs_keys.bin"
+  output_encrypted_bin: "{embedded_system_dir}/build/provisioning/nvs_encrypted.bin"
+  template_variables:
+    DEVICE_ID: "DEV-ESP32S3-001"
+    HW_REV: "ESP32-S3-WROOM"
+    HSVN: 1
+    CHANNEL: "stable"
+    API_KEY: "secure-device-token-factory-001"
+    GATEWAY_URL: "https://192.168.1.100:8443"
+    ROOT_CA_PATH: "{embedded_system_dir}/certs/ca.crt"
+
+# 2. Release & Code-Signing Pipeline
+signing:
+  version: "1.0.0"
+  binary_name: "firmware.bin"
+  key_type: "ec-secp256r1" # ec-secp256r1 | rsa-2048
+  signing_key_pem: "{embedded_system_dir}/keys/signing.key"
+  signing_cert_pem: "{embedded_system_dir}/certs/signing.crt"
+  out_signature_bin: "{embedded_system_dir}/build/provisioning/target_signature.sig"
+  manifest_metadata:
+    channel: "stable"
+    hardware_device: "ESP32-S3-WROOM"
+    target_hsvn: 1
+    canary_percentage: 100
+
+# 3. Hardware Silicon Provisioning & Flashing
+hardware:
+  port: "COM3"
+  baud: 460800
+  chip: "esp32s3"
+  flash_mode: "dio"
+  flash_freq: "80m"
+  flash_size: "16MB"
+  dry_run: true
+  force_burn: false
+
+  efuse_keys:
+    - block: "BLOCK_KEY0"
+      key_file: "{embedded_system_dir}/keys/flash_encryption_key.bin"
+      purpose: "FLASH_ENCRYPTION"
+    - block: "BLOCK_KEY1"
+      key_file: "{embedded_system_dir}/keys/secure_boot_digest.bin"
+      purpose: "SECURE_BOOT_DIGEST0"
+
+  efuse_registers:
+    - name: "DIS_PAD_JTAG"
+      value: "1"
+    - name: "DIS_USB_JTAG"
+      value: "1"
+    - name: "DIS_DIRECT_BOOT"
+      value: "1"
+    - name: "DIS_DOWNLOAD_ICACHE"
+      value: "1"
+    - name: "DIS_DOWNLOAD_DCACHE"
+      value: "1"
+    - name: "SECURE_VERSION"
+      value: "1"
+
+  flash_targets:
+    __bootloader__: "{embedded_system_dir}/build/bootloader.bin"
+    __partition_table__: "{embedded_system_dir}/build/partition-table.bin"
+    nvs_keys: "{embedded_system_dir}/build/provisioning/nvs_keys.bin"
+    fctry: "{embedded_system_dir}/build/provisioning/nvs_encrypted.bin"
+    ota_0: "{embedded_system_dir}/build/firmware.bin"

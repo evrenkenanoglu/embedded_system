@@ -1,0 +1,10 @@
+key,type,encoding,value
+sys_cfg,namespace,,
+device_id,data,string,{DEVICE_ID}
+hw_rev,data,string,{HW_REV}
+hsvn,data,u32,{HSVN}
+channel,data,string,{CHANNEL}
+api_key,data,string,{API_KEY}
+gateway_url,data,string,{GATEWAY_URL}
+sec_pki,namespace,,
+root_ca_pem,file,string,{ROOT_CA_PATH}

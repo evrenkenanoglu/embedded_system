@@ -1,0 +1,4 @@
+cryptography>=41.0.0
+esptool>=4.6.0
+esp-idf-nvs-partition-gen>=0.1.0
+pyyaml>=6.0.1
