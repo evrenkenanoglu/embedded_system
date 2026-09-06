@@ -1,0 +1,6 @@
+paths:
+  embedded_requirements_in: "{embedded_system_dir}/requirements.in"
+  embedded_requirements_file: "{embedded_system_dir}/requirements.txt"
+  ota_server_script: "{embedded_system_dir}/Tools/OTA/ota-server/run.py"
+  ai_content_serializer_script: "{embedded_system_dir}/Tools/AI/AI_Content_Serializer/runner.py"
+  smart_deattach_attach_script: "{embedded_system_dir}/Tools/WSL/Smart_Deattach_Attach.py"
