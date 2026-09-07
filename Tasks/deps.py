@@ -2,9 +2,13 @@ from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, IS_WINDOWS, CommandSerializer
 
-@task
+@task(
+    help={
+        "upgrade": "Re-resolve all dependencies to latest versions",
+    }
+)
 def compile(c: Context, upgrade: bool = False) -> None:
-    """Compile embedded system requirements.in to requirements.txt using uv."""
+    """Compile cross-platform requirements.in to requirements.txt using uv."""
     in_path = CONFIG.paths.embedded_requirements_in
     out_path = CONFIG.paths.embedded_requirements_file
 
@@ -17,7 +21,11 @@ def compile(c: Context, upgrade: bool = False) -> None:
 
     cmd = (
         f'cd "{CONFIG.paths.embedded_system_dir}" && '
-        f'uv pip compile "{rel_in}" -o "{rel_out}" --annotation-style line {upgrade_flag}'
+        f'uv pip compile "{rel_in}" '
+        f'-o "{rel_out}" '
+        f'--universal '
+        f'--annotation-style line '
+        f'{upgrade_flag}'
     ).strip()
 
     serializer = CommandSerializer()
