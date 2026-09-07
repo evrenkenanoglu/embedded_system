@@ -4,3 +4,4 @@ paths:
   ota_server_script: "{embedded_system_dir}/Tools/OTA/ota-server/run.py"
   ai_content_serializer_script: "{embedded_system_dir}/Tools/AI/AI_Content_Serializer/runner.py"
   smart_deattach_attach_script: "{embedded_system_dir}/Tools/WSL/Smart_Deattach_Attach.py"
+  system_file_generator_script: "{embedded_system_dir}/Source/Scripts/system_source_files_generator/system_file_generator.py"
