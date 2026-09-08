@@ -1,81 +1,96 @@
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 
+def _get_idf_serializer() -> CommandSerializer:
+    """Helper to activate ESP-IDF environment."""
+    return CommandSerializer(
+        prefix_commands=["source activate_esp-5.4-matter_1.4.2.sh"],
+        env=CONFIG.env,
+    )
 
 @task(
     help={
-        "port": "Serial port (e.g. COM3, /dev/ttyUSB0)",
-        "baud": "Serial connection baud rate",
+        "dry_run": "Print command without running",
+        "opts": "Forward extra flags to idf.py build",
     }
 )
-def chip_info(
-    c: Context,
-    port: str = CONFIG.esp32.port,
-    baud: int = CONFIG.esp32.baudrate,
-) -> None:
-    """Read ESP32 chip information."""
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
-    )
-    serializer.add(
-        f"esptool.py --chip {CONFIG.esp32.chip} --port {port} --baud {baud} chip_id"
-    )
-    serializer.run(c)
+def build(c: Context, dry_run: bool = False, opts: str = "") -> None:
+    """Build the project from workspace root using idf.py build."""
+    work_dir = CONFIG.paths.workspace_dir
+    cmd = f'cd "{work_dir}" && idf.py build'
 
-
-@task(
-    help={
-        "port": "Serial port",
-        "baud": "Flashing baud rate",
-        "bin_path": "Path to binary file",
-        "dry_run": "Print commands without executing",
-        "verify": "Verify flash contents after writing",
-        "compress": "Compress data in transfer",
-    }
-)
-def flash_pipeline(
-    c: Context,
-    port: str = CONFIG.esp32.port,
-    baud: int = CONFIG.esp32.flash_baudrate,
-    bin_path: str = str(CONFIG.esp32.firmware_bin),
-    dry_run: bool = False,
-    verify: bool = False,
-    compress: bool = False,
-) -> None:
-    """Execute erase and flashing sequence."""
-    flags = []
-    if verify:
-        flags.append("--verify")
-    if compress:
-        flags.append("--compress")
-
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
-    )
-    serializer.add(f"esptool.py --chip {CONFIG.esp32.chip} --port {port} erase_flash")
-    serializer.add(
-        f"esptool.py --chip {CONFIG.esp32.chip} --port {port} --baud {baud} "
-        f"write_flash -z {CONFIG.esp32.flash_offset} {Path(bin_path)}",
-        extra=" ".join(flags),
-    )
+    serializer = _get_idf_serializer()
+    serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
 
+@task(
+    help={
+        "dry_run": "Print command without running",
+        "opts": "Forward extra flags to idf.py flash",
+    }
+)
+def flash(c: Context, dry_run: bool = False, opts: str = "") -> None:
+    """Flash the firmware from workspace root using idf.py flash."""
+    work_dir = CONFIG.paths.workspace_dir
+    cmd = f'cd "{work_dir}" && idf.py flash'
 
-def build(
-    c: Context, target: str = "esp32", image_bin: str = "build/factory.bin"
-) -> None:
-    """Build the ESP32 project using idf.py."""
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
-    )
-    serializer.add(
-        f"rm -rf build sdkconfig && "
-        f"export IDF_TARGET={target} && "
-        f"export SDKCONFIG_DEFAULTS=/project/sdkconfig.defaults && "
-        f"idf.py build && "
-        f"cd build && esptool.py --chip {target} merge_bin -o {image_bin} @flash_args"
-    )
-    serializer.run(c)
+    serializer = _get_idf_serializer()
+    serializer.add(cmd, extra=opts)
+    serializer.run(c, dry_run=dry_run)
+
+@task(
+    help={
+        "dry_run": "Print command without running",
+        "opts": "Forward extra flags to idf.py monitor",
+    }
+)
+def monitor(c: Context, dry_run: bool = False, opts: str = "") -> None:
+    """Open the serial monitor from workspace root using idf.py monitor."""
+    work_dir = CONFIG.paths.workspace_dir
+    cmd = f'cd "{work_dir}" && idf.py monitor'
+
+    serializer = _get_idf_serializer()
+    serializer.add(cmd, extra=opts)
+    serializer.run(c, dry_run=dry_run)
+
+@task(
+    help={
+        "dry_run": "Print command without running",
+    }
+)
+def clean(c: Context, dry_run: bool = False) -> None:
+    """Clean the build directory from workspace root using idf.py fullclean."""
+    work_dir = CONFIG.paths.workspace_dir
+    cmd = f'cd "{work_dir}" && idf.py fullclean'
+
+    serializer = _get_idf_serializer()
+    serializer.add(cmd)
+    serializer.run(c, dry_run=dry_run)
+
+@task(
+    help={
+        "dry_run": "Print command without running",
+    }
+)
+def erase(c: Context, dry_run: bool = False) -> None:
+    """Erase flash memory from workspace root using idf.py erase-flash."""
+    work_dir = CONFIG.paths.workspace_dir
+    cmd = f'cd "{work_dir}" && idf.py erase-flash'
+
+    serializer = _get_idf_serializer()
+    serializer.add(cmd)
+    serializer.run(c, dry_run=dry_run)
+
+@task(
+    help={
+        "dry_run": "Print command without running",
+    }
+)
+def menuconfig(c: Context, dry_run: bool = False) -> None:
+    """Open project configuration from workspace root using idf.py menuconfig."""
+    work_dir = CONFIG.paths.workspace_dir
+    cmd = f'cd "{work_dir}" && idf.py menuconfig'
+
+    serializer = _get_idf_serializer()
+    serializer.add(cmd)
+    serializer.run(c, dry_run=dry_run)
