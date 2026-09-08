@@ -24,7 +24,7 @@ server:
 # Paths can be absolute or relative to 'server_root_dir'
 # ------------------------------------------------------------------------------
 paths:
-  cert_dir: "{project_root_dir}/certificates"                        # Target folder for SSL & Signing certs/keys
+  cert_dir: "{project_root_dir}/certs"                        # Target folder for SSL & Signing certs/keys
   firmware_dir: "{server_root_dir}/firmware_storage"                # Storage root for uploaded .bin files and delta patches
   templates_dir: "{server_root_dir}/src/templates"                  # Jinja2 HTML templates for Web Dashboard UI
   static_dir: "{server_root_dir}/src/static"                        # Static web assets (CSS, JS, frontend images)

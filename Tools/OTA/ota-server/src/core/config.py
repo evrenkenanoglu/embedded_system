@@ -68,7 +68,7 @@ class Settings:
     RELOAD: bool = bool(_server.get("reload", False))
 
     _paths = _cfg.get("paths", {})
-    CERT_DIR: Path = Path(_paths.get("cert_dir", SERVER_ROOT_DIR / "certificates")).resolve()
+    CERT_DIR: Path = Path(_paths.get("cert_dir", SERVER_ROOT_DIR / "certs")).resolve()
     FIRMWARE_DIR: Path = Path(_paths.get("firmware_dir", SERVER_ROOT_DIR / "firmware_storage")).resolve()
     TEMPLATES_DIR: Path = Path(_paths.get("templates_dir", SERVER_ROOT_DIR / "src/templates")).resolve()
     STATIC_DIR: Path = Path(_paths.get("static_dir", SERVER_ROOT_DIR / "src/static")).resolve()
