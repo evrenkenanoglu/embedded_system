@@ -7,8 +7,8 @@
 # Supports absolute paths or relative placeholders (e.g., "{project_root_dir}/...")
 # ------------------------------------------------------------------------------
 environment:
-  project_root_dir: "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW"                 # Workspace Root Directory
-  server_root_dir: "{project_root_dir}/embedded_system/Tools/OTA/ota-server"        # OTA Server Working Directory
+  project_root_dir: "."                                                         # Workspace Root Directory
+  server_root_dir: "{project_root_dir}/embedded_system/Tools/OTA/ota-server"    # OTA Server Working Directory
 
 # ------------------------------------------------------------------------------
 # 2. Server Runtime & Network Binding
