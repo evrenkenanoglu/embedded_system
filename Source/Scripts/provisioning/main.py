@@ -44,15 +44,13 @@ def auto_detect_roots() -> Tuple[Path, Path]:
     embedded_system_root = None
     project_root = None
 
-    # Traverse upward looking for 'embedded_system' folder or CMakeLists.txt
     while curr != curr.parent:
-        if curr.name == "embedded_system" or (curr / "Source").exists() and (curr / "CMakeLists.txt").exists():
+        if curr.name == "embedded_system" or ((curr / "Source").exists() and (curr / "CMakeLists.txt").exists()):
             embedded_system_root = curr
             project_root = curr.parent
             break
         curr = curr.parent
 
-    # Fallback to positional parent if structure is standard
     if not embedded_system_root:
         if len(SCRIPT_DIR.parents) >= 3:
             embedded_system_root = SCRIPT_DIR.parents[2]
@@ -65,10 +63,10 @@ def auto_detect_roots() -> Tuple[Path, Path]:
 
 
 def expand_variables(data: Any, env_map: Dict[str, str]) -> Any:
-    """Recursively replaces {VARIABLE} placeholders in config data with absolute/resolved paths."""
+    """Recursively replaces {VARIABLE} placeholders in config data."""
     if isinstance(data, str):
         for key, val in env_map.items():
-            data = data.replace(f"{{{key}}}", val)
+            data = data.replace(f"{{{key}}}", str(val))
         return data
     elif isinstance(data, dict):
         return {k: expand_variables(v, env_map) for k, v in data.items()}
@@ -78,7 +76,7 @@ def expand_variables(data: Any, env_map: Dict[str, str]) -> Any:
 
 
 def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> Tuple[Dict[str, Any], Path, Tuple[Path, Path]]:
-    """Loads YAML configuration, auto-anchors root directories, and expands path placeholders."""
+    """Loads YAML configuration and resolves all path placeholders across multiple passes."""
     if not config_path.exists():
         candidate = (Path.cwd() / config_path).resolve()
         if candidate.exists():
@@ -87,33 +85,39 @@ def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> T
             raise FileNotFoundError(f"Configuration file missing: {config_path}")
 
     with open(config_path, "r", encoding="utf-8") as f:
-        raw_cfg = yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
 
-    # 1. Resolve Anchor Roots
+    # 1. Base Environment Roots
     auto_proj_root, auto_embed_root = auto_detect_roots()
     project_root = cli_project_root.resolve() if cli_project_root else auto_proj_root
     embedded_system_root = auto_embed_root
 
-    env_map = {
+    env_map: Dict[str, str] = {
         "project_root_dir": str(project_root),
         "embedded_system_dir": str(embedded_system_root)
     }
 
-    # 2. Expand placeholders across all configuration fields
-    expanded_cfg = expand_variables(raw_cfg, env_map)
-    return expanded_cfg, config_path.parent.resolve(), (project_root, embedded_system_root)
+    # 2. Multi-Pass Expansion (resolves root variables first, then path variables)
+    for _ in range(4):
+        cfg = expand_variables(cfg, env_map)
+        paths_cfg = cfg.get("paths", {})
+        for k, v in paths_cfg.items():
+            if isinstance(v, str) and not ("{" in v and "}" in v):
+                env_map[k] = str(v)
+
+    return cfg, config_path.parent.resolve(), (project_root, embedded_system_root)
 
 
 def find_partitions_csv(configured_path_str: str, roots: Tuple[Path, Path]) -> Path:
-    """Finds partitions.csv checking configured path and standard fallback project roots."""
+    """Finds partitions.csv checking configured path and standard fallback roots."""
     configured_path = Path(configured_path_str).resolve()
     if configured_path.exists():
         return configured_path
 
     project_root, embedded_system_root = roots
     candidates = [
-        embedded_system_root / "partitions.csv",
         project_root / "partitions.csv",
+        embedded_system_root / "partitions.csv",
         embedded_system_root / "Source" / "partitions.csv",
         Path.cwd() / "partitions.csv"
     ]

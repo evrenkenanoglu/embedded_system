@@ -27,39 +27,56 @@ It prevents two major risks:
 ### Simple Flow Diagram
 
 ```
-[ STEP 1: FACTORY (Once per device) ]
-  • Physical ESP32 is plugged in via USB.
-  • Run provision_hardware.py:
-      - Burn hardware lock bits (disable physical tampering).
-      - Turn on Flash Encryption (scrambles chip storage).
-      - Flash Master Root Certificate (ca.crt) into secure memory.
+[ STEP 0: PKI AUTHORITY (Run once per product line / CA cycle) ]
+  • Run Tools/PKI/generate_pki.py:
+      - Creates Master Root CA (ca.key, ca.crt).
+      - Creates Developer Signing pair (signing.key, signing.crt).
+      - Creates Server HTTPS pair (server.key, server.crt).
+      - Creates Hardware Silicon keys (flash_encryption_key.bin, secure_boot_digest.bin).
 
                   │
                   ▼
-[ STEP 2: CREATING AN UPDATE (Every time you write new code) ]
-  • Compile new code -> firmware.bin
-  • Run main.py --step sign:
-      - Hashes the binary (creates a unique digital fingerprint).
-      - Signs it with developer key -> creates target_signature.
-      - Uploads firmware.bin + signature + signing.crt to the Server.
+[ STEP 1: FACTORY (Once per manufactured device) ]
+  • Physical ESP32 is connected via USB.
+  • Run runner.py --provision:
+      - Burns Secure Boot V2 digest & Flash Encryption key to eFuses.
+      - Burns monotonic anti-rollback version (SECURE_VERSION) and hardware lock bits.
+      - Generates AES-XTS encrypted NVS partition (fctry) containing ca.crt and Device ID.
+      - Flashes bootloader, partition table, factory firmware, nvs_keys, and fctry.
 
                   │
                   ▼
-[ STEP 3: THE DEVICE UPDATES (In the customer's home) ]
+[ STEP 2: CREATING AN UPDATE (Every time you release new code) ]
+  • Run idf.py build -> produces compiled application binary.
+  • Run runner.py --sign:
+      - Hashes the binary (SHA-256).
+      - Signs digest with signing.key -> creates target_signature.
+      - Packages target_signature, target_size, and signing.crt into manifest.json.
+      - Uploads/moves binary and manifest.json to the OTA server.
+
+                  │
+                  ▼
+[ STEP 3: THE DEVICE UPDATES (In the field) ]
   • Phase 1 (The Check):
-      - Device asks server: "Is there an update for me?"
-      - Server checks: Right hardware? Newer version? Battery/schedule OK?
-      - Server replies with version info + digital signature.
-  • Phase 2 (The Download):
-      - Device downloads the binary in small 8 KB blocks over Wi-Fi.
-      - Writes data to the inactive slot (Bank B) while Bank A keeps running.
-  • Phase 3 (The Verification):
-      - Device checks: Is signing.crt trusted by the Master Root CA? -> YES.
-      - Device calculates hash of Bank B and checks against target_signature -> MATCH.
-  • Phase 4 (The Switch):
-      - Device switches boot pointer to Bank B.
-      - Restarts into the new firmware.
-      - Runs self-test. If healthy -> confirms update. If broken -> rolls back to Bank A.
+      - Device queries GET /api/v1/ota/check with API key, HSVN, and version headers.
+      - Server checks: Hardware match? Newer version? HSVN anti-rollback valid? Canary rollout group?
+      - Server returns metadata (target_size, target_signature, signing_cert) + transient download token.
+  • Phase 2 (The Download & Flash):
+      - Two-stage safety check: Battery SoC >= 80%? Scheduled hour window met?
+      - Device streams binary in 8 KB chunks over TLS.
+      - Writes to inactive partition slot (Bank B) while Bank A continues running.
+      - In-place delta decompression via esp_delta_ota if delta patch was served.
+  • Phase 3 (Cryptographic Integrity Verification):
+      - Device verifies signing.crt chain of trust against ca.crt stored in fctry NVS.
+      - Device calculates progressive SHA-256 hash of Bank B strictly up to target_size.
+      - Verifies calculated hash against target_signature using public key from signing.crt.
+  • Phase 4 (The Switch & Self-Healing):
+      - On signature match: Sets Bank B as active boot partition.
+      - Restarts into new firmware.
+      - Executes provisional self-tests (peripherals, NVS, network link).
+      - If self-tests pass: Commits partition permanently (cancels rollback).
+      - If app panics or self-tests fail: Hardware watchdog/bootloader rolls back to Bank A.
+      - Reports outcome to POST /api/v1/ota/status.
 ```
 
 ---
