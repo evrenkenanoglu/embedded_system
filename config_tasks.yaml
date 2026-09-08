@@ -1,7 +1,10 @@
 paths:
-  embedded_requirements_in: "{embedded_system_dir}/requirements.in"
-  embedded_requirements_file: "{embedded_system_dir}/requirements.txt"
-  ota_server_script: "{embedded_system_dir}/Tools/OTA/ota-server/run.py"
-  ai_content_serializer_script: "{embedded_system_dir}/Tools/AI/AI_Content_Serializer/runner.py"
-  smart_deattach_attach_script: "{embedded_system_dir}/Tools/WSL/Smart_Deattach_Attach.py"
-  system_file_generator_script: "{embedded_system_dir}/Source/Scripts/system_source_files_generator/system_file_generator.py"
+  embedded_requirements_in:       "{embedded_system_dir}/requirements.in"
+  embedded_requirements_file:     "{embedded_system_dir}/requirements.txt"
+  ota_server_script:              "{embedded_system_dir}/Tools/OTA/ota-server/run.py"
+  ai_content_serializer_script:   "{embedded_system_dir}/Tools/AI/AI_Content_Serializer/runner.py"
+  smart_deattach_attach_script:   "{embedded_system_dir}/Tools/WSL/Smart_Deattach_Attach.py"
+  generate_pki_script:            "{embedded_system_dir}/Tools/PKI/generate_pki.py"
+  
+  system_file_generator_script:   "{embedded_system_dir}/Source/Scripts/system_source_files_generator/system_file_generator.py"
+  provision_hardware_script:      "{embedded_system_dir}/Source/Scripts/system_source_files_generator/provision_hardware.py"
