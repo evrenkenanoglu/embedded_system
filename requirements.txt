@@ -21,14 +21,15 @@ click-option-group==0.5.9  # via semgrep
 cloudpickle==3.1.2        # via joblib
 cmake==4.4.3              # via -r requirements.in
 colorama==0.4.6           # via bandit, click, pytest, rich-click, semgrep, tqdm, -r Source/Scripts/static_code_analysis/requirements.txt
-cryptography==50.0.1      # via authlib, esptool, joserfc, pyjwt, -r Tools/OTA/ota-server/requirements.txt
+cryptography==50.0.1      # via authlib, esp-idf-nvs-partition-gen, esptool, joserfc, pyjwt, -r Source/Scripts/provisioning/requirements.txt, -r Tools/OTA/ota-server/requirements.txt
 defusedxml==0.7.1         # via nltk
 delegator-py==0.1.1       # via gitmanager
 dparse==0.6.4             # via safety, safety-schemas
 esp-bool-parser==0.2.3    # via pytest-embedded-idf
+esp-idf-nvs-partition-gen==0.3.0  # via -r Source/Scripts/provisioning/requirements.txt
 esp-idf-panic-decoder==1.5.0  # via pytest-embedded-idf
-esp-pylib==1.1.4          # via esptool
-esptool==5.4.0            # via pytest-embedded-serial-esp
+esp-pylib==1.1.4          # via esp-idf-nvs-partition-gen, esptool
+esptool==5.4.0            # via pytest-embedded-serial-esp, -r Source/Scripts/provisioning/requirements.txt
 exceptiongroup==1.2.2     # via semgrep
 face==26.0.1              # via glom
 fastapi==0.141.1          # via -r Tools/OTA/ota-server/requirements.txt
@@ -95,7 +96,7 @@ pytest-metadata==3.1.1    # via pytest-html
 python-dotenv==1.2.3      # via pydantic-settings, uvicorn
 python-multipart==0.0.32  # via mcp, -r Tools/OTA/ota-server/requirements.txt
 pywin32==311 ; sys_platform == 'win32'  # via mcp, semgrep, -r requirements.in
-pyyaml==6.0.3             # via bandit, esptool, uvicorn, -r Source/Scripts/static_code_analysis/requirements.txt, -r Tools/OTA/ota-server/requirements.txt
+pyyaml==6.0.3             # via bandit, esptool, uvicorn, -r Source/Scripts/provisioning/requirements.txt, -r Source/Scripts/static_code_analysis/requirements.txt, -r Tools/OTA/ota-server/requirements.txt
 reedsolo==1.7.0           # via esptool
 referencing==0.37.0       # via jsonschema, jsonschema-specifications
 regex==2026.9.3           # via nltk
@@ -125,7 +126,7 @@ tomlkit==0.15.1           # via safety
 tqdm==4.70.0              # via nltk
 truststore==0.10.4        # via safety
 typer==0.25.1             # via safety
-typing-extensions==4.16.0  # via anyio, beautifulsoup4, fastapi, mcp, opentelemetry-api, opentelemetry-exporter-otlp-proto-http, opentelemetry-sdk, opentelemetry-semantic-conventions, pydantic, pydantic-core, referencing, safety, safety-schemas, semgrep, sqlalchemy, starlette, typing-inspection
+typing-extensions==4.16.0  # via anyio, beautifulsoup4, fastapi, mcp, opentelemetry-api, opentelemetry-exporter-otlp-proto-http, opentelemetry-sdk, opentelemetry-semantic-conventions, pydantic, pydantic-core, safety, safety-schemas, semgrep, sqlalchemy, typing-inspection
 typing-inspection==0.4.4  # via fastapi, mcp, pydantic, pydantic-settings
 urllib3==2.7.0            # via requests, semgrep
 uvicorn==0.52.4           # via mcp, -r Tools/OTA/ota-server/requirements.txt
