@@ -1,0 +1,2 @@
+cryptography>=41.0.0
+esptool>=4.6.0

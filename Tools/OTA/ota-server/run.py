@@ -9,19 +9,20 @@ sys.path.append(str(PROJECT_ROOT))
 from src.core.config import settings
 
 
-def check_and_generate_certs():
-    """Checks for existing SSL/TLS credentials and generates them if missing."""
-    if not settings.SSL_CERT_FILE.exists() or not settings.SSL_KEY_FILE.exists():
-        print("SSL credentials missing. Executing generate_certs.py...")
-        try:
-            from generate_certs import generate_certificates
-            generate_certificates()
-        except ImportError:
-            print("ERROR: Could not import 'generate_certs.py'.")
-            sys.exit(1)
-        except Exception as e:
-            print(f"ERROR: Certificate generation failed: {e}")
-            sys.exit(1)
+def verify_certificates():
+    """Verifies that required SSL/TLS credentials exist prior to launching the server."""
+    missing = []
+    if not settings.SSL_CERT_FILE.exists():
+        missing.append(str(settings.SSL_CERT_FILE))
+    if not settings.SSL_KEY_FILE.exists():
+        missing.append(str(settings.SSL_KEY_FILE))
+
+    if missing:
+        print("ERROR: Required SSL/TLS credentials are missing:")
+        for item in missing:
+            print(f"  - {item}")
+        print("\nGenerate the certificates prior to launching the server (e.g. via Tools/PKI/generate_pki.py).")
+        sys.exit(1)
 
 
 def launch_server():
@@ -47,5 +48,5 @@ def launch_server():
 
 
 if __name__ == "__main__":
-    check_and_generate_certs()
+    verify_certificates()
     launch_server()

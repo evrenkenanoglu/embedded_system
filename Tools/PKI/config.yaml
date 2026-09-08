@@ -1,0 +1,66 @@
+# ==============================================================================
+# PKI & Hardware Silicon Key Generation Configuration
+# ==============================================================================
+
+# Root Directory Variables
+environment:
+  project_root_dir: "."
+  embedded_system_dir: "{project_root_dir}/embedded_system"
+
+# Paths & File Definitions
+paths:
+  certs_dir: "{project_root_dir}/certs"
+  keys_dir: "{project_root_dir}/keys"
+
+# 1. Master Root Certificate Authority
+root_ca:
+  enabled: true
+  key_type: "ec-secp256r1"          # ec-secp256r1 | ec-secp384r1 | rsa-2048 | rsa-4096
+  validity_days: 3650
+  subject:
+    common_name: "MasterRootCA"
+    organization: "IoT Master Trust Authority"
+    country: "AT"
+    state: "Upper Austria"
+  key_file: "{certs_dir}/ca.key"
+  cert_file: "{certs_dir}/ca.crt"
+
+# 2. Subordinate Developer Code-Signing Certificate
+code_signing:
+  enabled: true
+  key_type: "ec-secp256r1"
+  validity_days: 365
+  subject:
+    common_name: "DeveloperFirmwareSigning"
+    organization: "Firmware Release Authority"
+  key_file: "{certs_dir}/signing.key"
+  cert_file: "{certs_dir}/signing.crt"
+
+# 3. Server HTTPS TLS Transport Certificate
+server_tls:
+  enabled: true
+  key_type: "ec-secp256r1"
+  validity_days: 365
+  subject:
+    common_name: "localhost"
+    organization: "OTA Distribution Endpoint"
+  subject_alternative_names:
+    dns:
+      - "localhost"
+      - "ota.local"
+    ip:
+      - "127.0.0.1"
+      - "192.168.1.100"
+  key_file: "{certs_dir}/server.key"
+  cert_file: "{certs_dir}/server.crt"
+
+# 4. Hardware Silicon Security Keys (ESP32-S3)
+silicon_keys:
+  enabled: true
+  flash_encryption:
+    key_size_bytes: 32              # 256-bit AES
+    key_file: "{keys_dir}/flash_encryption_key.bin"
+  secure_boot_v2:
+    scheme: "ecdsa256"              # ecdsa256 | rsa3072
+    key_file: "{keys_dir}/secure_boot_signing_key.pem"
+    digest_file: "{keys_dir}/secure_boot_digest.bin"
