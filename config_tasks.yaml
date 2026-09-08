@@ -7,4 +7,4 @@ paths:
   generate_pki_script:            "{embedded_system_dir}/Tools/PKI/generate_pki.py"
   
   system_file_generator_script:   "{embedded_system_dir}/Source/Scripts/system_source_files_generator/system_file_generator.py"
-  provision_hardware_script:      "{embedded_system_dir}/Source/Scripts/system_source_files_generator/provision_hardware.py"
+  provision_hardware_script:      "{embedded_system_dir}/Source/Scripts/provisioning/runner.py"
