@@ -1,28 +1,29 @@
 # ==============================================================================
-# Project-Specific Provisioning Configuration
+# Application-Specific Provisioning Configuration
+# (For Embedded_IoT_BT_WIFI_Base_Project)
 # ==============================================================================
 
 # Root Directory Variables
 environment:
-  project_root_dir: "."                           # Workspace Root (e.g., C:/.../SMART_PLUGS/SW)
-  embedded_system_dir: "{project_root_dir}/embedded_system"
+  project_root_dir: "."                                         # Application Root (Embedded_IoT_BT_WIFI_Base_Project)
+  embedded_system_dir: "{project_root_dir}/embedded_system"     # Reusable Library Submodule
 
-# Paths & File Definitions
+# Paths & File Definitions (Relative to Application Root)
 paths:
   partitions_csv: "{project_root_dir}/partitions.csv"
-  output_dir: "{embedded_system_dir}/build/provisioning"
-  firmware_dir: "{embedded_system_dir}/build"
-  keys_dir: "{embedded_system_dir}/keys"
-  certs_dir: "{embedded_system_dir}/certs"
-  audit_dir: "{embedded_system_dir}/build/audit_logs"
-  server_manifest: "{project_root_dir}/server/manifest.json"
+  output_dir: "{project_root_dir}/build/provisioning"
+  firmware_dir: "{project_root_dir}/build"
+  keys_dir: "{project_root_dir}/keys"
+  certs_dir: "{project_root_dir}/certs"
+  audit_dir: "{project_root_dir}/build/audit_logs"
+  server_manifest: "{project_root_dir}/Tools/OTA/ota-server/firmware_storage/manifest.json"
 
 # 1. Generic NVS Partition Generation
 nvs_generation:
   target_partition: "fctry"
   template_csv: "{embedded_system_dir}/Source/Scripts/provisioning/nvs/templates/nvs_ota_template.csv"
-  output_key_bin: "{embedded_system_dir}/build/provisioning/nvs_keys.bin"
-  output_encrypted_bin: "{embedded_system_dir}/build/provisioning/nvs_encrypted.bin"
+  output_key_bin: "{output_dir}/nvs_keys.bin"
+  output_encrypted_bin: "{output_dir}/nvs_encrypted.bin"
   template_variables:
     DEVICE_ID: "DEV-ESP32S3-001"
     HW_REV: "ESP32-S3-WROOM"
@@ -30,16 +31,16 @@ nvs_generation:
     CHANNEL: "stable"
     API_KEY: "secure-device-token-factory-001"
     GATEWAY_URL: "https://192.168.1.100:8443"
-    ROOT_CA_PATH: "{embedded_system_dir}/certs/ca.crt"
+    ROOT_CA_PATH: "{certs_dir}/ca.crt"
 
 # 2. Release & Code-Signing Pipeline
 signing:
   version: "1.0.0"
-  binary_name: "firmware.bin"
-  key_type: "ec-secp256r1" # ec-secp256r1 | rsa-2048
-  signing_key_pem: "{embedded_system_dir}/keys/signing.key"
-  signing_cert_pem: "{embedded_system_dir}/certs/signing.crt"
-  out_signature_bin: "{embedded_system_dir}/build/provisioning/target_signature.sig"
+  binary_name: "Embedded_IoT_BT_WIFI_Base_Project.bin" # Matches your project CMake target
+  key_type: "ec-secp256r1"
+  signing_key_pem: "{certs_dir}/signing.key"
+  signing_cert_pem: "{certs_dir}/signing.crt"
+  out_signature_bin: "{output_dir}/target_signature.sig"
   manifest_metadata:
     channel: "stable"
     hardware_device: "ESP32-S3-WROOM"
@@ -48,7 +49,7 @@ signing:
 
 # 3. Hardware Silicon Provisioning & Flashing
 hardware:
-  port: "COM3"
+  port: "/dev/ttyUSB0"                                 # Adjust for WSL (or COMx on Windows)
   baud: 460800
   chip: "esp32s3"
   flash_mode: "dio"
@@ -59,10 +60,10 @@ hardware:
 
   efuse_keys:
     - block: "BLOCK_KEY0"
-      key_file: "{embedded_system_dir}/keys/flash_encryption_key.bin"
+      key_file: "{keys_dir}/flash_encryption_key.bin"
       purpose: "FLASH_ENCRYPTION"
     - block: "BLOCK_KEY1"
-      key_file: "{embedded_system_dir}/keys/secure_boot_digest.bin"
+      key_file: "{keys_dir}/secure_boot_digest.bin"
       purpose: "SECURE_BOOT_DIGEST0"
 
   efuse_registers:
@@ -79,9 +80,10 @@ hardware:
     - name: "SECURE_VERSION"
       value: "1"
 
+  # Standard ESP-IDF 5.x build paths
   flash_targets:
-    __bootloader__: "{embedded_system_dir}/build/bootloader.bin"
-    __partition_table__: "{embedded_system_dir}/build/partition-table.bin"
-    nvs_keys: "{embedded_system_dir}/build/provisioning/nvs_keys.bin"
-    fctry: "{embedded_system_dir}/build/provisioning/nvs_encrypted.bin"
-    ota_0: "{embedded_system_dir}/build/firmware.bin"
+    __bootloader__: "{firmware_dir}/bootloader/bootloader.bin"
+    __partition_table__: "{firmware_dir}/partition_table/partition-table.bin"
+    nvs_keys: "{output_dir}/nvs_keys.bin"
+    fctry: "{output_dir}/nvs_encrypted.bin"
+    ota_0: "{firmware_dir}/Embedded_IoT_BT_WIFI_Base_Project.bin"
