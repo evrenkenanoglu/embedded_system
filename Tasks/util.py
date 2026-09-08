@@ -3,7 +3,12 @@ from invoke import Context, task
 from core import CONFIG, CommandSerializer
 
 
-@task
+@task(
+    help={
+        "dry_run": "Print execution command without running",
+        "opts": "Forward arbitrary arguments to the system file generator script",
+    }
+)
 def system_file_generator(c: Context, dry_run: bool = False, opts: str = "") -> None:
     """Run the System Source Files Generator script."""
     script_path = CONFIG.paths.system_file_generator_script
@@ -18,7 +23,13 @@ def system_file_generator(c: Context, dry_run: bool = False, opts: str = "") -> 
     serializer.run(c, dry_run=dry_run)
 
 
-@task
+@task(
+    help={
+        "dry_run": "Print execution command without running",
+        "config": "Path to custom provisioning configuration file (defaults to CONFIG.paths.es_config_provisioning)",
+        "opts": "Forward arbitrary arguments to the provision hardware script",
+    }
+)
 def provision_hardware(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
     """Run the Provision Hardware script."""
     script_path = CONFIG.paths.provision_hardware_script
@@ -42,7 +53,13 @@ def provision_hardware(c: Context, dry_run: bool = False, config: str = "", opts
     serializer.run(c, dry_run=dry_run)
 
 
-@task
+@task(
+    help={
+        "dry_run": "Print execution command without running",
+        "config": "Path to custom PKI configuration file (defaults to CONFIG.paths.es_config_pki)",
+        "opts": "Forward arbitrary arguments to the PKI generation script",
+    }
+)
 def generate_pki(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
     """Run the PKI generation script."""
     script_path = CONFIG.paths.generate_pki_script
