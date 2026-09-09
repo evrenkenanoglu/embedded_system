@@ -215,19 +215,19 @@ def select_files_interactively(files_list: list[dict]) -> list[dict]:
 
     # Define custom mouse clicks mapping on nodes
     def on_click(event):
-            item_id = tree.identify_row(event.y)
-            element = tree.identify_element(event.x, event.y)
-            
-            # Use lowercase and check if "indicator" is in the element name 
-            # to support "Treeitem.indicator", "tree.indicator", and other theme variations.
-            if item_id and "indicator" not in element.lower():
-                node = item_to_node.get(item_id)
-                if node:
-                    new_state = not node.checked
-                    # Propagate down
-                    set_checked_descendants(tree, node, new_state)
-                    # Propagate up
-                    update_parent_state_upward(tree, node.parent)
+        item_id = tree.identify_row(event.y)
+        element = tree.identify_element(event.x, event.y)
+
+        # Use lowercase and check if "indicator" is in the element name
+        # to support "Treeitem.indicator", "tree.indicator", and other theme variations.
+        if item_id and "indicator" not in element.lower():
+            node = item_to_node.get(item_id)
+            if node:
+                new_state = not node.checked
+                # Propagate down
+                set_checked_descendants(tree, node, new_state)
+                # Propagate up
+                update_parent_state_upward(tree, node.parent)
 
     tree.bind("<Button-1>", on_click)
 
@@ -245,22 +245,38 @@ def select_files_interactively(files_list: list[dict]) -> list[dict]:
             set_checked_descendants(tree, node, False)
             update_parent_state_upward(tree, node.parent)
 
+    def unfold_all():
+        for item_id, node in item_to_node.items():
+            if node.is_dir:
+                tree.item(item_id, open=True)
+
+    def fold_all():
+        for item_id, node in item_to_node.items():
+            if node.is_dir:
+                tree.item(item_id, open=False)
+
     def confirm():
-            # Export status from memory tree to flat selection list
-            status_map = {}
-            get_checked_status(root_node, status_map)
-            for file_entry in files_list:
-                # Normalize key to match the POSIX format stored in the status map
-                rel_path = Path(file_entry["relative_path"]).as_posix()
-                if rel_path in status_map:
-                    file_entry["include"] = status_map[rel_path]
-            root.destroy()
+        # Export status from memory tree to flat selection list
+        status_map = {}
+        get_checked_status(root_node, status_map)
+        for file_entry in files_list:
+            # Normalize key to match the POSIX format stored in the status map
+            rel_path = Path(file_entry["relative_path"]).as_posix()
+            if rel_path in status_map:
+                file_entry["include"] = status_map[rel_path]
+        root.destroy()
 
     btn_all = ttk.Button(btn_frame, text="Select All", command=select_all)
     btn_all.pack(side="left", padx=5)
 
     btn_none = ttk.Button(btn_frame, text="Select None", command=select_none)
     btn_none.pack(side="left", padx=5)
+
+    btn_unfold_all = ttk.Button(btn_frame, text="Unfold All", command=unfold_all)
+    btn_unfold_all.pack(side="left", padx=5)
+
+    btn_fold_all = ttk.Button(btn_frame, text="Fold All", command=fold_all)
+    btn_fold_all.pack(side="left", padx=5)
 
     btn_confirm = ttk.Button(btn_frame, text="Save & Close", command=confirm)
     btn_confirm.pack(side="right", padx=5)

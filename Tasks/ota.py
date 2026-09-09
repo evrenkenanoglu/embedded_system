@@ -1,9 +1,8 @@
-from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 
-@task
-(
+
+@task(
     help={
         "dry_run": "Print execution command without running",
         "config": "Path to custom OTA server configuration file (defaults to CONFIG.paths.es_config_ota_server)",
@@ -16,7 +15,7 @@ def server(c: Context, dry_run: bool = False, config: str = "", opts: str = "") 
     if not script_path.exists():
         raise FileNotFoundError(f"OTA server script not found: {script_path}")
 
-    # Resolve configuration file: explicit task argument takes priority over CONFIG.paths
+    # Resolve configuration file
     resolved_config = config or getattr(CONFIG.paths, "es_config_ota_server", "")
     config_arg = f'--config "{resolved_config}"' if resolved_config and str(resolved_config).strip() else ""
 
@@ -29,5 +28,6 @@ def server(c: Context, dry_run: bool = False, config: str = "", opts: str = "") 
     if config_arg:
         cmd = f"{cmd} {config_arg}"
 
-    serializer.add(f'python "{script_path}"', extra=opts)
+    # Pass the compiled cmd variable containing config_arg
+    serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)

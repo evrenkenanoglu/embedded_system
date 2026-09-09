@@ -1,12 +1,11 @@
-import os
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
 import yaml
 
 
 class ConfigNode(dict):
-    """Allows attribute-style dot notation on dictionary keys."""
+    """Allows attribute dot notation access on configuration dictionaries."""
 
     def __getattr__(self, name: str) -> Any:
         try:
@@ -22,7 +21,6 @@ class ConfigNode(dict):
 
 
 def _flatten_dict(d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Dict[str, str]:
-    """Flattens nested dictionaries into single dot-separated string keys."""
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -34,9 +32,7 @@ def _flatten_dict(d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Di
 
 
 def _expand_placeholders(data: Any, context: Dict[str, str]) -> Any:
-    """Recursively replaces {placeholder.key} tokens using the context dictionary."""
     if isinstance(data, str):
-        # Multi-pass regex string substitution
         pattern = re.compile(r"\{([\w\.]+)\}")
         for _ in range(5):
             matches = pattern.findall(data)
@@ -53,32 +49,26 @@ def _expand_placeholders(data: Any, context: Dict[str, str]) -> Any:
     return data
 
 
-def load_config(config_path: str = "") -> ConfigNode:
-    """Load config.yaml, normalize absolute paths, and resolve nested template variables."""
-    base_dir = Path(__file__).resolve().parent
-    cfg_file = Path(config_path) if config_path else base_dir / "config.yaml"
-
+def load_config(config_path: Union[str, Path], workspace_root: Union[str, Path, None] = None) -> ConfigNode:
+    """Load a YAML configuration file, bind project_root, and resolve placeholders."""
+    cfg_file = Path(config_path).resolve()
     if not cfg_file.exists():
         raise FileNotFoundError(f"Configuration file not found at: {cfg_file}")
 
     with open(cfg_file, "r", encoding="utf-8") as f:
         raw_cfg = yaml.safe_load(f) or {}
 
-    project_root = str(base_dir.parent.parent.resolve())
-    raw_cfg["project_root"] = project_root
+    root = Path(workspace_root).resolve() if workspace_root else cfg_file.parent.parent
+    raw_cfg["project_root"] = str(root)
 
-    # Handle release vs dev package naming dynamically
+    # Dynamic release naming evaluation
     if raw_cfg.get("build", {}).get("release", False):
         version = raw_cfg.get("build", {}).get("version", "0.1.0")
         name = raw_cfg.get("project_name", "app")
         raw_cfg.setdefault("package", {})["name"] = f"package_{name}_v{version}"
         raw_cfg["package"]["artifact_name"] = f"{{output_dir}}/{name}_v{version}"
 
-    # Flatten context and perform multi-pass interpolation
     context = _flatten_dict(raw_cfg)
     expanded = _expand_placeholders(raw_cfg, context)
 
     return ConfigNode(expanded)
-
-
-CONFIG = load_config()
