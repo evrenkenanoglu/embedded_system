@@ -20,18 +20,19 @@ class EspIdfToolchain(BaseToolchain):
         )
 
     def _get_serializer(self) -> CommandSerializer:
-        # Use POSIX path for bash sourcing inside containers or Linux
         work_posix = self.work_dir.as_posix()
         script = self.activation_script
 
-        if IS_WINDOWS and not os.environ.get("DOCKER_CONTAINER"):
-            # Native Windows shell activation fallback if run locally outside Docker
-            prefix = [f'if exist "{self.work_dir}\\{script}" call "{self.work_dir}\\{script}"'] if script else []
+        # Skip sourcing host activation scripts if inside Docker or IDF_PATH is already active
+        in_container = os.path.exists("/.dockerenv") or "IDF_PATH" in os.environ
+
+        if not in_container and script:
+            if IS_WINDOWS:
+                prefix = [f'if exist "{self.work_dir}\\{script}" call "{self.work_dir}\\{script}"']
+            else:
+                prefix = [f'if [ -f "{work_posix}/{script}" ]; then source "{work_posix}/{script}"; fi']
         else:
-            # Bash syntax (Docker container, WSL, or Linux)
-            prefix = [
-                f'if [ -f "{work_posix}/{script}" ]; then source "{work_posix}/{script}"; fi'
-            ] if script else []
+            prefix = []
 
         return CommandSerializer(
             prefix_commands=prefix,
