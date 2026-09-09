@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
@@ -11,17 +12,20 @@ def _run_pipeline_script(
     opts: str = "",
 ) -> None:
     workspace_dir = Path(getattr(CONFIG.paths, "workspace_dir", ".")).resolve()
-    script_path = workspace_dir / "CI_CD" / script_name
+    script_path = (workspace_dir / "CI_CD" / script_name).resolve()
 
     if not script_path.exists():
         raise FileNotFoundError(f"Pipeline script not found at: {script_path}")
 
-    # Resolve config file: task argument override -> default CI_CD/config.yaml
     default_config = workspace_dir / "CI_CD" / "config.yaml"
     target_config = config if config and str(config).strip() else str(default_config)
 
-    config_arg = f'--config "{target_config}"' if target_config else ""
-    cmd = f'python "{script_path}" {config_arg}'.strip()
+    # Use sys.executable for cross-platform interpreter invocation
+    python_bin = Path(sys.executable).as_posix()
+    script_posix = script_path.as_posix()
+    config_posix = Path(target_config).as_posix()
+
+    cmd = f'"{python_bin}" "{script_posix}" --config "{config_posix}"'
 
     serializer = CommandSerializer(
         prefix_commands=[getattr(CONFIG, "venv_activate_cmd", "")],
