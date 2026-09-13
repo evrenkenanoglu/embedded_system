@@ -106,6 +106,7 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--config", "-c", type=Path, default=None, help="Path to config_provisioning.yaml")
+    parser.add_argument("--step", "-s", choices=["all", "nvs", "sign", "provision"], default=None, help="Target step to execute")
     parser.add_argument("--all", action="store_true", help="Run full pipeline (NVS -> Sign -> Provision)")
     parser.add_argument("--nvs", action="store_true", help="Generate encrypted NVS partition only")
     parser.add_argument("--sign", action="store_true", help="Sign firmware and update server manifest")
@@ -115,21 +116,24 @@ def main() -> int:
 
     config_file = args.config.resolve() if args.config else resolve_default_config()
 
-    # Launch interactive menu if no execution steps were flagged
-    if not (args.all or args.nvs or args.sign or args.provision):
+    # Determine step from --step argument or shorthand flags
+    selected_step = args.step
+    if not selected_step:
+        if args.all:
+            selected_step = "all"
+        elif args.nvs:
+            selected_step = "nvs"
+        elif args.sign:
+            selected_step = "sign"
+        elif args.provision:
+            selected_step = "provision"
+
+    # Launch interactive menu if no step arguments were passed
+    if not selected_step:
         interactive_menu(config_file)
         return 0
 
-    if args.all:
-        return run_main(config_file, "all", dry_run=args.dry_run)
-    elif args.nvs:
-        return run_main(config_file, "nvs", dry_run=args.dry_run)
-    elif args.sign:
-        return run_main(config_file, "sign", dry_run=args.dry_run)
-    elif args.provision:
-        return run_main(config_file, "provision", dry_run=args.dry_run)
-
-    return 0
+    return run_main(config_file, selected_step, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
