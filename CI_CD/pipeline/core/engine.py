@@ -116,7 +116,7 @@ class PipelineEngine:
         for stage in stages:
             name = stage.get("name", "unnamed").upper()
             stype = stage.get("type")
-            print_stage(f"STAGE: {name}")
+            print_stage(name)
 
             if stype == "host":
                 self._execute_host_stage(stage)
