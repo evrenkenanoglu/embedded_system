@@ -48,15 +48,23 @@ class EspIdfToolchain(BaseToolchain):
         opts: str,
     ) -> None:
         work_posix = self.work_dir.as_posix()
-        out_bin = image_bin if image_bin else "build/factory.bin"
+        defaults_file = (self.work_dir / "sdkconfig.defaults").as_posix()
+
+        # Resolve output binary name (relative to build/ directory)
+        out_name = Path(image_bin).name if image_bin and str(image_bin).strip() else "factory.bin"
 
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
-        serializer.add("rm -rf build sdkconfig")
-        serializer.add(f"export IDF_TARGET={target}")
-        serializer.add(f'export SDKCONFIG_DEFAULTS="{work_posix}/sdkconfig.defaults"')
-        serializer.add("idf.py build", extra=opts)
-        serializer.add(f'cd "{work_posix}/build" && esptool.py --chip {target} merge_bin -o {out_bin} @flash_args')
+
+        # Single cross-platform command: builds firmware AND generates merged factory binary
+        build_cmd = (
+            f"idf.py "
+            f"-DIDF_TARGET={target} "
+            f"-DSDKCONFIG_DEFAULTS='{defaults_file}' "
+            f"build merge-bin -o {out_name}"
+        )
+        serializer.add(build_cmd, extra=opts)
+
         serializer.run(c, dry_run=dry_run)
 
     def _flash(self, c: Context, port: str, dry_run: bool, opts: str) -> None:
