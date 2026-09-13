@@ -21,7 +21,7 @@ class PipelineEngine:
     def __init__(self, config_path: Union[str, Path], workspace_root: Path):
         self.workspace_root = Path(workspace_root).resolve()
         self.config_path = Path(config_path).resolve()
-        self.cfg = self._load_and_merge(self.config_path)
+        self.cfg = self._load_and_resolve(self.config_path)
         self.docker_manager = DockerManager(str(self.workspace_root))
 
     def _flatten_dict(self, d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Dict[str, str]:
@@ -34,24 +34,21 @@ class PipelineEngine:
                 items.append((new_key, str(v)))
         return dict(items)
 
-    def _expand(self, data: Any, context: Dict[str, str]) -> Any:
+    def _expand_tokens(self, data: Any, context: Dict[str, str]) -> Any:
         if isinstance(data, str):
             pattern = re.compile(r"\{([\w\.]+)\}")
-            for _ in range(5):
-                matches = pattern.findall(data)
-                if not matches:
-                    break
-                for match in matches:
-                    if match in context:
-                        data = data.replace(f"{{{match}}}", context[match])
+            matches = pattern.findall(data)
+            for match in matches:
+                if match in context:
+                    data = data.replace(f"{{{match}}}", context[match])
             return data
         elif isinstance(data, dict):
-            return {k: self._expand(v, context) for k, v in data.items()}
+            return {k: self._expand_tokens(v, context) for k, v in data.items()}
         elif isinstance(data, list):
-            return [self._expand(item, context) for item in data]
+            return [self._expand_tokens(item, context) for item in data]
         return data
 
-    def _load_and_merge(self, path: Path) -> Dict[str, Any]:
+    def _load_and_resolve(self, path: Path) -> Dict[str, Any]:
         with open(path, "r", encoding="utf-8") as f:
             stage_cfg = yaml.safe_load(f) or {}
 
@@ -63,7 +60,7 @@ class PipelineEngine:
                 with open(base_path, "r", encoding="utf-8") as bf:
                     base_cfg = yaml.safe_load(bf) or {}
 
-        # Merge base_cfg into stage_cfg
+        # Merge base configuration with stage configuration
         merged = base_cfg.copy()
         for k, v in stage_cfg.items():
             if isinstance(v, dict) and k in merged and isinstance(merged[k], dict):
@@ -71,15 +68,47 @@ class PipelineEngine:
             else:
                 merged[k] = v
 
-        merged.setdefault("paths", {})["project_root"] = str(self.workspace_root)
+        # Inject root workspace aliases
+        root_str = str(self.workspace_root)
+        merged.setdefault("paths", {})["project_root"] = root_str
 
-        # Dynamic OS port resolution
+        # Dynamic OS port resolution for HIL
         hil_cfg = merged.setdefault("hil", {})
         serial_ports = hil_cfg.get("serial_ports", {})
         hil_cfg["resolved_port"] = serial_ports.get("windows" if IS_WINDOWS else "linux", "AUTO")
 
-        context = self._flatten_dict(merged)
-        return self._expand(merged, context)
+        # Multi-pass iterative resolution to resolve chained dependencies
+        for _ in range(10):
+            context = self._flatten_dict(merged)
+            # Add root aliases so {project_root} and {paths.project_root} both match
+            context["project_root"] = root_str
+            context["paths.project_root"] = root_str
+            context["workspace_root"] = root_str
+
+            expanded = self._expand_tokens(merged, context)
+            if expanded == merged:
+                break
+            merged = expanded
+
+        # Validate that no unexpanded placeholders remain
+        self._validate_no_placeholders(merged)
+        return merged
+
+    def _validate_no_placeholders(self, data: Any) -> None:
+        pattern = re.compile(r"\{([\w\.]+)\}")
+        if isinstance(data, str):
+            unresolved = pattern.findall(data)
+            if unresolved:
+                raise ValueError(
+                    f"Unresolved template placeholder(s) {unresolved} in value '{data}'. "
+                    f"Check keys in CI_CD/config.yaml and CI_CD/config_ci.yaml."
+                )
+        elif isinstance(data, dict):
+            for v in data.values():
+                self._validate_no_placeholders(v)
+        elif isinstance(data, list):
+            for item in data:
+                self._validate_no_placeholders(item)
 
     def run(self) -> None:
         stages: List[Dict[str, Any]] = self.cfg.get("pipeline", {}).get("stages", [])
@@ -101,7 +130,6 @@ class PipelineEngine:
         print("\n✅ Pipeline Execution Completed Successfully\n")
 
     def _execute_host_stage(self, stage: Dict[str, Any]) -> None:
-        # 1. Execute structured actions
         for action in stage.get("actions", []):
             act_type = action.get("action")
             if act_type == "clean_path":
@@ -116,7 +144,6 @@ class PipelineEngine:
                 git.clone(action.get("url"), branch=action.get("branch", "main"))
                 git.init_submodules()
 
-        # 2. Execute shell/cli commands
         for cmd in stage.get("commands", []):
             print(f"🚀 Host Executing: {cmd}")
             res = subprocess.run(cmd, shell=True, cwd=str(self.workspace_root))

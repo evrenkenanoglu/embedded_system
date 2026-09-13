@@ -1,69 +1,64 @@
-import sys
 from pathlib import Path
 from invoke import Context, task
-from core import CONFIG, CommandSerializer
+from core import CONFIG
+from embedded_system.CI_CD.pipeline.core.engine import PipelineEngine
 
 
-def _run_pipeline_script(
-    c: Context,
-    script_name: str,
-    config: str = "",
-    dry_run: bool = False,
-    opts: str = "",
-) -> None:
-    workspace_dir = Path(getattr(CONFIG.paths, "workspace_dir", ".")).resolve()
-    script_path = (workspace_dir / "CI_CD" / script_name).resolve()
+def _resolve_config_path(config_arg: str, default_filename: str, workspace_root: Path) -> Path:
+    """Resolves config path from CLI argument, configured CI/CD directory, or workspace root."""
+    ci_cd_dir = Path(getattr(CONFIG.paths, "ci_cd_dir", workspace_root / "CI_CD"))
 
-    if not script_path.exists():
-        raise FileNotFoundError(f"Pipeline script not found at: {script_path}")
+    # 1. Fallback to default if no argument is supplied
+    if not config_arg or not str(config_arg).strip():
+        return (ci_cd_dir / default_filename).resolve()
 
-    default_config = workspace_dir / "CI_CD" / "config.yaml"
-    target_config = config if config and str(config).strip() else str(default_config)
+    target_path = Path(config_arg)
 
-    # Use sys.executable for cross-platform interpreter invocation
-    python_bin = Path(sys.executable).as_posix()
-    script_posix = script_path.as_posix()
-    config_posix = Path(target_config).as_posix()
+    # 2. Handle absolute paths directly
+    if target_path.is_absolute():
+        return target_path.resolve()
 
-    cmd = f'"{python_bin}" "{script_posix}" --config "{config_posix}"'
+    # 3. Check relative to workspace root (e.g., --config=configs/custom_ci.yaml)
+    candidate_ws = (workspace_root / target_path).resolve()
+    if candidate_ws.exists():
+        return candidate_ws
 
-    serializer = CommandSerializer(
-        prefix_commands=[getattr(CONFIG, "venv_activate_cmd", "")],
-        env=getattr(CONFIG, "env", None),
-    )
-    serializer.add(cmd, extra=opts)
-    serializer.run(c, dry_run=dry_run)
+    # 4. Check relative to CI/CD directory (e.g., --config=custom_ci.yaml)
+    return (ci_cd_dir / target_path).resolve()
 
 
-@task(
-    help={
-        "config": "Path to YAML configuration file (defaults to CI_CD/config.yaml)",
-        "dry_run": "Print execution command without running",
-        "opts": "Forward arbitrary arguments to run_ci.py",
-    }
-)
-def ci(
-    c: Context,
-    config: str = "",
-    dry_run: bool = False,
-    opts: str = "",
-) -> None:
-    """Run the CI build, containerized compilation, and artifact packaging pipeline."""
-    _run_pipeline_script(c, "run_ci.py", config=config, dry_run=dry_run, opts=opts)
+def _run_engine(c: Context, config_arg: str, default_name: str, dry_run: bool) -> None:
+    workspace_root = Path(getattr(CONFIG.paths, "workspace_dir", ".")).resolve()
+    config_path = _resolve_config_path(config_arg, default_name, workspace_root)
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Pipeline config not found: {config_path}")
+
+    if dry_run:
+        print(f"[DRY-RUN] Would execute engine using configuration: {config_path}")
+        return
+
+    engine = PipelineEngine(config_path=config_path, workspace_root=workspace_root)
+    engine.run()
 
 
 @task(
     help={
-        "config": "Path to YAML configuration file (defaults to CI_CD/config.yaml)",
-        "dry_run": "Print execution command without running",
-        "opts": "Forward arbitrary arguments to run_hil.py",
+        "config": "Path or filename of CI configuration (defaults to CI_CD/config_ci.yaml)",
+        "dry_run": "Print configuration path without executing",
     }
 )
-def hil(
-    c: Context,
-    config: str = "",
-    dry_run: bool = False,
-    opts: str = "",
-) -> None:
-    """Run artifact unpacking, physical hardware flashing, and HIL test suite."""
-    _run_pipeline_script(c, "run_hil.py", config=config, dry_run=dry_run, opts=opts)
+def ci(c: Context, config: str = "", dry_run: bool = False) -> None:
+    """Execute CI build and artifact packaging pipeline."""
+    _run_engine(c, config_arg=config, default_name="config_ci.yaml", dry_run=dry_run)
+
+
+@task(
+    help={
+        "config": "Path or filename of HIL configuration (defaults to CI_CD/config_hil.yaml)",
+        "dry_run": "Print configuration path without executing",
+    }
+)
+def hil(c: Context, config: str = "", dry_run: bool = False) -> None:
+    """Execute hardware flashing and HIL test suite."""
+    _run_engine(c, config_arg=config, default_name="config_hil.yaml", dry_run=dry_run)
