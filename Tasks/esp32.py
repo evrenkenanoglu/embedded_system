@@ -2,6 +2,7 @@ from functools import lru_cache
 from invoke import Context, task
 from core import CONFIG
 from embedded_system.Tasks.toolchains.esp_idf import EspIdfToolchain
+from embedded_system.Tasks.build_config import generate as generate_build_config
 
 
 @lru_cache(maxsize=1)
@@ -10,22 +11,25 @@ def _get_toolchain() -> EspIdfToolchain:
 
 
 @task(
+    pre=[generate_build_config],
     help={
-        "target": "Target SoC architecture (e.g. esp32, esp32s3, esp32c3)",
-        "image_bin": "Merged output binary path (defaults to build/factory.bin)",
+        "target": "Target SoC (defaults to config_tasks.yaml target)",
+        "image_bin": "Merged binary path (defaults to factory.bin)",
         "dry_run": "Print commands without executing",
         "opts": "Forward extra build options to idf.py",
-    }
+    },
 )
 def build(
     c: Context,
-    target: str = "esp32",
+    target: str = "",
     image_bin: str = "",
     dry_run: bool = False,
     opts: str = "",
 ) -> None:
     """Build application firmware and generate merged factory binary."""
-    _get_toolchain().build(c, target=target, image_bin=image_bin, dry_run=dry_run, opts=opts)
+    _get_toolchain().build(
+        c, target=target, image_bin=image_bin, dry_run=dry_run, opts=opts
+    )
 
 
 @task(
@@ -61,7 +65,9 @@ def flash_ota(
     opts: str = "",
 ) -> None:
     """Execute Over-The-Air (OTA) firmware upgrade verification."""
-    _get_toolchain().flash_ota(c, port=port, ota_port=ota_port, dry_run=dry_run, opts=opts)
+    _get_toolchain().flash_ota(
+        c, port=port, ota_port=ota_port, dry_run=dry_run, opts=opts
+    )
 
 
 @task(

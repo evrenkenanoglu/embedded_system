@@ -279,7 +279,7 @@ def generate_silicon_hardware_keys(silicon_cfg: Dict[str, Any]) -> None:
     """Generates AES flash encryption key and Secure Boot V2 ECDSA/RSA key and public digest."""
     # 1. Flash Encryption AES Key
     flash_cfg = silicon_cfg.get("flash_encryption", {})
-    key_size = flash_cfg.get("key_size_bytes", 32)
+    key_size = int(flash_cfg.get("key_size_bytes", 32))
     flash_file = Path(flash_cfg["key_file"]).resolve()
     flash_file.parent.mkdir(parents=True, exist_ok=True)
 

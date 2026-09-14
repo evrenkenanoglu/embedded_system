@@ -1,8 +1,10 @@
 from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
+from core.config_resolver import resolve_to_file
 
 VALID_PROVISION_STEPS = ("all", "nvs", "sign", "provision")
+
 
 @task(
     help={
@@ -12,34 +14,36 @@ VALID_PROVISION_STEPS = ("all", "nvs", "sign", "provision")
     }
 )
 def generate_pki(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
-    """Run the PKI generation script."""
-    script_path = CONFIG.paths.generate_pki_script
+    """Resolve SSoT config to a flat temporary file and invoke standalone PKI generator."""
+    script_path = Path(CONFIG.paths.generate_pki_script).resolve()
     if not script_path.exists():
         raise FileNotFoundError(f"PKI generation script not found: {script_path}")
 
-    # Resolve configuration file: explicit task argument takes priority over CONFIG.paths
-    resolved_config = config or getattr(CONFIG.paths, "es_config_pki", "")
-    config_arg = f'--config "{resolved_config}"' if resolved_config and str(resolved_config).strip() else ""
+    # 1. Identify input template config
+    raw_config = config or getattr(CONFIG.paths, "es_config_pki", "")
+    if not raw_config:
+        raise ValueError("No PKI configuration file specified.")
+
+    # 2. Compile into a flat, standalone YAML file in build/configs/
+    resolved_config_file = resolve_to_file(raw_config, workspace_root=CONFIG.paths.workspace_dir)
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
         env=CONFIG.env,
     )
 
-    cmd = f'python "{script_path}"'
-    if config_arg:
-        cmd = f"{cmd} {config_arg}"
-
+    cmd = f'python "{script_path}" --config "{resolved_config_file}"'
     serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
+
 
 @task(
     help={
         "step": f"Target provisioning step to execute: {', '.join(VALID_PROVISION_STEPS)} (default: 'all')",
-        "simulate": "Pass --dry-run to main.py (simulates execution without burning physical eFuses or flashing)",
-        "dry_run": "Print the command line without executing (Invoke dry run)",
-        "config": "Path to custom configuration file (defaults to CONFIG.paths.es_config_provisioning)",
-        "opts": "Forward additional arbitrary arguments to the provisioning script",
+        "simulate": "Pass --dry-run to main.py",
+        "dry_run": "Print command line without executing",
+        "config": "Path to custom provisioning config file",
+        "opts": "Forward additional arbitrary arguments",
     }
 )
 def provision_hardware(
@@ -50,28 +54,28 @@ def provision_hardware(
     config: str = "",
     opts: str = "",
 ) -> None:
-    """Run the ESP32 Provisioning and Release Orchestrator with step selection."""
+    """Resolve SSoT config to a flat temporary file and invoke standalone provisioning script."""
     if step not in VALID_PROVISION_STEPS:
         raise ValueError(f"Invalid step '{step}'. Available options: {', '.join(VALID_PROVISION_STEPS)}")
 
-    script_path = CONFIG.paths.provision_hardware_script
+    script_path = Path(CONFIG.paths.provision_hardware_script).resolve()
     if not script_path.exists():
         raise FileNotFoundError(f"Provision hardware script not found: {script_path}")
 
-    # Resolve configuration file: explicit task argument takes priority over CONFIG.paths
-    resolved_config = config or getattr(CONFIG.paths, "es_config_provisioning", "")
-    config_arg = f'--config "{resolved_config}"' if resolved_config and str(resolved_config).strip() else ""
+    raw_config = config or getattr(CONFIG.paths, "es_config_provisioning", "")
+    if not raw_config:
+        raise ValueError("No provisioning configuration file specified.")
+
+    resolved_config_file = resolve_to_file(raw_config, workspace_root=CONFIG.paths.workspace_dir)
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
         env=CONFIG.env,
     )
 
-    cmd = f'python "{script_path}" --step {step}'
-    if config_arg:
-        cmd = f"{cmd} {config_arg}"
+    cmd = f'python "{script_path}" --step {step} --config "{resolved_config_file}"'
     if simulate:
-        cmd = f"{cmd} --dry-run"
+        cmd += " --dry-run"
 
     serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
@@ -118,4 +122,3 @@ def provision_flash(
 ) -> None:
     """Step 3: Burn hardware eFuses and flash encrypted image layout to physical ESP32."""
     provision_hardware(c, step="provision", simulate=simulate, dry_run=dry_run, config=config, opts=opts)
-

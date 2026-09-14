@@ -4,8 +4,10 @@
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
+from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
+from core.config_resolver import resolve_to_file
 from embedded_system.Tasks.toolchains.factory import get_toolchain
 from embedded_system.Tasks.crypto import provision_nvs, provision_sign, provision_flash
 
@@ -13,30 +15,34 @@ from embedded_system.Tasks.crypto import provision_nvs, provision_sign, provisio
 @task(
     help={
         "dry_run": "Print execution command without running",
-        "config": "Path to custom OTA server configuration file (defaults to CONFIG.paths.es_config_ota_server)",
+        "config": "Path to custom OTA server configuration file (defaults to configs/config_ota_server.yaml)",
         "opts": "Forward arbitrary arguments to the OTA server script",
     }
 )
 def server(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
-    """Start the Embedded System OTA server."""
-    script_path = CONFIG.paths.ota_server_script
+    """Start the Embedded System OTA server with compiled SSoT configuration."""
+    script_path = Path(CONFIG.paths.ota_server_script).resolve()
     if not script_path.exists():
         raise FileNotFoundError(f"OTA server script not found: {script_path}")
 
-    # Resolve configuration file
-    resolved_config = config or getattr(CONFIG.paths, "es_config_ota_server", "")
-    config_arg = f'--config "{resolved_config}"' if resolved_config and str(resolved_config).strip() else ""
+    # 1. Resolve raw input config path
+    raw_config = Path(config) if config and str(config).strip() else Path(CONFIG.paths.es_config_ota_server)
+    if not raw_config.is_absolute():
+        raw_config = (Path(CONFIG.paths.workspace_dir) / raw_config).resolve()
+
+    # 2. Compile into flat, standalone YAML in build/configs/
+    resolved_config_file = resolve_to_file(raw_config, workspace_root=CONFIG.paths.workspace_dir)
+
+    # 3. Pass via CLI flag AND OTA_CONFIG_PATH env var for Uvicorn reload workers
+    execution_env = dict(CONFIG.env or {})
+    execution_env["OTA_CONFIG_PATH"] = str(resolved_config_file)
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+        env=execution_env,
     )
 
-    cmd = f'python "{script_path}"'
-    if config_arg:
-        cmd = f"{cmd} {config_arg}"
-
-    # Pass the compiled cmd variable containing config_arg
+    cmd = f'python "{script_path}" --config "{resolved_config_file}"'
     serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
 
@@ -56,11 +62,7 @@ def release(
     config: str = "",
     build_opts: str = "",
 ) -> None:
-    """
-    OTA Release Lifecycle Sequence:
-    1. Compile application firmware using configured platform toolchain.
-    2. Compute SHA-256 digest, sign binary via developer key, and update manifest.json.
-    """
+    """OTA Release Lifecycle Sequence."""
     selected_target = target or getattr(CONFIG.esp32, "target", "esp32s3")
     toolchain = get_toolchain()
 
@@ -89,12 +91,7 @@ def factory_provision(
     config: str = "",
     build_opts: str = "",
 ) -> None:
-    """
-    Factory Provisioning Lifecycle Sequence:
-    1. Compile all binaries (bootloader, partition-table, app) via platform toolchain.
-    2. Generate AES-XTS encrypted NVS partition (fctry) containing Root CA and identity.
-    3. Burn silicon eFuses (Secure Boot V2, Flash Enc, Anti-Rollback) and flash memory layout.
-    """
+    """Factory Provisioning Lifecycle Sequence."""
     selected_target = target or getattr(CONFIG.esp32, "target", "esp32s3")
     toolchain = get_toolchain()
 

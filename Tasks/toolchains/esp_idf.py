@@ -57,18 +57,47 @@ class EspIdfToolchain(BaseToolchain):
         work_posix = self.work_dir.as_posix()
         resolved_target = target or self._get_default_target()
 
+        # 1. Resolve base sdkconfig.defaults
         raw_defaults = self._cfg("sdkconfig_defaults", "sdkconfig.defaults")
         defaults_path = Path(raw_defaults)
         resolved_defaults = defaults_path if defaults_path.is_absolute() else (self.work_dir / defaults_path).resolve()
 
+        # 2. Resolve hardware SSoT overlay if present (sdkconfig.hardware)
+        paths_cfg = getattr(self.config, "paths", {})
+        raw_hw = self._cfg("sdkconfig_hardware", getattr(paths_cfg, "sdkconfig_hardware", "sdkconfig.hardware"))
+        hw_path = Path(raw_hw) if raw_hw else Path("sdkconfig.hardware")
+        resolved_hw = hw_path if hw_path.is_absolute() else (self.work_dir / hw_path).resolve()
+
+        # Merge defaults via native ESP-IDF semicolon delimiter
+        if resolved_hw.exists():
+            defaults_val = f"{resolved_defaults.as_posix()};{resolved_hw.as_posix()}"
+        else:
+            defaults_val = resolved_defaults.as_posix()
+
+        # 3. Pull SSoT project versions for CMake and Matter OTA image tool
+        proj_cfg = getattr(self.config, "project", {})
+        if isinstance(proj_cfg, dict):
+            ver_str = proj_cfg.get("version", "0.0.1-dev")
+            ver_num = proj_cfg.get("version_number", 1)
+        else:
+            ver_str = getattr(proj_cfg, "version", "0.0.1-dev")
+            ver_num = getattr(proj_cfg, "version_number", 1)
+
+        # 4. Resolve output binary name
         out_name = Path(image_bin).name if image_bin and str(image_bin).strip() else "factory.bin"
 
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
-        serializer.add(
-            f"idf.py -DIDF_TARGET={resolved_target} -DSDKCONFIG_DEFAULTS='{resolved_defaults.as_posix()}' build merge-bin -o {out_name}",
-            extra=opts,
+
+        build_cmd = (
+            f"idf.py "
+            f"-DIDF_TARGET={resolved_target} "
+            f"-DSDKCONFIG_DEFAULTS='{defaults_val}' "
+            f"-DPROJECT_VER='{ver_str}' "
+            f"-DPROJECT_VER_NUMBER={ver_num} "
+            f"build merge-bin -o {out_name}"
         )
+        serializer.add(build_cmd, extra=opts)
         serializer.run(c, dry_run=dry_run)
 
     def _flash(self, c: Context, port: str, dry_run: bool, opts: str) -> None:
@@ -114,7 +143,7 @@ class EspIdfToolchain(BaseToolchain):
         serializer.add("idf.py fullclean")
         serializer.run(c, dry_run=dry_run)
 
-    # --- ESP32-SPECIFIC METHODS (Called directly by esp32.py tasks) ---
+    # --- ESP32-SPECIFIC METHODS ---
 
     def menuconfig(self, c: Context, dry_run: bool = False, opts: str = "") -> None:
         with self._stage("⚙️", "MENUCONFIG"):
