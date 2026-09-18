@@ -5,11 +5,9 @@
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
-import csv
-import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 
 @dataclass
@@ -29,12 +27,23 @@ class PartitionEntry:
 class PartitionTableParser:
     """Parses standard ESP-IDF partitions.csv and resolves offsets dynamically."""
 
-    APP_ALIGNMENT = 0x10000   # 64 KB boundary for app slots
-    DATA_ALIGNMENT = 0x1000   # 4 KB sector boundary for data slots
-    FIRST_PARTITION_OFFSET = 0x9000  # Default first partition offset following partition table at 0x8000
+    # Silicon Hardware Constraints (Non-configurable physical flash limits)
+    APP_ALIGNMENT = 0x10000   # 64 KB ESP32 MMU execution boundary
+    DATA_ALIGNMENT = 0x1000   # 4 KB physical flash sector erase boundary
+    PARTITION_TABLE_SIZE = 0x1000  # 4 KB allocated partition table sector
 
-    def __init__(self, partitions_csv_path: Path):
+    def __init__(
+        self, 
+        partitions_csv_path: Path, 
+        partition_table_offset: int = 0x8000,
+        bootloader_offset: int = 0x0000
+    ):
         self.csv_path = partitions_csv_path
+        self.partition_table_offset = partition_table_offset
+        self.bootloader_offset = bootloader_offset
+        # First partition always starts at the sector immediately following the partition table
+        self.first_partition_offset = self.partition_table_offset + self.PARTITION_TABLE_SIZE
+        
         self.partitions: Dict[str, PartitionEntry] = {}
         self._parse()
 
@@ -42,12 +51,11 @@ class PartitionTableParser:
         if not self.csv_path.exists():
             raise FileNotFoundError(f"Partition table CSV missing: {self.csv_path}")
 
-        current_offset = self.FIRST_PARTITION_OFFSET
+        current_offset = self.first_partition_offset
 
         with open(self.csv_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                # Skip comments and empty lines
                 if not line or line.startswith("#"):
                     continue
 
@@ -63,16 +71,13 @@ class PartitionTableParser:
                 flags = [f.strip() for f in parts[5].split(":")] if len(parts) > 5 and parts[5] else []
 
                 size = int(size_str, 0)
-
-                # Determine alignment
                 alignment = self.APP_ALIGNMENT if ptype == "app" else self.DATA_ALIGNMENT
 
-                # Resolve Offset
+                # Resolve offset dynamically if not explicitly specified in CSV
                 if offset_str:
                     offset = int(offset_str, 0)
                     current_offset = offset + size
                 else:
-                    # Align current offset to boundary
                     if current_offset % alignment != 0:
                         current_offset += alignment - (current_offset % alignment)
                     offset = current_offset
@@ -88,25 +93,17 @@ class PartitionTableParser:
                 )
 
     def get_partition(self, name: str) -> PartitionEntry:
-        """Retrieves partition metadata by name."""
         if name not in self.partitions:
-            raise KeyError(f"Partition '{name}' not found in {self.csv_path.name}. Available: {list(self.partitions.keys())}")
+            raise KeyError(f"Partition '{name}' not found. Available: {list(self.partitions.keys())}")
         return self.partitions[name]
 
     def get_offset(self, name: str) -> int:
-        """Returns the resolved flash offset for a partition."""
         return self.get_partition(name).offset
 
     def get_size(self, name: str) -> int:
-        """Returns the resolved flash size for a partition."""
         return self.get_partition(name).size
 
     def generate_flash_args(self, binary_mapping: Dict[str, Path]) -> List[str]:
-        """
-        Constructs dynamic offset-binary arguments for esptool write_flash.
-        Input mapping: { partition_name: binary_path }
-        Special names: '__bootloader__' (0x0000), '__partition_table__' (0x8000)
-        """
         flash_args: List[str] = []
 
         for target, bin_path in binary_mapping.items():
@@ -114,9 +111,9 @@ class PartitionTableParser:
                 raise FileNotFoundError(f"Binary file for '{target}' missing: {bin_path}")
 
             if target == "__bootloader__":
-                offset = 0x0000
+                offset = self.bootloader_offset
             elif target == "__partition_table__":
-                offset = 0x8000
+                offset = self.partition_table_offset
             else:
                 offset = self.get_offset(target)
 

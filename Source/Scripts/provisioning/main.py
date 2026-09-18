@@ -278,7 +278,17 @@ def main() -> int:
         config, config_dir, roots = load_config(args.config, args.project_root)
 
         partitions_csv_path = find_partitions_csv(config["paths"]["partitions_csv"], roots)
-        pt_parser = PartitionTableParser(partitions_csv_path)
+
+        # Dynamic SSoT resolution
+        pt_offset_raw = config.get("hardware", {}).get("partition_table_offset", "0xC000")
+        pt_offset = int(pt_offset_raw, 0)
+        boot_offset = 0x0000 if config.get("hardware", {}).get("chip", "esp32s3") == "esp32s3" else 0x1000
+
+        pt_parser = PartitionTableParser(
+            partitions_csv_path=partitions_csv_path,
+            partition_table_offset=pt_offset,
+            bootloader_offset=boot_offset
+        )
 
         if args.step in ["all", "nvs"]:
             step_generate_nvs(config, pt_parser)
@@ -295,7 +305,6 @@ def main() -> int:
     except Exception as e:
         print(f"\n[FATAL ERROR] {e}", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

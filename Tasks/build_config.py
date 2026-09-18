@@ -33,12 +33,22 @@ def _generate_partitions_csv(workspace_root: Path, cfg: Dict[str, Any]) -> Path:
     ]
 
     for p in partitions:
-        name = f"{p.get('name')},"
-        ptype = f"{p.get('type')},"
-        subtype = f"{p.get('subtype')},"
-        offset = f"{p.get('offset', '')},"
-        size = f"{p.get('size')},"
-        flags = p.get("flags", "")
+        name = f"{p.get('name', '')},"
+        
+        # Format numeric or string types safely
+        raw_type = p.get("type", "")
+        ptype = f"{hex(raw_type) if isinstance(raw_type, int) else raw_type},"
+        
+        raw_subtype = p.get("subtype", "")
+        subtype = f"{hex(raw_subtype) if isinstance(raw_subtype, int) else raw_subtype},"
+        
+        raw_offset = p.get("offset")
+        offset = f"{hex(raw_offset) if isinstance(raw_offset, int) else (raw_offset or '')},"
+        
+        raw_size = p.get("size", "")
+        size = f"{hex(raw_size) if isinstance(raw_size, int) else raw_size},"
+        
+        flags = str(p.get("flags") or "").strip()
 
         # Format with fixed column widths matching ESP-IDF tabular conventions
         line = f"{name:<18} {ptype:<6} {subtype:<10} {offset:<8} {size:<12} {flags}".rstrip()
@@ -52,15 +62,23 @@ def _generate_sdkconfig_hardware(workspace_root: Path, cfg: Dict[str, Any]) -> P
     """Generates sdkconfig.hardware overlay from hardware & security invariants."""
     out_path = workspace_root / "sdkconfig.hardware"
     hw = cfg.get("hardware", {})
+    sec = cfg.get("security", {})
+    
     flash_size = str(hw.get("flash_size", "8MB")).upper()
     flash_mode = str(hw.get("flash_mode", "dio")).lower()
     flash_freq = str(hw.get("flash_freq", "80m")).lower()
     baud = hw.get("monitor_baud", 115200)
 
-    # Resolve signing key path relative to workspace
-    keys_dir = cfg.get("paths", {}).get("keys_dir", "keys")
-    signing_key = f"{keys_dir}/secure_boot_signing_key.pem".replace("{paths.workspace_dir}/", "")
-    hsvn = cfg.get("project", {}).get("version_number", 1)
+    # Resolve partition table offset dynamically (SSoT)
+    pt_offset = str(hw.get("partition_table_offset", "0x10000"))
+
+    # Resolve signing key path relative to workspace cleanly
+    raw_keys_dir = cfg.get("paths", {}).get("keys_dir", "keys")
+    clean_keys_dir = raw_keys_dir.replace("{paths.workspace_dir}/", "").replace("{paths.workspace_dir}", ".")
+    signing_key = f"{clean_keys_dir}/secure_boot_signing_key.pem".replace("./", "")
+
+    # Resolve anti-rollback version from security SSoT
+    hsvn = sec.get("hsvn", cfg.get("project", {}).get("version_number", 1))
 
     lines = [
         "# ESP32 Hardware & Security Overlay (Auto-generated from configs/config_project.yaml)",
@@ -72,12 +90,12 @@ def _generate_sdkconfig_hardware(workspace_root: Path, cfg: Dict[str, Any]) -> P
         f'CONFIG_ESPTOOLPY_FLASHFREQ="{flash_freq}"',
         f"CONFIG_ESPTOOLPY_MONITOR_BAUD={baud}",
         "",
-        "# Partition Table Linkage",
+        "# Partition Table Linkage (Resolved from SSoT)",
         "CONFIG_PARTITION_TABLE_CUSTOM=y",
         'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"',
-        "CONFIG_PARTITION_TABLE_OFFSET=0x8000",
+        f"CONFIG_PARTITION_TABLE_OFFSET={pt_offset}",
         "",
-        "# Security Hardware Keys & Anti-Rollback",
+        "# Security Hardware Keys & Anti-Rollback (Resolved from SSoT)",
         f'CONFIG_SECURE_BOOT_SIGNING_KEY="{signing_key}"',
         f"CONFIG_BOOTLOADER_APP_SECURE_VERSION={hsvn}",
     ]
@@ -90,8 +108,10 @@ def _generate_project_version_cmake(workspace_root: Path, cfg: Dict[str, Any]) -
     """Generates project_version.cmake for native CMake inclusion."""
     out_path = workspace_root / "project_version.cmake"
     proj = cfg.get("project", {})
+    sec = cfg.get("security", {})
+    
     ver = proj.get("version", "1.0.0-dev1")
-    ver_num = proj.get("version_number", 1)
+    ver_num = sec.get("hsvn", proj.get("version_number", 1))
 
     lines = [
         "# Auto-generated from configs/config_project.yaml - DO NOT EDIT MANUALLY",
