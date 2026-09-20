@@ -8,3 +8,4 @@ api_key,data,string,{API_KEY}
 gateway_url,data,string,{GATEWAY_URL}
 sec_pki,namespace,,
 root_ca_pem,file,string,{ROOT_CA_PATH}
+root_ca_backup_pem,file,string,{ROOT_CA_BACKUP_PATH}

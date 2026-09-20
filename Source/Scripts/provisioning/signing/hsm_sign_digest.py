@@ -2,13 +2,13 @@
 """
 @file       hsm_sign_digest.py
 @brief      Generates SHA-256 digests and ECDSA SECP256R1 / RSA signatures for firmware binaries.
+            Supports detached two-stage HSM/KMS workflows and direct local release signing.
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
 import argparse
 import hashlib
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -23,7 +23,7 @@ except ImportError:
 
 
 def compute_sha256(file_path: Path) -> bytes:
-    """Computes raw SHA-256 digest of the specified file."""
+    """Computes raw 32-byte SHA-256 digest of the specified file."""
     sha256 = hashlib.sha256()
     with open(file_path, "rb") as f:
         while chunk := f.read(65536):
@@ -64,43 +64,92 @@ def extract_cert_pem(cert_path: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sign firmware binary digests for ESP32 OTA framework.")
+    parser = argparse.ArgumentParser(
+        description="Two-stage HSM & local code-signing orchestrator for ESP32 OTA framework."
+    )
+    parser.add_argument(
+        "--stage",
+        choices=["all", "digest", "assemble"],
+        default="all",
+        help="Signing pipeline stage: 'digest' (export hash for HSM), 'assemble' (inject detached signature), 'all' (local sign)"
+    )
     parser.add_argument("--binary", "-b", type=Path, required=True, help="Path to input firmware binary (.bin)")
-    parser.add_argument("--key", "-k", type=Path, required=True, help="Path to signing private key PEM file")
+    parser.add_argument("--key", "-k", type=Path, required=False, help="Path to signing private key PEM file (required for 'all')")
     parser.add_argument("--cert", "-c", type=Path, required=False, help="Path to developer signing certificate PEM file")
     parser.add_argument("--key-type", choices=["ec-secp256r1", "rsa-2048"], default="ec-secp256r1", help="Cryptographic key algorithm")
+    parser.add_argument("--out-digest", type=Path, required=False, help="Path to write raw 32-byte SHA-256 digest binary (for 'digest' stage)")
+    parser.add_argument("--sig-in", type=Path, required=False, help="Path to detached raw signature binary (for 'assemble' stage)")
     parser.add_argument("--out-sig", type=Path, required=False, help="Path to write raw signature binary")
     parser.add_argument("--out-json", type=Path, required=False, help="Path to write manifest-compatible metadata JSON")
     args = parser.parse_args()
 
     if not args.binary.exists():
-        print(f"Error: Binary not found: {args.binary}", file=sys.stderr)
-        return 1
-
-    if not args.key.exists():
-        print(f"Error: Key file not found: {args.key}", file=sys.stderr)
+        print(f"[ERROR] Target binary not found: {args.binary}", file=sys.stderr)
         return 1
 
     file_size = args.binary.stat().st_size
     digest = compute_sha256(args.binary)
     digest_hex = digest.hex()
 
-    with open(args.key, "rb") as f:
-        key_bytes = f.read()
+    # --------------------------------------------------------------------------
+    # STAGE 1: Export SHA-256 Digest for Detached Offline HSM Signing
+    # --------------------------------------------------------------------------
+    if args.stage == "digest":
+        target_out_digest = args.out_digest or args.binary.with_suffix(".digest.bin")
+        target_out_digest.parent.mkdir(parents=True, exist_ok=True)
+        with open(target_out_digest, "wb") as f:
+            f.write(digest)
 
-    try:
-        if args.key_type == "ec-secp256r1":
-            raw_sig = sign_digest_ec_secp256r1(digest, key_bytes)
-        else:
-            raw_sig = sign_digest_rsa_2048(digest, key_bytes)
-    except Exception as e:
-        print(f"Error during signature generation: {e}", file=sys.stderr)
-        return 1
+        print("==================================================")
+        print(" FIRMWARE DIGEST EXPORT (HSM / KMS PREPARATION)")
+        print("==================================================")
+        print(f"Target Binary  : {args.binary}")
+        print(f"Binary Size    : {file_size} bytes")
+        print(f"SHA-256 Digest : {digest_hex}")
+        print(f"Digest Binary  : {target_out_digest}")
+        print("==================================================")
+        print(f"[OK] Digest binary exported. Forward '{target_out_digest}' to HSM for signing.")
+        return 0
+
+    # --------------------------------------------------------------------------
+    # STAGE 2: Ingest External Detached Signature
+    # --------------------------------------------------------------------------
+    raw_sig: bytes = b""
+    if args.stage == "assemble":
+        if not args.sig_in or not args.sig_in.exists():
+            print(f"[ERROR] Detached signature file (--sig-in) required for 'assemble' stage.", file=sys.stderr)
+            return 1
+        with open(args.sig_in, "rb") as f:
+            raw_sig = f.read()
+
+        if args.key_type == "ec-secp256r1" and len(raw_sig) != 64:
+            print(f"[ERROR] EC SECP256R1 signature must be exactly 64 bytes IEEE P1363 (R || S). Got: {len(raw_sig)} bytes.", file=sys.stderr)
+            return 1
+
+    # --------------------------------------------------------------------------
+    # STAGE 3: Local Private Key Signing (Standard Development / CI)
+    # --------------------------------------------------------------------------
+    elif args.stage == "all":
+        if not args.key or not args.key.exists():
+            print(f"[ERROR] Signing private key file (--key) required for local signing.", file=sys.stderr)
+            return 1
+
+        with open(args.key, "rb") as f:
+            key_bytes = f.read()
+
+        try:
+            if args.key_type == "ec-secp256r1":
+                raw_sig = sign_digest_ec_secp256r1(digest, key_bytes)
+            else:
+                raw_sig = sign_digest_rsa_2048(digest, key_bytes)
+        except Exception as e:
+            print(f"[ERROR] Signature generation failed: {e}", file=sys.stderr)
+            return 1
 
     sig_hex = raw_sig.hex()
 
     print("==================================================")
-    print(" FIRMWARE CODE-SIGNING DIGEST MANIFEST")
+    print(" FIRMWARE CODE-SIGNING RELEASE METADATA")
     print("==================================================")
     print(f"Target Binary    : {args.binary}")
     print(f"File Size        : {file_size} bytes")

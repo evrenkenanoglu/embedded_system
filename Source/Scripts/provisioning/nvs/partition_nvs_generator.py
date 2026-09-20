@@ -31,25 +31,54 @@ def generate_nvs_keys(key_out_path: Path) -> bytes:
 
 
 def render_template_csv(template_path: Path, output_csv_path: Path, variables: Dict[str, Any], project_root: Path) -> None:
-    """Renders a template CSV by replacing all {KEY} placeholders with provided variables."""
+    """
+    Renders a template CSV by substituting all {KEY} placeholders with provided variables.
+    Cleanly strips optional file rows if their target path is empty or does not exist.
+    """
     if not template_path.exists():
         raise FileNotFoundError(f"Template CSV missing: {template_path}")
 
     with open(template_path, "r", encoding="utf-8") as f:
-        content = f.read()
+        lines = f.readlines()
 
-    for key, value in variables.items():
-        placeholder = f"{{{key}}}"
-        if isinstance(value, str) and (value.endswith(".crt") or value.endswith(".pem") or value.endswith(".bin") or value.endswith(".key")):
-            val_path = Path(value).resolve() if Path(value).is_absolute() else (project_root / value).resolve()
-            if val_path.exists():
-                value = str(val_path)
+    rendered_lines = []
 
-        content = content.replace(placeholder, str(value))
+    for line in lines:
+        stripped_line = line.strip()
+        if not stripped_line or stripped_line.startswith("#"):
+            rendered_lines.append(line)
+            continue
+
+        # Check if line contains any unsupplied or empty optional file placeholders
+        skip_line = False
+        for key, value in variables.items():
+            placeholder = f"{{{key}}}"
+            if placeholder in stripped_line:
+                # Handle file paths
+                if isinstance(value, str) and any(value.endswith(ext) for ext in [".crt", ".pem", ".bin", ".key"]):
+                    val_path = Path(value).resolve() if Path(value).is_absolute() else (project_root / value).resolve()
+                    if val_path.exists():
+                        value = str(val_path)
+                    else:
+                        # If optional file doesn't exist on disk, omit this entry
+                        skip_line = True
+                        break
+                elif value is None or str(value).strip() == "":
+                    skip_line = True
+                    break
+
+                stripped_line = stripped_line.replace(placeholder, str(value))
+
+        # Check if any unresolved {PLACEHOLDERS} remain
+        if "{" in stripped_line and "}" in stripped_line:
+            skip_line = True
+
+        if not skip_line:
+            rendered_lines.append(stripped_line + "\n")
 
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_csv_path, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.writelines(rendered_lines)
 
 
 def find_nvs_partition_gen_tool() -> Optional[List[str]]:

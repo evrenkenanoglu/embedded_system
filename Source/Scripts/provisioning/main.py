@@ -2,6 +2,7 @@
 """
 @file       main.py
 @brief      Generic data-driven orchestrator driven entirely by project config.yaml.
+            Coordinates NVS encryption, detached code-signing, and physical eFuse silicon locking.
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
@@ -19,6 +20,7 @@ from factory.partition_parser import PartitionTableParser
 from factory.provision_hardware import (
     read_chip_mac,
     burn_efuse_key,
+    protect_efuse_key,
     burn_efuse_register,
     flash_dynamic_layout
 )
@@ -76,7 +78,7 @@ def expand_variables(data: Any, env_map: Dict[str, str]) -> Any:
 
 
 def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> Tuple[Dict[str, Any], Path, Tuple[Path, Path]]:
-    """Loads YAML configuration and resolves all path placeholders across multiple passes."""
+    """Loads pre-resolved SSoT configuration and returns configuration tuple (cfg, config_dir, roots)."""
     if not config_path.exists():
         candidate = (Path.cwd() / config_path).resolve()
         if candidate.exists():
@@ -85,27 +87,14 @@ def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> T
             raise FileNotFoundError(f"Configuration file missing: {config_path}")
 
     with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+        cfg = yaml.safe_load(f) or {}
 
-    # 1. Base Environment Roots
     auto_proj_root, auto_embed_root = auto_detect_roots()
     project_root = cli_project_root.resolve() if cli_project_root else auto_proj_root
     embedded_system_root = auto_embed_root
+    roots = (project_root, embedded_system_root)
 
-    env_map: Dict[str, str] = {
-        "project_root_dir": str(project_root),
-        "embedded_system_dir": str(embedded_system_root)
-    }
-
-    # 2. Multi-Pass Expansion (resolves root variables first, then path variables)
-    for _ in range(4):
-        cfg = expand_variables(cfg, env_map)
-        paths_cfg = cfg.get("paths", {})
-        for k, v in paths_cfg.items():
-            if isinstance(v, str) and not ("{" in v and "}" in v):
-                env_map[k] = str(v)
-
-    return cfg, config_path.parent.resolve(), (project_root, embedded_system_root)
+    return cfg, config_path.parent.resolve(), roots
 
 
 def find_partitions_csv(configured_path_str: str, roots: Tuple[Path, Path]) -> Path:
@@ -137,8 +126,8 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
     print(" STEP 1: GENERATING ENCRYPTED NVS PARTITION")
     print("=" * 60)
 
-    paths_cfg = cfg["paths"]
-    nvs_cfg = cfg["nvs_generation"]
+    paths_cfg = cfg.get("paths", {})
+    nvs_cfg = cfg.get("nvs_generation", {})
 
     target_name = nvs_cfg["target_partition"]
     partition_size = parser.get_size(target_name)
@@ -150,6 +139,7 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
     rendered_csv = output_dir / f"nvs_{target_name}_rendered.csv"
     nvs_key_file = Path(nvs_cfg["output_key_bin"]).resolve()
     nvs_bin_file = Path(nvs_cfg["output_encrypted_bin"]).resolve()
+    project_root = Path(paths_cfg.get("workspace_dir", ".")).resolve()
 
     print(f"[*] Target Partition : '{target_name}' (Size: {hex(partition_size)} / {partition_size} bytes)")
     print(f"[*] Template File    : {template_file}")
@@ -158,7 +148,7 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
         print(f"[*] Generating new NVS key: {nvs_key_file}")
         generate_nvs_keys(nvs_key_file)
 
-    render_template_csv(template_file, rendered_csv, nvs_cfg["template_variables"], Path(cfg["environment"]["project_root_dir"]))
+    render_template_csv(template_file, rendered_csv, nvs_cfg["template_variables"], project_root)
     print(f"[OK] Rendered CSV written to: {rendered_csv}")
 
     if not invoke_nvs_partition_gen(rendered_csv, nvs_bin_file, partition_size, nvs_key_file) or not nvs_bin_file.exists():
@@ -222,10 +212,33 @@ def step_provision_hardware(cfg: Dict[str, Any], parser: PartitionTableParser, o
     print(" STEP 3: SILICON FACTORY PROVISIONING & FLASHING")
     print("=" * 60)
 
-    paths_cfg = cfg["paths"]
-    hw_cfg = cfg["hardware"]
+    paths_cfg = cfg.get("paths", {})
+    hw_cfg = cfg.get("hardware", {})
 
-    dry_run = hw_cfg["dry_run"] if override_dry_run is None else override_dry_run
+    # 1. Resolve communication port and baud rate safely
+    port = hw_cfg.get("port") or hw_cfg.get("default_port", "/dev/ttyUSB0")
+    if isinstance(port, str) and port.startswith("{"):
+        port = "/dev/ttyUSB0"
+
+    raw_baud = hw_cfg.get("baud") or hw_cfg.get("flash_baud", 460800)
+    baud = int(raw_baud)
+
+    chip = hw_cfg.get("chip", "esp32s3")
+
+    # 2. Resolve flash geometry with defensive fallbacks against unexpanded placeholders
+    flash_mode = hw_cfg.get("flash_mode", "dio")
+    if not flash_mode or flash_mode.startswith("{"):
+        flash_mode = "dio"
+
+    flash_freq = hw_cfg.get("flash_freq", "80m")
+    if not flash_freq or flash_freq.startswith("{"):
+        flash_freq = "80m"
+
+    flash_size = hw_cfg.get("flash_size", "8MB")
+    if not flash_size or flash_size.startswith("{"):
+        flash_size = "8MB"
+
+    dry_run = hw_cfg.get("dry_run", True) if override_dry_run is None else override_dry_run
     if not dry_run and not hw_cfg.get("force_burn", False):
         raise RuntimeError("Set 'hardware.force_burn: true' in config.yaml to execute on real silicon.")
 
@@ -233,32 +246,54 @@ def step_provision_hardware(cfg: Dict[str, Any], parser: PartitionTableParser, o
     for target_name, path_str in hw_cfg.get("flash_targets", {}).items():
         binary_mapping[target_name] = Path(path_str).resolve()
 
-    mac_addr = read_chip_mac(hw_cfg["port"], hw_cfg["baud"]) if not dry_run else "AA-BB-CC-DD-EE-FF"
+    mac_addr = read_chip_mac(port, baud) if not dry_run else "AA-BB-CC-DD-EE-FF"
 
-    print(f"[*] Port : {hw_cfg['port']} @ {hw_cfg['baud']} baud")
+    print(f"[*] Port : {port} @ {baud} baud")
     print(f"[*] MAC  : {mac_addr}")
     print(f"[*] Mode : {'DRY-RUN' if dry_run else 'REAL SILICON FLASH'}")
 
+    # 3. Burn cryptographic keys into physical eFuse blocks
     for efuse_k in hw_cfg.get("efuse_keys", []):
         key_path = Path(efuse_k["key_file"]).resolve()
-        burn_efuse_key(hw_cfg["port"], hw_cfg["baud"], efuse_k["block"], key_path, efuse_k["purpose"], dry_run)
+        block = efuse_k["block"]
+        purpose = efuse_k["purpose"]
+        burn_efuse_key(port, baud, block, key_path, purpose, dry_run)
 
+        # 4. Enforce permanent hardware protection locks
+        # Flash Encryption key must be read-protected (hardware AES only) and write-protected
+        # Secure Boot digest must be write-protected (public digest remains readable)
+        read_protect = efuse_k.get("read_protect", (purpose == "FLASH_ENCRYPTION"))
+        write_protect = efuse_k.get("write_protect", True)
+        protect_efuse_key(port, baud, block, read_protect, write_protect, dry_run)
+
+    # 5. Burn anti-rollback monotonic counters and silicon security registers
     for reg in hw_cfg.get("efuse_registers", []):
-        burn_efuse_register(hw_cfg["port"], hw_cfg["baud"], reg["name"], reg["value"], dry_run)
+        burn_efuse_register(port, baud, reg["name"], str(reg["value"]), dry_run)
 
+    # 6. Flash dynamic partition layout
     flash_dynamic_layout(
-        hw_cfg["port"], hw_cfg["baud"], hw_cfg["chip"], hw_cfg["flash_mode"],
-        hw_cfg["flash_freq"], hw_cfg["flash_size"], parser, binary_mapping, dry_run
+        port, baud, chip, flash_mode,
+        flash_freq, flash_size, parser, binary_mapping, dry_run
     )
 
-    audit_dir = Path(paths_cfg["audit_dir"]).resolve()
+    # 7. Extract specific key files by purpose for audit trail
+    flash_key_file = "NONE"
+    sb_key_file = "NONE"
+    for k in hw_cfg.get("efuse_keys", []):
+        if k.get("purpose") == "FLASH_ENCRYPTION":
+            flash_key_file = str(k.get("key_file", "NONE"))
+        elif k.get("purpose") == "SECURE_BOOT_DIGEST0":
+            sb_key_file = str(k.get("key_file", "NONE"))
+
+    # 8. Capture permanent audit log
+    audit_dir = Path(paths_cfg.get("audit_dir", "build/audit_logs")).resolve()
     audit_logger = AuditLogger(audit_dir)
     audit_file = audit_logger.record_provisioning_event(
         mac_address=mac_addr,
         device_id=cfg.get("nvs_generation", {}).get("template_variables", {}).get("DEVICE_ID", "UNKNOWN"),
         hsvn=int(cfg.get("nvs_generation", {}).get("template_variables", {}).get("HSVN", 1)),
-        flash_key_file=str(hw_cfg.get("efuse_keys", [{}])[0].get("key_file", "NONE")),
-        sb_key_file=str(hw_cfg.get("efuse_keys", [{}])[-1].get("key_file", "NONE")),
+        flash_key_file=flash_key_file,
+        sb_key_file=sb_key_file,
         nvs_key_file=str(cfg.get("nvs_generation", {}).get("output_key_bin", "NONE")),
         status="PROVISIONED_SUCCESS" if not dry_run else "DRY_RUN_SUCCESS"
     )
@@ -279,8 +314,8 @@ def main() -> int:
 
         partitions_csv_path = find_partitions_csv(config["paths"]["partitions_csv"], roots)
 
-        # Dynamic SSoT resolution
-        pt_offset_raw = config.get("hardware", {}).get("partition_table_offset", "0xC000")
+        # Dynamic SSoT resolution of flash offsets
+        pt_offset_raw = config.get("hardware", {}).get("partition_table_offset", "0x10000")
         pt_offset = int(pt_offset_raw, 0)
         boot_offset = 0x0000 if config.get("hardware", {}).get("chip", "esp32s3") == "esp32s3" else 0x1000
 
@@ -305,6 +340,7 @@ def main() -> int:
     except Exception as e:
         print(f"\n[FATAL ERROR] {e}", file=sys.stderr)
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
