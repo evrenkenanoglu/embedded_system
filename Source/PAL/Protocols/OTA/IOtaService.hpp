@@ -38,7 +38,8 @@ enum class OtaState : uint8_t
 struct OtaOptions_t
 {
     std::string endpoint;         ///< Target remote connection identifier or endpoint location for the firmware binary
-    std::string serverCert;       ///< Root certificate string for TLS validation
+    std::string serverCert;       ///< Primary Root certificate string for TLS validation
+    std::string backupServerCert; ///< Secondary backup Root certificate string for CA rotation
     size_t      chunkSize{4096};  ///< Size of the local write buffer
     uint32_t    timeoutMs{30000}; ///< Socket transfer and response timeouts
 

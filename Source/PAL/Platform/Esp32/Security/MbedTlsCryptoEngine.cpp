@@ -211,8 +211,17 @@ sys_error_t MbedTlsCryptoEngine::getRandomBytes(uint8_t* outBuffer, size_t len)
 }
 
 sys_error_t MbedTlsCryptoEngine::aesGcmEncrypt(
-    const uint8_t* key, size_t keyLen, const uint8_t* iv, size_t ivLen, const uint8_t* aad, size_t aadLen, const uint8_t* plaintext, size_t plaintextLen,
-    uint8_t* outCiphertext, uint8_t* outTag)
+    const uint8_t* key, //
+     size_t keyLen, //
+     const uint8_t* iv, //
+     size_t ivLen, //
+     const uint8_t* aad, //
+     size_t aadLen, //
+     const uint8_t* plaintext, //
+     size_t plaintextLen, //
+    uint8_t* outCiphertext, //
+     uint8_t* outTag //
+    )
 {
     GcmContext gcm;
 
@@ -459,32 +468,140 @@ sys_error_t MbedTlsCryptoEngine::signHash(KeyType type, const std::string& priva
     return ERROR_SUCCESS;
 }
 
-sys_error_t
-MbedTlsCryptoEngine::verifySignature(KeyType type, const std::string& publicKeyPemOrCert, const uint8_t* hash, size_t hashLen, const uint8_t* signature, size_t signatureLen)
+sys_error_t MbedTlsCryptoEngine::_ieee1363ToDer(const uint8_t* rawSig, size_t rawSigLen, std::vector<uint8_t>& outDer)
 {
+    RETURN_IF_ERROR(
+        (rawSig == nullptr || rawSigLen != 64),                                                      // Expression
+        ERROR_INVALID_ARG,                                                                           // Error code
+        SYS_LOG_E("Raw IEEE P1363 signature must be exactly 64 bytes (R=32, S=32)")                // Error message
+    );
+
+    const uint8_t* r    = rawSig;
+    const uint8_t* s    = rawSig + 32;
+    size_t         rLen = 32;
+    size_t         sLen = 32;
+
+    /// Strip redundant leading zeroes while preserving magnitude
+    while (rLen > 1 && *r == 0)
+    {
+        r++;
+        rLen--;
+    }
+    while (sLen > 1 && *s == 0)
+    {
+        s++;
+        sLen--;
+    }
+
+    /// Prepend zero byte if the most significant bit is set to preserve positive ASN.1 integer encoding
+    const bool rPad = (r[0] & 0x80) != 0;
+    const bool sPad = (s[0] & 0x80) != 0;
+
+    const size_t rTotal = rLen + (rPad ? 1 : 0);
+    const size_t sTotal = sLen + (sPad ? 1 : 0);
+    const size_t seqLen = 2 + rTotal + 2 + sTotal;
+
+    outDer.clear();
+    outDer.reserve(2 + seqLen);
+
+    outDer.push_back(0x30); // ASN.1 SEQUENCE
+    outDer.push_back(static_cast<uint8_t>(seqLen));
+
+    // Append R integer element
+    outDer.push_back(0x02); // ASN.1 INTEGER
+    outDer.push_back(static_cast<uint8_t>(rTotal));
+    if (rPad)
+    {
+        outDer.push_back(0x00);
+    }
+    outDer.insert(outDer.end(), r, r + rLen);
+
+    // Append S integer element
+    outDer.push_back(0x02); // ASN.1 INTEGER
+    outDer.push_back(static_cast<uint8_t>(sTotal));
+    if (sPad)
+    {
+        outDer.push_back(0x00);
+    }
+    outDer.insert(outDer.end(), s, s + sLen);
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t MbedTlsCryptoEngine::verifySignature(
+    KeyType            type,
+    const std::string& publicKeyPemOrCert,
+    const uint8_t*     hash,
+    size_t             hashLen,
+    const uint8_t*     signature,
+    size_t             signatureLen
+)
+{
+    RETURN_IF_ERROR(
+        (hash == nullptr || hashLen == 0 || signature == nullptr || signatureLen == 0), // Expression
+        ERROR_INVALID_ARG,                                                               // Error code
+        SYS_LOG_E("Invalid null argument provided to verifySignature")                   // Error message
+    );
+
     PkContext         pk;
     mbedtls_md_type_t mdType = (hashLen == 32) ? MBEDTLS_MD_SHA256 : MBEDTLS_MD_SHA512;
 
-    /// Parse the target key as a raw public key [2].
-    int ret = mbedtls_pk_parse_public_key(pk.get(), reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()), publicKeyPemOrCert.length() + 1);
-    if (ret == 0)
-    {
-        /// Verify calculated hash against public key context.
-        ret = mbedtls_pk_verify(pk.get(), mdType, hash, hashLen, signature, signatureLen);
-    }
-    else
-    {
-        /// Fallback: Parse the key as an X.509 certificate if raw public key parsing fails [2].
-        mbedtls_x509_crt cert;
-        mbedtls_x509_crt_init(&cert);
+    int ret = mbedtls_pk_parse_public_key(
+        pk.get(),
+        reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()),
+        publicKeyPemOrCert.length() + 1
+    );
 
-        ret = mbedtls_x509_crt_parse(&cert, reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()), publicKeyPemOrCert.length() + 1);
+    mbedtls_x509_crt cert;
+    mbedtls_x509_crt_init(&cert);
+    bool isCert = false;
+
+    if (ret != 0)
+    {
+        ret = mbedtls_x509_crt_parse(
+            &cert,
+            reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()),
+            publicKeyPemOrCert.length() + 1
+        );
         if (ret == 0)
         {
-            /// Verify calculated hash against certificate context.
-            ret = mbedtls_pk_verify(&cert.pk, mdType, hash, hashLen, signature, signatureLen);
+            isCert = true;
         }
+    }
 
+    RETURN_IF_ERROR(
+        (ret != 0),                                                                            // Expression
+        ERROR_FAIL,                                                                            // Error code
+        SYS_LOG_E("Failed to parse public key or certificate context: -0x%04X", -ret),         // Error message
+        mbedtls_x509_crt_free(&cert)                                                           // Cleanup
+    );
+
+    mbedtls_pk_context* verifyPk = isCert ? &cert.pk : pk.get();
+
+    /// Transcode raw 64-byte IEEE P1363 (R || S) to ASN.1 DER format when validating EC SECP256R1 signatures
+    const uint8_t*       sigToVerify    = signature;
+    size_t               sigLenToVerify = signatureLen;
+    std::vector<uint8_t> derBuffer;
+
+    if (type == KEY_TYPE_EC_SECP256R1 && signatureLen == 64)
+    {
+        const sys_error_t transcodeErr = _ieee1363ToDer(signature, signatureLen, derBuffer);
+        RETURN_IF_ERROR(
+            (transcodeErr != ERROR_SUCCESS),                                                   // Expression
+            transcodeErr,                                                                      // Error code
+            SYS_LOG_E("Failed to transcode IEEE P1363 signature to ASN.1 DER"),               // Error message
+            mbedtls_x509_crt_free(&cert)                                                       // Cleanup
+        );
+
+        sigToVerify    = derBuffer.data();
+        sigLenToVerify = derBuffer.size();
+    }
+
+    /// Execute cryptographic signature verification against the resolved public key context
+    ret = mbedtls_pk_verify(verifyPk, mdType, hash, hashLen, sigToVerify, sigLenToVerify);
+
+    if (isCert)
+    {
         mbedtls_x509_crt_free(&cert);
     }
 
@@ -497,15 +614,18 @@ MbedTlsCryptoEngine::verifySignature(KeyType type, const std::string& publicKeyP
     return ERROR_SUCCESS;
 }
 
-sys_error_t MbedTlsCryptoEngine::verifyCertificateChain(const std::string& rootCaPem, const std::string& signingCertPem)
+sys_error_t MbedTlsCryptoEngine::_verifySingleChain(const std::string& rootCaPem, const std::string& signingCertPem)
 {
     mbedtls_x509_crt rootCa;
     mbedtls_x509_crt signingCert;
     mbedtls_x509_crt_init(&rootCa);
     mbedtls_x509_crt_init(&signingCert);
 
-    /// Parse the trusted Root CA anchor certificate.
-    int ret = mbedtls_x509_crt_parse(&rootCa, reinterpret_cast<const unsigned char*>(rootCaPem.c_str()), rootCaPem.length() + 1);
+    int ret = mbedtls_x509_crt_parse(
+        &rootCa,
+        reinterpret_cast<const unsigned char*>(rootCaPem.c_str()),
+        rootCaPem.length() + 1
+    );
     if (ret != 0)
     {
         mbedtls_x509_crt_free(&rootCa);
@@ -514,8 +634,11 @@ sys_error_t MbedTlsCryptoEngine::verifyCertificateChain(const std::string& rootC
         return ERROR_FAIL;
     }
 
-    /// Parse the incoming dynamic firmware-signing certificate [2].
-    ret = mbedtls_x509_crt_parse(&signingCert, reinterpret_cast<const unsigned char*>(signingCertPem.c_str()), signingCertPem.length() + 1);
+    ret = mbedtls_x509_crt_parse(
+        &signingCert,
+        reinterpret_cast<const unsigned char*>(signingCertPem.c_str()),
+        signingCertPem.length() + 1
+    );
     if (ret != 0)
     {
         mbedtls_x509_crt_free(&rootCa);
@@ -526,16 +649,38 @@ sys_error_t MbedTlsCryptoEngine::verifyCertificateChain(const std::string& rootC
 
     /// Perform chain verification check [2].
     uint32_t flags = 0;
-    ret            = mbedtls_x509_crt_verify(&signingCert, &rootCa, nullptr, nullptr, &flags, nullptr, nullptr);
+    ret = mbedtls_x509_crt_verify(&signingCert, &rootCa, nullptr, nullptr, &flags, nullptr, nullptr);
 
     mbedtls_x509_crt_free(&rootCa);
     mbedtls_x509_crt_free(&signingCert);
 
-    RETURN_IF_ERROR(
-        (ret != 0 || flags != 0),                                                                         // Expression
-        ERROR_FAIL,                                                                                       // Error code
-        SYS_LOG_E("X.509 chain verification check failed! -0x%04X (flags: 0x%08" PRIx32 ")", -ret, flags) // Error message
-    );
+    return (ret == 0 && flags == 0) ? ERROR_SUCCESS : ERROR_FAIL;
+}
 
-    return ERROR_SUCCESS;
+sys_error_t MbedTlsCryptoEngine::verifyCertificateChain(
+    const std::string& rootCaPem,
+    const std::string& signingCertPem,
+    const std::string& backupRootCaPem
+)
+{
+    /// Primary Trust Anchor validation attempt
+    if (_verifySingleChain(rootCaPem, signingCertPem) == ERROR_SUCCESS)
+    {
+        SYS_LOG_I("[PKI] Certificate chain verified against primary Root CA.");
+        return ERROR_SUCCESS;
+    }
+
+    /// Secondary fallback Trust Anchor validation attempt (supports scheduled Root CA rotation)
+    if (!backupRootCaPem.empty())
+    {
+        SYS_LOG_W("[PKI] Primary CA verification failed. Attempting verification against backup Root CA...");
+        if (_verifySingleChain(backupRootCaPem, signingCertPem) == ERROR_SUCCESS)
+        {
+            SYS_LOG_I("[PKI] Certificate chain verified against secondary backup Root CA.");
+            return ERROR_SUCCESS;
+        }
+    }
+
+    SYS_LOG_E("[PKI] Certificate chain validation failed against all available trust anchors.");
+    return ERROR_FAIL;
 }

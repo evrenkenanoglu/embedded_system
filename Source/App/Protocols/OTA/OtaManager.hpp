@@ -13,8 +13,10 @@
 #include "App/Protocols/OTA/IOtaManager.hpp"
 #include "PAL/Protocols/HTTP/IHttpClient.hpp"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
+#include "HAL/IHAL/IHal.h"
 #include <mutex>
 #include <string>
+
 
 /**
  * @class OtaManager
@@ -42,6 +44,7 @@ public:
     sys_error_t executeUpdate() override;
 
     sys_error_t validateCurrentFirmware() override;
+    sys_error_t loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem) override;
     void        rebootSystem() override;
 
     /**

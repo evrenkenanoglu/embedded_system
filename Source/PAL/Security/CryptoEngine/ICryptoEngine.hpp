@@ -238,7 +238,12 @@ public:
      *
      * @param[in]  rootCaPem       PEM-encoded Root CA certificate string.
      * @param[in]  signingCertPem  PEM-encoded target signing certificate string.
+     * @param[in]  backupRootCaPem Optional secondary PEM-encoded backup Root CA certificate for rotation.
+     *
      * @return sys_error_t         ERROR_SUCCESS on successful validation.
      */
-    virtual sys_error_t verifyCertificateChain(const std::string& rootCaPem, const std::string& signingCertPem) = 0;
+    virtual sys_error_t verifyCertificateChain(
+        const std::string& rootCaPem,
+        const std::string& signingCertPem,
+        const std::string& backupRootCaPem = "") = 0;
 };

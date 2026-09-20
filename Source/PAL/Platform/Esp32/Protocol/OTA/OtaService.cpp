@@ -33,34 +33,6 @@
 
 /** LOCAL FUNCTIONS ***********************************************************/
 
-namespace
-{
-    /**
-     * @brief Converts a hexadecimal string into its raw byte array representation.
-     */
-    bool hexToBytes(const std::string& hex, std::vector<uint8_t>& outBytes)
-    {
-        if (hex.length() % 2 != 0)
-        {
-            return false;
-        }
-        outBytes.clear();
-        outBytes.reserve(hex.length() / 2);
-        for (size_t i = 0; i < hex.length(); i += 2)
-        {
-            std::string byteString = hex.substr(i, 2);
-            char*       endptr     = nullptr;
-            long        byteVal    = std::strtol(byteString.c_str(), &endptr, 16);
-            if (endptr == byteString.c_str() || *endptr != '\0')
-            {
-                return false;
-            }
-            outBytes.push_back(static_cast<uint8_t>(byteVal));
-        }
-        return true;
-    }
-} // namespace
-
 /** FUNCTIONS *****************************************************************/
 
 OtaService::OtaService(IOtaTransport& transport, IHal_Mem_Ota& memOta, ICryptoEngine& cryptoEngine)
@@ -137,8 +109,12 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
             _progressCb(_state.load(), 0, _totalSize);
         }
 
-        /// Delegate X.509 chain verification directly to the CryptoEngine [1, 2].
-        sys_error_t verifyErr = _cryptoEngine.verifyCertificateChain(options.serverCert, options.signingCert);
+        /// Delegate X.509 chain verification directly to the CryptoEngine with backup Root CA fallback [1, 2].
+        sys_error_t verifyErr = _cryptoEngine.verifyCertificateChain(
+            options.serverCert,
+            options.signingCert,
+            options.backupServerCert
+        );
 
         RETURN_IF_ERROR((verifyErr != ERROR_SUCCESS),                                              // Expression
                         verifyErr,                                                                 // Error code
@@ -386,7 +362,13 @@ sys_error_t OtaService::_handleTransportChunk(const uint8_t* data, size_t length
 
 sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outHash)
 {
-    size_t partitionSize = _memOta.getPartitionSize();
+    RETURN_IF_ERROR(
+        (outHash == nullptr),                                   // Expression
+        ERROR_INVALID_ARG,                                      // Error code
+        SYS_LOG_E("Invalid output hash pointer provided")       // Error message
+    );
+
+    const size_t partitionSize = _memOta.getPartitionSize();
 
     RETURN_IF_ERROR(
         (partitionSize == 0),                                   // Expression
@@ -394,8 +376,12 @@ sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outH
         SYS_LOG_E("Update partition size is zero, cannot hash") // Error message
     );
 
-    /// Constrain hashing bounds using exact reassembled file size metric
-    size_t sizeLeft = (targetSize > 0 && targetSize <= partitionSize) ? targetSize : partitionSize;
+    /// Target size must be non-zero and bounded by partition size to prevent hashing erased flash filler (0xFF)
+    RETURN_IF_ERROR(
+        (targetSize == 0 || targetSize > partitionSize),                                                                              // Expression
+        ERROR_INVALID_ARG,                                                                                                           // Error code
+        SYS_LOG_E("Invalid targetSize for hashing: %zu bytes (partition size: %zu bytes)", targetSize, partitionSize)               // Error message
+    );
 
     /// Use the decoupled progressive hashing APIs of the ICryptoEngine [1, 2].
     RETURN_ON_ERROR(
@@ -403,26 +389,29 @@ sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outH
         SYS_LOG_E("Failed to start SHA-256 calculation")           // Log message
     );
 
-    size_t  offset = 0;
+    size_t  offset   = 0;
+    size_t  sizeLeft = targetSize;
     uint8_t readBuffer[4096];
 
     while (sizeLeft > 0)
     {
-        size_t readSize = (sizeLeft > sizeof(readBuffer)) ? sizeof(readBuffer) : sizeLeft;
+        const size_t readSize = (sizeLeft > sizeof(readBuffer)) ? sizeof(readBuffer) : sizeLeft;
 
         /// Direct read of physical blocks from target partition
-        sys_error_t err = _memOta.read(offset, readBuffer, readSize);
-        if (err != ERROR_SUCCESS)
-        {
-            return err;
-        }
+        const sys_error_t readErr = _memOta.read(offset, readBuffer, readSize);
+        RETURN_IF_ERROR(
+            (readErr != ERROR_SUCCESS),                                    // Expression
+            readErr,                                                       // Error code
+            SYS_LOG_E("Flash read failure during progressive hash check") // Error message
+        );
 
         /// Progressive SHA-256 hash calculation [1, 2]
-        err = _cryptoEngine.hashUpdate(readBuffer, readSize);
-        if (err != ERROR_SUCCESS)
-        {
-            return err;
-        }
+        const sys_error_t updateErr = _cryptoEngine.hashUpdate(readBuffer, readSize);
+        RETURN_IF_ERROR(
+            (updateErr != ERROR_SUCCESS),                                        // Expression
+            updateErr,                                                           // Error code
+            SYS_LOG_E("Progressive hash update failure at offset: %zu", offset) // Error message
+        );
 
         offset += readSize;
         sizeLeft -= readSize;
@@ -433,25 +422,36 @@ sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outH
 
 sys_error_t OtaService::_hexStringToBytes(const std::string& hex, uint8_t* outBytes, size_t& outLen)
 {
-    /// If the hex string length is odd, it's invalid
-    if (hex.length() % 2 != 0)
-    {
-        return ERROR_INVALID_ARG;
-    }
+    RETURN_IF_ERROR(
+        (hex.empty() || (hex.length() % 2 != 0) || outBytes == nullptr), // Expression
+        ERROR_INVALID_ARG,                                               // Error code
+        SYS_LOG_E("Invalid hex string or target buffer parameter")       // Error message
+    );
 
-    /// Calculate the expected output length
-    outLen = hex.length() / 2;
+    constexpr size_t max_signature_buffer_len = 128;
+    const size_t     expectedLen              = hex.length() / 2;
 
-    /// Convert each pair of hex characters to a byte
+    /// Stack buffer bounds validation check to prevent buffer overflow vulnerabilities
+    RETURN_IF_ERROR(
+        (expectedLen > max_signature_buffer_len),                                                                                     // Expression
+        ERROR_OUT_OF_MEMORY,                                                                                                          // Error code
+        SYS_LOG_E("Signature byte length exceeds maximum buffer capacity: %zu bytes (max: %zu)", expectedLen, max_signature_buffer_len) // Error message
+    );
+
+    outLen = expectedLen;
+
     for (size_t i = 0; i < outLen; ++i)
     {
         std::string byteString = hex.substr(i * 2, 2);
         char*       endptr     = nullptr;
         long        byteVal    = std::strtol(byteString.c_str(), &endptr, 16);
-        if (endptr == byteString.c_str() || *endptr != '\0')
-        {
-            return ERROR_INVALID_ARG;
-        }
+
+        RETURN_IF_ERROR(
+            (endptr == byteString.c_str() || *endptr != '\0'),                     // Expression
+            ERROR_INVALID_ARG,                                                     // Error code
+            SYS_LOG_E("Failed to parse hexadecimal byte sequence at index %zu", i) // Error message
+        );
+
         outBytes[i] = static_cast<uint8_t>(byteVal);
     }
 

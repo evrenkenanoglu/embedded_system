@@ -14,6 +14,9 @@
 #include <string>
 #include <functional>
 
+// Forward declarations
+class IHAL_MEM;
+
 /**
  * @brief Verification results generated during updates scanning cycles.
  */
@@ -35,6 +38,7 @@ struct OtaManagerOptions_t
 {
     std::string gatewayUrl;                   ///< Remote update gateway URL (e.g., https://192.168.0.172:8443)
     std::string serverCert;                   ///< Base CA trust anchor certificate
+    std::string backupServerCert;             ///< Secondary backup CA trust anchor certificate for rotation
     std::string apiKey;                       ///< Authorization token key passed via custom headers
     std::string currentVersion;               ///< Current running application firmware version
     std::string hardwareType;                 ///< Hardware board layout or module identifier
@@ -110,6 +114,14 @@ public:
      * @return sys_error_t ERROR_SUCCESS if validation is accepted, otherwise an error status code.
      */
     virtual sys_error_t validateCurrentFirmware() = 0;
+
+    /**
+     * @brief Loads primary and backup Root CA trust anchors from an NVS storage device (e.g. 'fctry' partition).
+     *
+     * @param[in] factoryMem Initialized IHAL_MEM instance pointing to the 'sec_pki' namespace.
+     * @return sys_error_t ERROR_SUCCESS if at least the primary Root CA was successfully loaded.
+     */
+    virtual sys_error_t loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem) = 0;
 
     /**
      * @brief Restarts the local micro-controller unit into the updated partition.

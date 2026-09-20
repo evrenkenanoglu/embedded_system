@@ -306,15 +306,16 @@ sys_error_t OtaManager::executeUpdate()
     SYS_LOG_I("Preconditions verified. Starting Stage 2 Stream Download: Type [%s]", _pendingType.c_str());
 
     OtaOptions_t serviceOptions{};
-    serviceOptions.endpoint        = _pendingUrl;
-    serviceOptions.serverCert      = _options.serverCert;
-    serviceOptions.chunkSize       = DEFAULT_DOWNLOAD_CHUNK_SIZE;
-    serviceOptions.timeoutMs       = DEFAULT_DOWNLOAD_TIMEOUT_MS;
-    serviceOptions.signature       = _pendingSignature;
-    serviceOptions.targetSignature = _pendingTargetSignature;
-    serviceOptions.signingCert     = _pendingSigningCert;
-    serviceOptions.isDelta         = (_pendingType == "delta");
-    serviceOptions.targetSize      = _pendingSize;
+    serviceOptions.endpoint         = _pendingUrl;
+    serviceOptions.serverCert       = _options.serverCert;
+    serviceOptions.backupServerCert = _options.backupServerCert;
+    serviceOptions.chunkSize        = DEFAULT_DOWNLOAD_CHUNK_SIZE;
+    serviceOptions.timeoutMs        = DEFAULT_DOWNLOAD_TIMEOUT_MS;
+    serviceOptions.signature        = _pendingSignature;
+    serviceOptions.targetSignature  = _pendingTargetSignature;
+    serviceOptions.signingCert      = _pendingSigningCert;
+    serviceOptions.isDelta          = (_pendingType == "delta");
+    serviceOptions.targetSize       = _pendingSize;
 
     auto progressCallback = [](OtaState state, size_t received, size_t total)
     {
@@ -418,6 +419,55 @@ sys_error_t OtaManager::_sendTelemetryReport(const std::string& statusStr, sys_e
 sys_error_t OtaManager::validateCurrentFirmware()
 {
     std::lock_guard<std::mutex> lock(_mutex);
+    return ERROR_SUCCESS;
+}
+
+sys_error_t OtaManager::loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    RETURN_ON_ERROR(
+        factoryMem.init(),                                                               // Expression
+        SYS_LOG_E("Failed to initialize factory storage device for trust anchor readout") // Log message
+    );
+
+    std::vector<char> certBuf(4096, 0);
+
+    // 1. Read primary Root CA trust anchor
+    sys_error_t err = factoryMem.readData(
+        "root_ca_pem",
+        reinterpret_cast<uint8_t*>(certBuf.data()),
+        certBuf.size() - 1
+    );
+
+    RETURN_IF_ERROR(
+        (err != ERROR_SUCCESS),                                                           // Expression
+        err,                                                                              // Error code
+        SYS_LOG_E("Failed to load primary 'root_ca_pem' from secure factory storage")    // Error message
+    );
+
+    _options.serverCert = certBuf.data();
+    SYS_LOG_I("Primary Root CA trust anchor loaded from storage (%zu bytes)", _options.serverCert.length());
+
+    // 2. Read optional secondary Root CA trust anchor (supports scheduled CA rotation)
+    std::fill(certBuf.begin(), certBuf.end(), 0);
+    err = factoryMem.readData(
+        "root_ca_backup_pem",
+        reinterpret_cast<uint8_t*>(certBuf.data()),
+        certBuf.size() - 1
+    );
+
+    if (err == ERROR_SUCCESS && std::strlen(certBuf.data()) > 0)
+    {
+        _options.backupServerCert = certBuf.data();
+        SYS_LOG_I("Secondary backup Root CA trust anchor loaded from storage (%zu bytes)", _options.backupServerCert.length());
+    }
+    else
+    {
+        _options.backupServerCert.clear();
+        SYS_LOG_D("No secondary backup Root CA found in storage");
+    }
+
     return ERROR_SUCCESS;
 }
 

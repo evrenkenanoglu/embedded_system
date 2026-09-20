@@ -26,6 +26,7 @@
 
 // 3. C++ Standard Library Headers
 #include <string>
+#include <vector>
 
 /**
  * @class MbedTlsCryptoEngine
@@ -180,6 +181,27 @@ private:
      */
     sys_error_t _seedRng(EntropyContext& entropy, DrbgContext& drbg);
 
+    /**
+     * @brief Transcodes raw IEEE P1363 (64-byte R || S) signature to ASN.1 DER format for mbedTLS.
+     *
+     * @param[in]  rawSig    Raw 64-byte signature buffer.
+     * @param[in]  rawSigLen Length of raw signature buffer.
+     * @param[out] outDer    Output vector to hold the transcoded ASN.1 DER signature.
+     *
+     * @return sys_error_t   ERROR_SUCCESS on success, otherwise an error status code.
+     */
+    static sys_error_t _ieee1363ToDer(const uint8_t* rawSig, size_t rawSigLen, std::vector<uint8_t>& outDer);
+
+    /**
+     * @brief Verifies signing certificate against a single Root CA context.
+     *
+     * @param[in] rootCaPem      PEM-encoded Root CA certificate string.
+     * @param[in] signingCertPem PEM-encoded signing certificate string.
+     *
+     * @return sys_error_t       ERROR_SUCCESS on success, otherwise an error status code.
+     */
+    static sys_error_t _verifySingleChain(const std::string& rootCaPem, const std::string& signingCertPem);
+
 private:
     mbedtls_sha256_context _sha256Ctx;
     mbedtls_sha512_context _sha512Ctx;
@@ -271,7 +293,8 @@ public:
         ) override;
 
     sys_error_t verifyCertificateChain(
-        const std::string& rootCaPem,     //
-        const std::string& signingCertPem //
+        const std::string& rootCaPem,           //
+        const std::string& signingCertPem,      //
+        const std::string& backupRootCaPem = "" //
         ) override;
 };
