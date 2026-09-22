@@ -1,0 +1,24 @@
+# Optional custom variables (can reference built-in ${CONFIG_DIR} and OS env vars)
+vars:
+  PROJECT_ROOT: "${CONFIG_DIR}/../.."
+  CONFIGS_DIR: "${CONFIG_DIR}/../.."
+
+root: "${PROJECT_ROOT}/"
+
+ignore_patterns:
+  - "build/"
+  - ".git/"
+  - "vendor/**"
+  - "third_party/*"
+  - "*_generated.c"
+  - "__pycache__/"
+  - ".venv/"
+  - "venv/"
+
+c:
+  extensions: [".c", ".h", ".cpp", ".hpp"]
+  style_config: "${CONFIGS_DIR}/.clang-format"
+
+python:
+  extensions: [".py"]
+  style_config: "${CONFIGS_DIR}/pyproject.toml"

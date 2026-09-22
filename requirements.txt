@@ -9,6 +9,7 @@ bandit==1.9.4             # via -r Source/Scripts/static_code_analysis/requireme
 beautifulsoup4==4.15.0    # via -r Source/Library/UI/HTTP/requirements.txt
 bitarray==3.11.0          # via bitstring
 bitstring==4.4.0          # via esptool
+black==26.5.1             # via -r Tools/FORMAT/requirements.in
 boltons==21.0.0           # via face, glom, semgrep
 bracex==3.0.1             # via wcmatch
 certifi==2026.7.22        # via httpcore, httpx, requests, safety
@@ -16,12 +17,12 @@ cffi==2.1.1 ; platform_python_implementation != 'PyPy'  # via cryptography
 charset-normalizer==3.5.1  # via requests
 clang-format==23.1.0      # via -r requirements.in
 clang-tidy==22.1.8        # via -r requirements.in
-click==8.4.2              # via click-option-group, esp-pylib, esptool, gitmanager, nltk, rich-click, safety, semgrep, typer, uvicorn
+click==8.4.2              # via black, click-option-group, esp-pylib, esptool, gitmanager, nltk, rich-click, safety, semgrep, typer, uvicorn
 click-option-group==0.5.9  # via semgrep
 cloudpickle==3.1.2        # via joblib
 cmake==4.4.3              # via -r requirements.in
 colorama==0.4.6           # via bandit, click, pytest, rich-click, semgrep, tqdm, -r Source/Scripts/static_code_analysis/requirements.txt
-cryptography==50.0.1      # via authlib, esp-idf-nvs-partition-gen, esptool, joserfc, pyjwt, -r Source/Scripts/provisioning/requirements.txt, -r Tools/OTA/ota-server/requirements.txt
+cryptography==50.0.1      # via authlib, esp-idf-nvs-partition-gen, esptool, joserfc, pyjwt, -r Source/Scripts/provisioning/requirements.txt, -r Tools/OTA/ota-server/requirements.txt, -r Tools/PKI/requirements.txt
 defusedxml==0.7.1         # via nltk
 delegator-py==0.1.1       # via gitmanager
 dparse==0.6.4             # via safety, safety-schemas
@@ -29,7 +30,7 @@ esp-bool-parser==0.2.3    # via pytest-embedded-idf
 esp-idf-nvs-partition-gen==0.3.0  # via -r Source/Scripts/provisioning/requirements.txt
 esp-idf-panic-decoder==1.5.0  # via pytest-embedded-idf
 esp-pylib==1.1.4          # via esp-idf-nvs-partition-gen, esptool
-esptool==5.4.0            # via pytest-embedded-serial-esp, -r Source/Scripts/provisioning/requirements.txt
+esptool==5.4.0            # via pytest-embedded-serial-esp, -r Source/Scripts/provisioning/requirements.txt, -r Tools/PKI/requirements.txt
 exceptiongroup==1.2.2     # via semgrep
 face==26.0.1              # via glom
 fastapi==0.141.1          # via -r Tools/OTA/ota-server/requirements.txt
@@ -60,6 +61,7 @@ markupsafe==3.0.3         # via jinja2
 marshmallow==4.3.1        # via safety
 mcp==1.29.0               # via semgrep
 mdurl==0.1.2              # via markdown-it-py
+mypy-extensions==1.1.0    # via black
 nltk==3.10.3              # via safety
 opentelemetry-api==1.37.0  # via opentelemetry-exporter-otlp-proto-http, opentelemetry-instrumentation, opentelemetry-instrumentation-requests, opentelemetry-instrumentation-threading, opentelemetry-sdk, opentelemetry-semantic-conventions, semgrep
 opentelemetry-exporter-otlp-proto-common==1.37.0  # via opentelemetry-exporter-otlp-proto-http
@@ -71,9 +73,11 @@ opentelemetry-proto==1.37.0  # via opentelemetry-exporter-otlp-proto-common, ope
 opentelemetry-sdk==1.37.0  # via opentelemetry-exporter-otlp-proto-http, semgrep
 opentelemetry-semantic-conventions==0.58b0  # via opentelemetry-instrumentation, opentelemetry-instrumentation-requests, opentelemetry-sdk
 opentelemetry-util-http==0.58b0  # via opentelemetry-instrumentation-requests
-packaging==26.3           # via dparse, esp-bool-parser, opentelemetry-instrumentation, pytest, safety, safety-schemas, semgrep
+packaging==26.3           # via black, dparse, esp-bool-parser, opentelemetry-instrumentation, pytest, safety, safety-schemas, semgrep
+pathspec==1.1.1           # via black, -r Tools/FORMAT/requirements.in
 peewee==3.19.0            # via semgrep
 pexpect==4.9.0            # via delegator-py, pytest-embedded
+platformdirs==4.11.12     # via black
 pluggy==1.6.0             # via pytest
 protobuf==6.33.6          # via googleapis-common-protos, opentelemetry-proto
 ptyprocess==0.7.0         # via pexpect
@@ -95,8 +99,9 @@ pytest-html==4.2.0        # via -r CI_CD/pipeline/requirements.txt
 pytest-metadata==3.1.1    # via pytest-html
 python-dotenv==1.2.3      # via pydantic-settings, uvicorn
 python-multipart==0.0.32  # via mcp, -r Tools/OTA/ota-server/requirements.txt
+pytokens==0.4.1           # via black
 pywin32==311 ; sys_platform == 'win32'  # via mcp, semgrep, -r requirements.in
-pyyaml==6.0.3             # via bandit, esptool, uvicorn, -r Source/Scripts/provisioning/requirements.txt, -r Source/Scripts/static_code_analysis/requirements.txt, -r Tools/OTA/ota-server/requirements.txt
+pyyaml==6.0.3             # via bandit, esptool, uvicorn, -r Source/Scripts/provisioning/requirements.txt, -r Source/Scripts/static_code_analysis/requirements.txt, -r Tools/FORMAT/requirements.in, -r Tools/OTA/ota-server/requirements.txt
 reedsolo==1.7.0           # via esptool
 referencing==0.37.0       # via jsonschema, jsonschema-specifications
 regex==2026.9.3           # via nltk
