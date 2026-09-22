@@ -1,119 +1,186 @@
-### AI Implementation Prompt
+### Revised AI Implementation Prompt
 
 ```text
-You are an expert Embedded Systems Reliability and RTOS Engineer specializing in fault-tolerant firmware architectures for ESP-IDF. Your objective is to implement the "Resiliency, Anti-Bricking & Self-Healing" domain for the ESP32-S3 OTA framework.
+You are an expert Embedded Systems Reliability and Platform Software Engineer. Your objective is to implement the "Resiliency, Anti-Bricking & Self-Healing" domain (Phase 2) for the firmware update framework.
 
 ### SYSTEM CONTEXT & ARCHITECTURE
-- Architecture: 3-Tier Layered Architecture (HAL: mem_ota -> PAL: OtaService, OtaHttpTransport, HttpsClient -> App: OtaManager).
-- Environment: ESP32-S3 (Dual-Core Xtensa LX7), ESP-IDF v5.x+, FreeRTOS, C++17/C++20 with -fno-exceptions.
-- Partition Scheme: A/B dual-boot layout with otadata partition tracking active boot slots.
-- Error Handling: Standard sys_error_t codes, multi-line macros (RETURN_IF_ERROR, RETURN_ON_ERROR) with right-aligned comments, and TRANSLATE_ERROR() for ESP-IDF APIs.
-- Code Standards: Strict RAII (Rule of Five on hardware/connection abstractions), Allman brace formatting, 4-space indentation, and Doxygen method documentation.
+- Architecture: 3-Tier Layered Architecture (HAL -> PAL -> App -> System).
+  * HAL: IHal_Mem_Ota, IHal_Mem, IHal_Watchdog (Platform/ESP32 implementations: mem_ota, mem_nvs).
+  * PAL: IOtaService, IOtaTransport, IHttpClient, IOtaCheckpointManager (Platform implementations: OtaService, OtaHttpTransport, HttpsClient).
+  * App: IOtaManager, OtaManager.
+- Constraints: C++17/C++20 with -fno-exceptions and -fno-rtti, FreeRTOS abstraction, dual-bank A/B boot layout.
+- Error Handling: Use standard sys_error_t returns, TRANSLATE_ERROR() for vendor error conversions, and multi-line macros (RETURN_IF_ERROR, RETURN_ON_ERROR) with right-aligned comments.
+- Resource Safety: Enforce strict RAII, Rule of Five on all hardware/network state holders, zero dynamic memory allocations in ISRs, and std::memcpy for raw byte streams.
+- Code Standards: Allman brace formatting, 4-space indentation, no 'using namespace' in headers, and comprehensive Doxygen comments.
 
 ### CORE OBJECTIVES
-1. Provisional Boot Validation & App Self-Test Engine:
-   - Transition the bootloader to enforce ESP_OTA_IMG_PENDING_VERIFY upon flashing new images.
-   - Refactor OtaManager::validateCurrentFirmware() from a stub into an active self-healing state machine.
-   - Implement an extensible self-test callback pipeline (NVS validation, peripheral checks, network link verification).
-   - Enforce automatic rollback via esp_ota_mark_app_invalid_rollback_and_reboot() on self-test failure, runtime panic, or watchdog expiration.
-   - Commit boot partition via esp_ota_mark_app_valid_cancel_rollback() only after all self-tests succeed.
-2. Resumable Chunk Downloads (HTTP Range Requests):
-   - Extend IHttpClient, HttpsClient, and OtaHttpTransport to support HTTP 'Range: bytes=offset-' headers.
-   - Implement an NVS Checkpoint Manager that persists download progress (written byte offset, target SHA-256, version tag, transient URL).
-   - Ensure flash writes on resumed sessions align with flash erase sector boundaries (4096 bytes) and avoid duplicate writes to uncleared sectors.
-   - Add checkpoint invalidation logic if target version, hash, or file size changes between check requests.
-3. Task Watchdog Timer (TWDT) & CPU Starvation Prevention:
-   - Subscribe OTA worker tasks to the ESP-IDF Task Watchdog Timer (TWDT).
-   - Inject cooperative RTOS yields (vTaskDelay(pdMS_TO_TICKS(1))) and TWDT feeds inside blocking loops (progressive hashing in OtaService::_calculatePartitionHash, stream writes, and delta decompression).
-4. Post-Rollback Diagnostics & Telemetry:
-   - Persist crash/rollback diagnostics in a dedicated NVS namespace before rollback execution.
-   - On fallback boot into the previous partition, transmit a specialized failure telemetry report to /api/v1/ota/status detailing the exact rollback cause.
+1. Provisional Boot Validation & Self-Healing Engine:
+   - Abstract boot state confirmation behind IHal_Mem_Ota (e.g., ImageState::PendingVerify, ImageState::Valid, ImageState::Invalid).
+   - Implement an extensible self-test callback pipeline in OtaManager (storage, peripherals, network link, task health).
+   - Execute automatic rollback via IHal_Mem_Ota::markAppInvalid() on self-test failure, panic, or watchdog timeout.
+   - Commit boot partition via IHal_Mem_Ota::markAppValid() only when all validation hooks pass.
+2. Resumable Chunked Downloads (HTTP Range Requests):
+   - Extend IHttpClient and IOtaTransport to support byte-range streaming ('Range: bytes=offset-').
+   - Create a platform-agnostic OtaCheckpointManager backed by IHAL_MEM to track download progress (byte offset, target size, target SHA-256, version tag).
+   - Ensure flash write operations on resumed sessions align with physical flash sector boundaries (4096 bytes) and avoid re-erasing or overwriting valid blocks.
+   - Invalidate checkpoints if target version, image hash, or file size changes during polling cycles.
+3. Watchdog & CPU Starvation Prevention:
+   - Provide an abstract IHal_Watchdog / cooperative yield interface.
+   - Inject cooperative RTOS yields and watchdog refresh calls inside tight execution loops (progressive hash calculation, network stream read/writes, and delta decompression).
+4. Post-Rollback Diagnostics & Fleet Telemetry:
+   - Persist crash/rollback diagnostic codes in dedicated non-volatile storage (IHAL_MEM) prior to triggering reboot/rollback.
+   - On fallback boot into the previous partition, detect the diagnostic flag, transmit a status report to /api/v1/ota/status, and clear the flag.
 
 ### DELIVERABLES REQUIRED
-- Refactored C++ header and source files for OtaManager, OtaService, OtaHttpTransport, HttpsClient, and mem_ota.
-- New NVS Checkpoint abstraction class (OtaCheckpointManager) with clean PAL/HAL boundaries.
-- Concrete self-test test harness implementation.
-- Unit/mock tests simulating power cuts, corrupted chunks, HTTP dropouts, and self-test assertion failures.
+- Clean, production-ready C++ header and source files for IOtaManager, OtaManager, IOtaService, OtaService, IOtaTransport, OtaHttpTransport, IHttpClient, HttpsClient, IHal_Mem_Ota, and mem_ota.
+- New OtaCheckpointManager class backed by IHAL_MEM.
+- Automated HIL/unit test suite simulating power cuts, corrupted chunks, dropped connections, and failed self-tests.
 ```
 
 ---
 
-### Resiliency, Anti-Bricking & Self-Healing: Implementation Checklist
+### Revised Checklist: Resiliency, Anti-Bricking & Self-Healing
 
-#### 1. Provisional Boot & Runtime Self-Healing Engine
-- [ ] **Bootloader Provisional State Enforcement:**
-  - [ ] Configure `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y` in `sdkconfig`.
-  - [ ] Verify that `mem_ota::setBootPartition()` leaves the newly written image in state `ESP_OTA_IMG_PENDING_VERIFY`.
-- [ ] **Application Self-Test Framework:**
-  - [ ] Define `OtaSelfTestHook_t` function pointer type in `IOtaManager.hpp` returning `sys_error_t`.
-  - [ ] Implement core diagnostic checks:
-    - [ ] `checkNvsIntegrity()`: Validates read/write access to non-volatile namespaces.
-    - [ ] `checkPeripherals()`: Verifies local I2C, SPI, and GPIO expander initialization.
-    - [ ] `checkNetworkConnectivity()`: Confirms Wi-Fi connection and gateway reachability.
-    - [ ] `checkTaskHealth()`: Confirms all system tasks spawned successfully without stack overflows.
-- [ ] **Provisional Validation State Machine (`OtaManager.cpp`):**
-  - [ ] Replace `OtaManager::validateCurrentFirmware()` stub:
-    - [ ] Query running partition state via `esp_ota_get_state_partition()`.
-    - [ ] If state is `ESP_OTA_IMG_PENDING_VERIFY`, execute registered self-test routines.
-    - [ ] On failure: Call `mem_ota::markAppInvalid()` (`esp_ota_mark_app_invalid_rollback_and_reboot()`).
-    - [ ] On success: Call `mem_ota::markAppValid()` (`esp_ota_mark_app_valid_cancel_rollback()`).
-- [ ] **Watchdog Rollback Protection:**
-  - [ ] Set rollback watchdog timeout window via `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`.
-  - [ ] Ensure fatal runtime exceptions (Guru Meditation / panics) automatically trigger hardware reset to initiate bootloader rollback.
+#### 1. Provisional Boot Validation & App Self-Test Engine
+- [ ] **HAL Boot Partition State Abstraction (`IHal_Mem_Ota.h` & `mem_ota.hpp`):**
+  - [ ] Define platform-agnostic partition state enumeration:
+    ```cpp
+    enum class OtaImageState : uint8_t
+    {
+        Valid = 0,
+        Invalid,
+        PendingVerify,
+        Unknown
+    };
+    ```
+  - [ ] Add `virtual sys_error_t getRunningImageState(OtaImageState& outState) = 0;` to `IHal_Mem_Ota`.
+  - [ ] Implement `mem_ota::getRunningImageState()` via `esp_ota_get_state_partition()`.
+- [ ] **Extensible Application Self-Test Pipeline (`IOtaManager.hpp` & `OtaManager.hpp`):**
+  - [ ] Define self-test callback signature:
+    ```cpp
+    using OtaSelfTestHook_t = std::function<sys_error_t()>;
+    ```
+  - [ ] Add `registerSelfTest(const std::string& name, OtaSelfTestHook_t testHook)` to `IOtaManager`.
+  - [ ] Implement modular diagnostic hooks:
+    - [ ] `checkStorageIntegrity()`: Asserts read/write operations against non-volatile memory partitions.
+    - [ ] `checkPeripheralBus()`: Asserts health of attached I2C/SPI sensors and GPIO expanders.
+    - [ ] `checkNetworkLink()`: Validates Wi-Fi station association and gateway ping/DNS reachability.
+- [ ] **Self-Healing State Machine Execution (`OtaManager.cpp`):**
+  - [ ] Implement `OtaManager::validateCurrentFirmware()`:
+    - [ ] Query active image status via `_memOta.getRunningImageState()`.
+    - [ ] If status is `OtaImageState::PendingVerify`:
+      - [ ] Sequentially execute all registered `OtaSelfTestHook_t` routines.
+      - [ ] On any hook failure: Log failure, record diagnostic code in storage, and execute `_memOta.markAppInvalid()`.
+      - [ ] If all hooks succeed: Call `_memOta.markAppValid()` to clear trial state and commit the active bank.
 
 ---
 
 #### 2. Resumable Chunked Downloads (HTTP Range Requests)
-- [ ] **HTTP Client Range Header Extension:**
-  - [ ] Update `HttpClientOptions_t` / `IHttpClient::sendRequest` to accept an optional byte offset range.
-  - [ ] Modify `HttpsClient::_prepare_request` to append `Range: bytes=<offset>-` when resuming an active session.
-  - [ ] Handle HTTP status `206 Partial Content` as a valid success code alongside `200 OK`.
-- [ ] **NVS OTA Checkpoint Manager:**
-  - [ ] Create `OtaCheckpointManager` class to encapsulate resume state:
-    - [ ] `saveCheckpoint(version, targetSize, bytesWritten, hashContext, url)`
-    - [ ] `loadCheckpoint(outCheckpoint)`
-    - [ ] `clearCheckpoint()`
-  - [ ] Implement validation logic: discard checkpoints if firmware version, target size, or image hash mismatch the server manifest.
-- [ ] **Flash Partition Resumption Safety (`mem_ota.cpp`):**
-  - [ ] Modify `mem_ota::begin(size_t imageSize, size_t startOffset)` to support starting at a non-zero byte boundary.
-  - [ ] Ensure partial downloads do not erase already written sectors if resuming within valid partition bounds.
-  - [ ] Verify that `startOffset` aligns with physical flash write block constraints (4 KB boundaries).
-
----
-
-#### 3. Task Watchdog Timer (TWDT) & CPU Starvation Prevention
-- [ ] **TWDT Registration:**
-  - [ ] Subscribe the OTA execution task to the Task Watchdog Timer using `esp_task_wdt_add(NULL)`.
-  - [ ] Unsubscribe task upon update completion or error teardown (`esp_task_wdt_delete(NULL)`).
-- [ ] **Progressive Hash Yielding (`OtaService.cpp`):**
-  - [ ] In `OtaService::_calculatePartitionHash`, insert cooperative yielding and watchdog feeding inside the 4 KB read loop:
+- [ ] **HTTP Interface & Client Range Request Support (`IHttpClient.hpp` & `HttpsClient.hpp`):**
+  - [ ] Add `rangeStartOffset` and `rangeEndOffset` fields to `HttpClientOptions_t`.
+  - [ ] In `HttpsClient`, format and append `Range: bytes=<offset>-` header when `rangeStartOffset > 0`.
+  - [ ] Update response status evaluation: Accept `206 Partial Content` as a valid status alongside `200 OK`.
+- [ ] **NVS Checkpoint Abstraction (`OtaCheckpointManager.hpp` & `.cpp`):**
+  - [ ] Create `OtaCheckpointManager` decoupled from vendor APIs using `IHAL_MEM`:
     ```cpp
-    esp_task_wdt_reset();
-    vTaskDelay(pdMS_TO_TICKS(1));
+    struct OtaCheckpoint_t
+    {
+        char     targetVersion[32];
+        char     targetHash[65];
+        size_t   targetSize;
+        size_t   bytesWritten;
+        uint32_t crc32;
+    };
     ```
-- [ ] **Stream Processing Yielding (`OtaService.cpp` & `mem_ota.cpp`):**
-  - [ ] Inject watchdog resets in `_handleTransportChunk` during high-throughput network stream processing.
-  - [ ] Insert watchdog feeds inside delta decompression feed cycles (`esp_delta_ota_feed_patch`).
+  - [ ] Implement `save(const OtaCheckpoint_t& cp)` with CRC32 integrity checks.
+  - [ ] Implement `load(OtaCheckpoint_t& outCp)` asserting matching version, hash, and total size against the incoming server manifest.
+  - [ ] Implement `clear()` to purge checkpoint upon successful download completion or version invalidation.
+- [ ] **Resumable Partition Writing (`IHal_Mem_Ota.h` & `mem_ota.cpp`):**
+  - [ ] Add `resume(size_t expectedTotalSize, size_t startOffset)` to `IHal_Mem_Ota`.
+  - [ ] In `mem_ota`, ensure `startOffset` is aligned to physical 4 KB sector boundaries (`0x1000`).
+  - [ ] Advance `_updateHandle` write offset without erasing already written flash sectors.
 
 ---
 
-#### 4. Power Interruption & Fault Recovery
-- [ ] **Atomic Boot Flag Management:**
-  - [ ] Verify that `otadata` partition writes are atomic and resilient to mid-write brownouts.
-  - [ ] Validate that an incomplete or corrupted `otadata` sequence causes the ROM bootloader to fall back to the last known valid partition slot (`ota_0` or `ota_1`).
-- [ ] **Brownout Detector Integration:**
-  - [ ] Enable hardware brownout detector in `sdkconfig` (`CONFIG_ESP_BROWNOUT_DET=y`).
-  - [ ] Configure brownout reset threshold to prevent flash corruption during voltage dips caused by Wi-Fi/flash peak currents.
+#### 3. Watchdog & CPU Starvation Prevention
+- [ ] **Hardware Watchdog Abstraction (`IHal_Watchdog.h` & Platform Adapter):**
+  - [ ] Create generic interface:
+    ```cpp
+    class IHal_Watchdog
+    {
+    public:
+        virtual ~IHal_Watchdog() = default;
+        virtual sys_error_t registerCurrentTask() = 0;
+        virtual sys_error_t feed() = 0;
+        virtual sys_error_t unregisterCurrentTask() = 0;
+    };
+    ```
+  - [ ] Implement platform driver wrapping the Task Watchdog Timer (`esp_task_wdt_*`).
+- [ ] **Cooperative Yielding in Intensive Loops (`OtaService.cpp` & `mem_ota.cpp`):**
+  - [ ] In `OtaService::_calculatePartitionHash`:
+    - [ ] Feed watchdog on every 4 KB sector read iteration.
+    - [ ] Inject `vTaskDelay(pdMS_TO_TICKS(1))` to yield execution to higher-priority communication tasks.
+  - [ ] In network stream write loops and delta decompression feeds (`esp_delta_ota_feed_patch`):
+    - [ ] Feed watchdog and insert cooperative yields every `CHUNK_SIZE_BYTES` block.
 
 ---
 
-#### 5. Rollback Diagnostics & Telemetry
-- [ ] **Crash Reason Persistence:**
-  - [ ] Implement an NVS crash log recorder (`saveRollbackDiagnostic(reasonCode, subErrorCode)`).
-  - [ ] Record self-test failure IDs or panic addresses prior to invoking `markAppInvalid()`.
-- [ ] **Post-Rollback Reporting Loop:**
-  - [ ] During `OtaManager::init()`, inspect NVS for pending rollback diagnostic flags.
-  - [ ] If a rollback flag is detected:
-    - [ ] Construct telemetry payload to `/api/v1/ota/status` (`status: "rollback"`, `failed_version`, `reason_code`).
-    - [ ] Transmit payload once network connectivity is established.
-    - [ ] Clear diagnostic flag from NVS upon successful server acknowledgement.
+#### 4. Rollback Diagnostics & Fleet Telemetry Loop
+- [ ] **Persistent Rollback Diagnostics:**
+  - [ ] Define standardized rollback diagnostic data structure:
+    ```cpp
+    struct OtaRollbackDiagnostic_t
+    {
+        uint32_t failureReasonCode;
+        uint32_t subErrorCode;
+        char     failedVersion[32];
+        uint64_t timestampUtc;
+    };
+    ```
+  - [ ] In `OtaManager`, record diagnostic details into non-volatile storage (`IHAL_MEM`, `"fctry"` / `"sys_cfg"`) immediately before invoking `markAppInvalid()`.
+- [ ] **Automated Telemetry Dispatch on Boot:**
+  - [ ] In `OtaManager::init()`:
+    - [ ] Check if a pending rollback diagnostic record exists in storage.
+    - [ ] If found, construct and queue a failure report:
+      ```json
+      {
+        "status": "failure",
+        "error_code": 104,
+        "failed_version": "1.0.1",
+        "reason": "SELF_TEST_NVS_FAIL"
+      }
+      ```
+    - [ ] Transmit payload to `POST /api/v1/ota/status` once network transport connects.
+    - [ ] Purge diagnostic record from storage upon receiving HTTP 200 response from the server.
+
+---
+
+### Implementation Dependency Graph
+
+```mermaid
+flowchart TD
+    subgraph S1["1. Boot State & Self-Test Engine"]
+        A["IHal_Mem_Ota::getRunningImageState()"] --> B["OtaManager::validateCurrentFirmware()"]
+        B --> C["Execute OtaSelfTestHook_t Pipeline"]
+        C -->|All Pass| D["IHal_Mem_Ota::markAppValid()"]
+        C -->|Any Fail| E["IHal_Mem_Ota::markAppInvalid()"]
+    end
+
+    subgraph S2["2. Resumable Chunked Downloads"]
+        F["IHttpClient: Range: bytes=offset-"] --> G["OtaCheckpointManager (IHAL_MEM)"]
+        G --> H["IHal_Mem_Ota::resume(offset)"]
+        H --> I["Sector-Aligned Flash Writing (4 KB)"]
+    end
+
+    subgraph S3["3. Watchdog & Yielding"]
+        J["IHal_Watchdog::feed()"] --> K["Hash Loop Yield (OtaService)"]
+        J --> L["Stream Write Loop Yield (OtaService)"]
+    end
+
+    subgraph S4["4. Rollback Diagnostics"]
+        E --> M["Persist OtaRollbackDiagnostic_t to IHAL_MEM"]
+        M --> N["Reboot into Previous Partition"]
+        N --> O["OtaManager::init() Dispatches Telemetry to /status"]
+        O --> P["Clear Diagnostic Flag on Server 200 OK"]
+    end
+```
