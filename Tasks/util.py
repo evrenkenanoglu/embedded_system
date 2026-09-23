@@ -1,10 +1,16 @@
 from pathlib import Path
+from typing import Literal
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 from core.config_resolver import resolve_to_file
 
-VALID_FORMAT_LANGS = ("all", "c", "python")
+FormatLang = Literal["all", "c", "python", "yaml"]
+FormatMode = Literal["apply", "check"]
+FormatScope = Literal["changed", "all"]
+
+VALID_FORMAT_LANGS = ("all", "c", "python", "yaml")
 VALID_FORMAT_MODES = ("apply", "check")
+VALID_FORMAT_SCOPES = ("changed", "all")
 
 
 @task(
@@ -29,24 +35,16 @@ def system_file_generator(c: Context, dry_run: bool = False, opts: str = "") -> 
     serializer.run(c, dry_run=dry_run)
 
 
-@task(
-    help={
-        "mode": f"Formatting mode: {', '.join(VALID_FORMAT_MODES)} (default: 'apply')",
-        "lang": f"Target language: {', '.join(VALID_FORMAT_LANGS)} (default: 'all')",
-        "dry_run": "Print command line without executing",
-        "config": "Path to custom formatter configuration file (defaults to CONFIG.paths.es_config_formatter)",
-        "opts": "Forward arbitrary arguments to the code formatter script (e.g., -csc, -psc)",
-    }
-)
-def format_code(
+def _format_code(
     c: Context,
-    mode: str = "apply",
-    lang: str = "all",
+    mode: FormatMode = "apply",
+    lang: FormatLang = "all",
+    scope: FormatScope = "changed",
     dry_run: bool = False,
     config: str = "",
     opts: str = "",
 ) -> None:
-    """Resolve SSoT config to a flat temporary file and invoke standalone code formatter."""
+    """Internal helper to resolve SSoT config to a flat temporary file and invoke code formatter."""
     if mode not in VALID_FORMAT_MODES:
         raise ValueError(
             f"Invalid mode '{mode}'. Available options: {', '.join(VALID_FORMAT_MODES)}"
@@ -55,6 +53,11 @@ def format_code(
     if lang not in VALID_FORMAT_LANGS:
         raise ValueError(
             f"Invalid language '{lang}'. Available options: {', '.join(VALID_FORMAT_LANGS)}"
+        )
+
+    if scope not in VALID_FORMAT_SCOPES:
+        raise ValueError(
+            f"Invalid scope '{scope}'. Available options: {', '.join(VALID_FORMAT_SCOPES)}"
         )
 
     script_path = Path(CONFIG.paths.code_formatter_script).resolve()
@@ -76,7 +79,13 @@ def format_code(
         env=CONFIG.env,
     )
 
-    cmd = f'python "{script_path}" --config "{resolved_config_file}" --mode {mode} --lang {lang}'
+    cmd = (
+        f'python "{script_path}" '
+        f'--config "{resolved_config_file}" '
+        f"--mode {mode} "
+        f"--lang {lang} "
+        f"--scope {scope}"
+    )
     serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
 
@@ -84,6 +93,7 @@ def format_code(
 @task(
     help={
         "lang": f"Target language: {', '.join(VALID_FORMAT_LANGS)} (default: 'all')",
+        "scope": f"File scope: {', '.join(VALID_FORMAT_SCOPES)} (default: 'changed')",
         "dry_run": "Print command line without executing",
         "config": "Path to custom formatter configuration file",
         "opts": "Forward additional arbitrary arguments",
@@ -91,18 +101,28 @@ def format_code(
 )
 def format_apply(
     c: Context,
-    lang: str = "all",
+    lang: FormatLang = "all",
+    scope: FormatScope = "changed",
     dry_run: bool = False,
     config: str = "",
     opts: str = "",
 ) -> None:
-    """Apply formatting in-place across the workspace source files."""
-    format_code(c, mode="apply", lang=lang, dry_run=dry_run, config=config, opts=opts)
+    """Apply formatting in-place (defaults to only git-modified/uncommitted files)."""
+    _format_code(
+        c,
+        mode="apply",
+        lang=lang,
+        scope=scope,
+        dry_run=dry_run,
+        config=config,
+        opts=opts,
+    )
 
 
 @task(
     help={
         "lang": f"Target language: {', '.join(VALID_FORMAT_LANGS)} (default: 'all')",
+        "scope": f"File scope: {', '.join(VALID_FORMAT_SCOPES)} (default: 'all')",
         "dry_run": "Print command line without executing",
         "config": "Path to custom formatter configuration file",
         "opts": "Forward additional arbitrary arguments",
@@ -110,29 +130,19 @@ def format_apply(
 )
 def format_check(
     c: Context,
-    lang: str = "all",
+    lang: FormatLang = "all",
+    scope: FormatScope = "all",
     dry_run: bool = False,
     config: str = "",
     opts: str = "",
 ) -> None:
     """Check formatting across the workspace without modifying files (CI/CD dry-run)."""
-    format_code(c, mode="check", lang=lang, dry_run=dry_run, config=config, opts=opts)
-
-
-@task(
-    help={
-        "check": "Check formatting without modifying files (exits non-zero if changes needed)",
-        "path": "Target directory or file path (defaults to configs/ and CI_CD/)",
-    }
-)
-def format_yaml(c: Context, check: bool = False, path: str = "") -> None:
-    """Format YAML files using yamlfix."""
-    check_flag = "--check" if check else ""
-    target = path if path else "configs CI_CD .github"
-
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+    _format_code(
+        c,
+        mode="check",
+        lang=lang,
+        scope=scope,
+        dry_run=dry_run,
+        config=config,
+        opts=opts,
     )
-    serializer.add(f'yamlfix {check_flag} {target}'.strip())
-    serializer.run(c)
