@@ -14,15 +14,42 @@ from typing import Dict, Any
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Package OTA release metadata into manifest catalog.")
-    parser.add_argument("--manifest", type=Path, required=True, help="Path to existing or target manifest.json")
-    parser.add_argument("--version", type=str, required=True, help="Semantic version (e.g. 1.1.0)")
-    parser.add_argument("--binary", type=Path, required=True, help="Path to target application binary")
-    parser.add_argument("--signature", type=str, required=True, help="HEX target signature string")
-    parser.add_argument("--signing-cert", type=Path, required=True, help="Path to developer signing certificate PEM")
-    parser.add_argument("--channel", type=str, default="stable", help="Deployment cohort channel")
-    parser.add_argument("--hsvn", type=int, default=1, help="Hardware Security Version Number")
-    parser.add_argument("--hardware", type=str, default="ESP32-S3-WROOM", help="Hardware device identifier")
+    parser = argparse.ArgumentParser(
+        description="Package OTA release metadata into manifest catalog."
+    )
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="Path to existing or target manifest.json",
+    )
+    parser.add_argument(
+        "--version", type=str, required=True, help="Semantic version (e.g. 1.1.0)"
+    )
+    parser.add_argument(
+        "--binary", type=Path, required=True, help="Path to target application binary"
+    )
+    parser.add_argument(
+        "--signature", type=str, required=True, help="HEX target signature string"
+    )
+    parser.add_argument(
+        "--signing-cert",
+        type=Path,
+        required=True,
+        help="Path to developer signing certificate PEM",
+    )
+    parser.add_argument(
+        "--channel", type=str, default="stable", help="Deployment cohort channel"
+    )
+    parser.add_argument(
+        "--hsvn", type=int, default=1, help="Hardware Security Version Number"
+    )
+    parser.add_argument(
+        "--hardware",
+        type=str,
+        default="ESP32-S3-WROOM",
+        help="Hardware device identifier",
+    )
     args = parser.parse_args()
 
     if not args.binary.exists():
@@ -30,7 +57,9 @@ def main() -> int:
         return 1
 
     if not args.signing_cert.exists():
-        print(f"[ERROR] Certificate file not found: {args.signing_cert}", file=sys.stderr)
+        print(
+            f"[ERROR] Certificate file not found: {args.signing_cert}", file=sys.stderr
+        )
         return 1
 
     file_size = args.binary.stat().st_size
@@ -48,7 +77,7 @@ def main() -> int:
     manifest_data.setdefault("channels", {})
     manifest_data["channels"][args.channel] = {
         "latest_version": args.version,
-        "hardware_device": args.hardware
+        "hardware_device": args.hardware,
     }
 
     manifest_data.setdefault("releases", {})
@@ -60,7 +89,7 @@ def main() -> int:
         "signing_cert": cert_pem,
         "target_hsvn": args.hsvn,
         "status": "active",
-        "canary_percentage": 100
+        "canary_percentage": 100,
     }
 
     args.manifest.parent.mkdir(parents=True, exist_ok=True)

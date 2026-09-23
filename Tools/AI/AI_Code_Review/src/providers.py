@@ -4,6 +4,7 @@ import urllib.error
 import sys
 from .config import DEFAULT_PROVIDERS
 
+
 def _build_payload(provider, model, prompt):
     if provider == "ollama":
         return {"model": model, "prompt": prompt, "stream": False}
@@ -11,21 +12,22 @@ def _build_payload(provider, model, prompt):
         return {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1
+            "temperature": 0.1,
         }
     elif provider == "gemini":
         return {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1}
+            "generationConfig": {"temperature": 0.1},
         }
     elif provider == "anthropic":
         return {
             "model": model,
             "max_tokens": 4096,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1
+            "temperature": 0.1,
         }
     return {}
+
 
 def _parse_response(provider, res_body):
     if provider == "ollama":
@@ -37,6 +39,7 @@ def _parse_response(provider, res_body):
     elif provider == "anthropic":
         return res_body["content"][0]["text"]
     return ""
+
 
 def query_ai(provider, model, prompt, api_key, custom_url=None):
     config = DEFAULT_PROVIDERS.get(provider)
@@ -59,10 +62,7 @@ def query_ai(provider, model, prompt, api_key, custom_url=None):
 
     payload = _build_payload(provider, model, prompt)
     req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST"
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
     )
 
     try:

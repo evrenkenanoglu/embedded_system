@@ -28,7 +28,9 @@ class BaseToolchain(IToolchain):
         return f"{code}{text}\033[0m" if self._use_color else text
 
     @contextmanager
-    def _stage(self, emoji: str, action: str, details: str = "") -> Generator[None, None, None]:
+    def _stage(
+        self, emoji: str, action: str, details: str = ""
+    ) -> Generator[None, None, None]:
         CYAN = "\033[1;36m"
         GREEN = "\033[1;32m"
         RED = "\033[1;31m"
@@ -71,19 +73,48 @@ class BaseToolchain(IToolchain):
 
     # --- PUBLIC TEMPLATE METHODS ---
 
-    def build(self, c: Context, target: str = "", image_bin: str = "", dry_run: bool = False, opts: str = "") -> None:
-        resolved_target = str(target).strip() if target and str(target).strip() else self._get_default_target()
+    def build(
+        self,
+        c: Context,
+        target: str = "",
+        image_bin: str = "",
+        dry_run: bool = False,
+        opts: str = "",
+    ) -> None:
+        resolved_target = (
+            str(target).strip()
+            if target and str(target).strip()
+            else self._get_default_target()
+        )
         with self._stage("🔨", "BUILD", resolved_target):
-            self._build(c, target=resolved_target, image_bin=image_bin, dry_run=dry_run, opts=opts)
+            self._build(
+                c,
+                target=resolved_target,
+                image_bin=image_bin,
+                dry_run=dry_run,
+                opts=opts,
+            )
 
-    def flash(self, c: Context, port: str = "", dry_run: bool = False, opts: str = "") -> None:
-        resolved_port = str(port).strip() if port and str(port).strip() else self._get_default_port()
+    def flash(
+        self, c: Context, port: str = "", dry_run: bool = False, opts: str = ""
+    ) -> None:
+        resolved_port = (
+            str(port).strip()
+            if port and str(port).strip()
+            else self._get_default_port()
+        )
         port_label = resolved_port or "AUTO"
         with self._stage("⚡", "FLASH", port_label):
             self._flash(c, port=resolved_port, dry_run=dry_run, opts=opts)
 
-    def monitor(self, c: Context, port: str = "", dry_run: bool = False, opts: str = "") -> None:
-        resolved_port = str(port).strip() if port and str(port).strip() else self._get_default_port()
+    def monitor(
+        self, c: Context, port: str = "", dry_run: bool = False, opts: str = ""
+    ) -> None:
+        resolved_port = (
+            str(port).strip()
+            if port and str(port).strip()
+            else self._get_default_port()
+        )
         port_label = resolved_port or "AUTO"
         with self._stage("🖥️", "MONITOR", port_label):
             self._monitor(c, port=resolved_port, dry_run=dry_run, opts=opts)
@@ -103,7 +134,9 @@ class BaseToolchain(IToolchain):
     # --- ABSTRACT HOOKS ---
 
     @abstractmethod
-    def _build(self, c: Context, target: str, image_bin: str, dry_run: bool, opts: str) -> None:
+    def _build(
+        self, c: Context, target: str, image_bin: str, dry_run: bool, opts: str
+    ) -> None:
         pass
 
     @abstractmethod

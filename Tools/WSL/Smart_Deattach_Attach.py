@@ -3,7 +3,17 @@ import subprocess
 import ctypes
 import time
 
-from Smart_Attach_Common import is_admin, run_as_admin, find_bus_id, bind, try_attach, try_detach, current_device_status, TARGET_VID_PID
+from Smart_Attach_Common import (
+    is_admin,
+    run_as_admin,
+    find_bus_id,
+    bind,
+    try_attach,
+    try_detach,
+    current_device_status,
+    TARGET_VID_PID,
+)
+
 
 def main():
     # 1. Self-elevate

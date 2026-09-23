@@ -18,7 +18,10 @@ try:
     from cryptography.hazmat.primitives.asymmetric import ec, rsa, utils, padding
     from cryptography.x509 import load_pem_x509_certificate
 except ImportError:
-    print("Error: The 'cryptography' library is required. Install it using: pip install cryptography", file=sys.stderr)
+    print(
+        "Error: The 'cryptography' library is required. Install it using: pip install cryptography",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
@@ -49,9 +52,7 @@ def sign_digest_rsa_2048(digest: bytes, private_key_pem: bytes) -> bytes:
         raise ValueError("Provided key is not an RSA private key.")
 
     return private_key.sign(
-        digest,
-        padding.PKCS1v15(),
-        utils.Prehashed(hashes.SHA256())
+        digest, padding.PKCS1v15(), utils.Prehashed(hashes.SHA256())
     )
 
 
@@ -71,16 +72,59 @@ def main() -> int:
         "--stage",
         choices=["all", "digest", "assemble"],
         default="all",
-        help="Signing pipeline stage: 'digest' (export hash for HSM), 'assemble' (inject detached signature), 'all' (local sign)"
+        help="Signing pipeline stage: 'digest' (export hash for HSM), 'assemble' (inject detached signature), 'all' (local sign)",
     )
-    parser.add_argument("--binary", "-b", type=Path, required=True, help="Path to input firmware binary (.bin)")
-    parser.add_argument("--key", "-k", type=Path, required=False, help="Path to signing private key PEM file (required for 'all')")
-    parser.add_argument("--cert", "-c", type=Path, required=False, help="Path to developer signing certificate PEM file")
-    parser.add_argument("--key-type", choices=["ec-secp256r1", "rsa-2048"], default="ec-secp256r1", help="Cryptographic key algorithm")
-    parser.add_argument("--out-digest", type=Path, required=False, help="Path to write raw 32-byte SHA-256 digest binary (for 'digest' stage)")
-    parser.add_argument("--sig-in", type=Path, required=False, help="Path to detached raw signature binary (for 'assemble' stage)")
-    parser.add_argument("--out-sig", type=Path, required=False, help="Path to write raw signature binary")
-    parser.add_argument("--out-json", type=Path, required=False, help="Path to write manifest-compatible metadata JSON")
+    parser.add_argument(
+        "--binary",
+        "-b",
+        type=Path,
+        required=True,
+        help="Path to input firmware binary (.bin)",
+    )
+    parser.add_argument(
+        "--key",
+        "-k",
+        type=Path,
+        required=False,
+        help="Path to signing private key PEM file (required for 'all')",
+    )
+    parser.add_argument(
+        "--cert",
+        "-c",
+        type=Path,
+        required=False,
+        help="Path to developer signing certificate PEM file",
+    )
+    parser.add_argument(
+        "--key-type",
+        choices=["ec-secp256r1", "rsa-2048"],
+        default="ec-secp256r1",
+        help="Cryptographic key algorithm",
+    )
+    parser.add_argument(
+        "--out-digest",
+        type=Path,
+        required=False,
+        help="Path to write raw 32-byte SHA-256 digest binary (for 'digest' stage)",
+    )
+    parser.add_argument(
+        "--sig-in",
+        type=Path,
+        required=False,
+        help="Path to detached raw signature binary (for 'assemble' stage)",
+    )
+    parser.add_argument(
+        "--out-sig",
+        type=Path,
+        required=False,
+        help="Path to write raw signature binary",
+    )
+    parser.add_argument(
+        "--out-json",
+        type=Path,
+        required=False,
+        help="Path to write manifest-compatible metadata JSON",
+    )
     args = parser.parse_args()
 
     if not args.binary.exists():
@@ -108,7 +152,9 @@ def main() -> int:
         print(f"SHA-256 Digest : {digest_hex}")
         print(f"Digest Binary  : {target_out_digest}")
         print("==================================================")
-        print(f"[OK] Digest binary exported. Forward '{target_out_digest}' to HSM for signing.")
+        print(
+            f"[OK] Digest binary exported. Forward '{target_out_digest}' to HSM for signing."
+        )
         return 0
 
     # --------------------------------------------------------------------------
@@ -117,13 +163,19 @@ def main() -> int:
     raw_sig: bytes = b""
     if args.stage == "assemble":
         if not args.sig_in or not args.sig_in.exists():
-            print(f"[ERROR] Detached signature file (--sig-in) required for 'assemble' stage.", file=sys.stderr)
+            print(
+                f"[ERROR] Detached signature file (--sig-in) required for 'assemble' stage.",
+                file=sys.stderr,
+            )
             return 1
         with open(args.sig_in, "rb") as f:
             raw_sig = f.read()
 
         if args.key_type == "ec-secp256r1" and len(raw_sig) != 64:
-            print(f"[ERROR] EC SECP256R1 signature must be exactly 64 bytes IEEE P1363 (R || S). Got: {len(raw_sig)} bytes.", file=sys.stderr)
+            print(
+                f"[ERROR] EC SECP256R1 signature must be exactly 64 bytes IEEE P1363 (R || S). Got: {len(raw_sig)} bytes.",
+                file=sys.stderr,
+            )
             return 1
 
     # --------------------------------------------------------------------------
@@ -131,7 +183,10 @@ def main() -> int:
     # --------------------------------------------------------------------------
     elif args.stage == "all":
         if not args.key or not args.key.exists():
-            print(f"[ERROR] Signing private key file (--key) required for local signing.", file=sys.stderr)
+            print(
+                f"[ERROR] Signing private key file (--key) required for local signing.",
+                file=sys.stderr,
+            )
             return 1
 
         with open(args.key, "rb") as f:
@@ -166,14 +221,16 @@ def main() -> int:
 
     if args.out_json:
         args.out_json.parent.mkdir(parents=True, exist_ok=True)
-        cert_pem = extract_cert_pem(args.cert) if args.cert and args.cert.exists() else ""
+        cert_pem = (
+            extract_cert_pem(args.cert) if args.cert and args.cert.exists() else ""
+        )
         manifest_entry: Dict[str, Any] = {
             "file_name": args.binary.name,
             "target_size": file_size,
             "target_hash": digest_hex,
             "target_signature": sig_hex,
             "signing_cert": cert_pem,
-            "key_type": args.key_type
+            "key_type": args.key_type,
         }
         with open(args.out_json, "w", encoding="utf-8") as f:
             json.dump(manifest_entry, f, indent=4)

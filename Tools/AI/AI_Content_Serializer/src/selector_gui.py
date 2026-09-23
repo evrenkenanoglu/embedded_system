@@ -71,9 +71,7 @@ def align_parent_states(node: TreeNode) -> bool:
         return node.checked
 
     # Folder is marked fully checked only if all nested children are checked
-    all_checked = all(
-        align_parent_states(child) for child in node.children.values()
-    )
+    all_checked = all(align_parent_states(child) for child in node.children.values())
     node.checked = all_checked
     return all_checked
 
@@ -102,9 +100,7 @@ def update_parent_state_upward(tree: ttk.Treeview, parent_node: TreeNode):
         return
 
     # Checked only if all immediate children are checked
-    all_checked = all(
-        child.checked for child in parent_node.children.values()
-    )
+    all_checked = all(child.checked for child in parent_node.children.values())
 
     if parent_node.checked != all_checked:
         parent_node.checked = all_checked
@@ -139,9 +135,7 @@ def select_files_interactively(files_list: list[dict]) -> list[dict]:
         font=(config.GUI_FONT_FAMILY, config.GUI_FONT_SIZE_TREE),
         rowheight=row_height,
     )
-    style.configure(
-        "TButton", font=(config.GUI_FONT_FAMILY, config.GUI_FONT_SIZE_BASE)
-    )
+    style.configure("TButton", font=(config.GUI_FONT_FAMILY, config.GUI_FONT_SIZE_BASE))
     # -----------------------------------
 
     # Change default resolution slightly to handle larger fonts comfortably
@@ -192,9 +186,7 @@ def select_files_interactively(files_list: list[dict]) -> list[dict]:
 
     def populate_gui_tree(parent_gui_id: str, node: TreeNode):
         sym = CHECKED_SYM if node.checked else UNCHECKED_SYM
-        gui_id = tree.insert(
-            parent_gui_id, "end", text=f"{sym}{node.name}", open=True
-        )
+        gui_id = tree.insert(parent_gui_id, "end", text=f"{sym}{node.name}", open=True)
         node.tree_item_id = gui_id
         item_to_node[gui_id] = node
 

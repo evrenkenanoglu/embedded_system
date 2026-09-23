@@ -4,12 +4,16 @@ import sys
 from pickle import TRUE
 import platform
 
-PIPELINE_LIB_PATH = os.environ.get("PIPELINE_LIB_PATH", "/home/evren_wsl/WORKSPACE_PERSONAL/Embedded_IoT_BT_WIFI_Base_Project/embedded_system/CI_CD")
+PIPELINE_LIB_PATH = os.environ.get(
+    "PIPELINE_LIB_PATH",
+    "/home/evren_wsl/WORKSPACE_PERSONAL/Embedded_IoT_BT_WIFI_Base_Project/embedded_system/CI_CD",
+)
 
 if os.path.exists(PIPELINE_LIB_PATH):
     sys.path.append(PIPELINE_LIB_PATH)
 else:
     print(f"⚠️ Warning: PIPELINE_LIB_PATH not found at {PIPELINE_LIB_PATH}")
+
 
 class ProjectConfig:
     # ===========================================================

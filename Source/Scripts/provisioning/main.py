@@ -22,17 +22,17 @@ from factory.provision_hardware import (
     burn_efuse_key,
     protect_efuse_key,
     burn_efuse_register,
-    flash_dynamic_layout
+    flash_dynamic_layout,
 )
 from nvs.partition_nvs_generator import (
     generate_nvs_keys,
     render_template_csv,
-    invoke_nvs_partition_gen
+    invoke_nvs_partition_gen,
 )
 from signing.hsm_sign_digest import (
     compute_sha256,
     sign_digest_ec_secp256r1,
-    sign_digest_rsa_2048
+    sign_digest_rsa_2048,
 )
 from signing.ota_manifest_packager import main as package_manifest_entry
 
@@ -47,7 +47,9 @@ def auto_detect_roots() -> Tuple[Path, Path]:
     project_root = None
 
     while curr != curr.parent:
-        if curr.name == "embedded_system" or ((curr / "Source").exists() and (curr / "CMakeLists.txt").exists()):
+        if curr.name == "embedded_system" or (
+            (curr / "Source").exists() and (curr / "CMakeLists.txt").exists()
+        ):
             embedded_system_root = curr
             project_root = curr.parent
             break
@@ -77,7 +79,9 @@ def expand_variables(data: Any, env_map: Dict[str, str]) -> Any:
     return data
 
 
-def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> Tuple[Dict[str, Any], Path, Tuple[Path, Path]]:
+def load_config(
+    config_path: Path, cli_project_root: Optional[Path] = None
+) -> Tuple[Dict[str, Any], Path, Tuple[Path, Path]]:
     """Loads pre-resolved SSoT configuration and returns configuration tuple (cfg, config_dir, roots)."""
     if not config_path.exists():
         candidate = (Path.cwd() / config_path).resolve()
@@ -108,7 +112,7 @@ def find_partitions_csv(configured_path_str: str, roots: Tuple[Path, Path]) -> P
         project_root / "partitions.csv",
         embedded_system_root / "partitions.csv",
         embedded_system_root / "Source" / "partitions.csv",
-        Path.cwd() / "partitions.csv"
+        Path.cwd() / "partitions.csv",
     ]
 
     for candidate in candidates:
@@ -141,17 +145,26 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
     nvs_bin_file = Path(nvs_cfg["output_encrypted_bin"]).resolve()
     project_root = Path(paths_cfg.get("workspace_dir", ".")).resolve()
 
-    print(f"[*] Target Partition : '{target_name}' (Size: {hex(partition_size)} / {partition_size} bytes)")
+    print(
+        f"[*] Target Partition : '{target_name}' (Size: {hex(partition_size)} / {partition_size} bytes)"
+    )
     print(f"[*] Template File    : {template_file}")
 
     if not nvs_key_file.exists():
         print(f"[*] Generating new NVS key: {nvs_key_file}")
         generate_nvs_keys(nvs_key_file)
 
-    render_template_csv(template_file, rendered_csv, nvs_cfg["template_variables"], project_root)
+    render_template_csv(
+        template_file, rendered_csv, nvs_cfg["template_variables"], project_root
+    )
     print(f"[OK] Rendered CSV written to: {rendered_csv}")
 
-    if not invoke_nvs_partition_gen(rendered_csv, nvs_bin_file, partition_size, nvs_key_file) or not nvs_bin_file.exists():
+    if (
+        not invoke_nvs_partition_gen(
+            rendered_csv, nvs_bin_file, partition_size, nvs_key_file
+        )
+        or not nvs_bin_file.exists()
+    ):
         raise RuntimeError("Failed to generate encrypted NVS binary.")
 
     print(f"[SUCCESS] Encrypted NVS partition binary created: {nvs_bin_file}")
@@ -179,7 +192,11 @@ def step_sign_release(cfg: Dict[str, Any]) -> str:
     with open(signing_key, "rb") as f:
         key_bytes = f.read()
 
-    raw_sig = sign_digest_ec_secp256r1(digest, key_bytes) if signing_cfg["key_type"] == "ec-secp256r1" else sign_digest_rsa_2048(digest, key_bytes)
+    raw_sig = (
+        sign_digest_ec_secp256r1(digest, key_bytes)
+        if signing_cfg["key_type"] == "ec-secp256r1"
+        else sign_digest_rsa_2048(digest, key_bytes)
+    )
     sig_hex = raw_sig.hex()
     print(f"[*] Target Signature ({signing_cfg['key_type']}): {sig_hex}")
 
@@ -191,14 +208,22 @@ def step_sign_release(cfg: Dict[str, Any]) -> str:
 
     sys.argv = [
         "ota_manifest_packager.py",
-        "--manifest", str(manifest_path.resolve()),
-        "--version", str(signing_cfg["version"]),
-        "--binary", str(fw_path.resolve()),
-        "--signature", sig_hex,
-        "--signing-cert", str(signing_cert.resolve()),
-        "--channel", str(manifest_meta.get("channel", "stable")),
-        "--hsvn", str(manifest_meta.get("target_hsvn", 1)),
-        "--hardware", str(manifest_meta.get("hardware_device", "ESP32-S3-WROOM"))
+        "--manifest",
+        str(manifest_path.resolve()),
+        "--version",
+        str(signing_cfg["version"]),
+        "--binary",
+        str(fw_path.resolve()),
+        "--signature",
+        sig_hex,
+        "--signing-cert",
+        str(signing_cert.resolve()),
+        "--channel",
+        str(manifest_meta.get("channel", "stable")),
+        "--hsvn",
+        str(manifest_meta.get("target_hsvn", 1)),
+        "--hardware",
+        str(manifest_meta.get("hardware_device", "ESP32-S3-WROOM")),
     ]
     if package_manifest_entry() != 0:
         raise RuntimeError("Failed to update manifest catalog.")
@@ -207,7 +232,11 @@ def step_sign_release(cfg: Dict[str, Any]) -> str:
     return sig_hex
 
 
-def step_provision_hardware(cfg: Dict[str, Any], parser: PartitionTableParser, override_dry_run: Optional[bool] = None) -> None:
+def step_provision_hardware(
+    cfg: Dict[str, Any],
+    parser: PartitionTableParser,
+    override_dry_run: Optional[bool] = None,
+) -> None:
     print("\n" + "=" * 60)
     print(" STEP 3: SILICON FACTORY PROVISIONING & FLASHING")
     print("=" * 60)
@@ -238,9 +267,13 @@ def step_provision_hardware(cfg: Dict[str, Any], parser: PartitionTableParser, o
     if not flash_size or flash_size.startswith("{"):
         flash_size = "8MB"
 
-    dry_run = hw_cfg.get("dry_run", True) if override_dry_run is None else override_dry_run
+    dry_run = (
+        hw_cfg.get("dry_run", True) if override_dry_run is None else override_dry_run
+    )
     if not dry_run and not hw_cfg.get("force_burn", False):
-        raise RuntimeError("Set 'hardware.force_burn: true' in config.yaml to execute on real silicon.")
+        raise RuntimeError(
+            "Set 'hardware.force_burn: true' in config.yaml to execute on real silicon."
+        )
 
     binary_mapping: Dict[str, Path] = {}
     for target_name, path_str in hw_cfg.get("flash_targets", {}).items():
@@ -272,8 +305,15 @@ def step_provision_hardware(cfg: Dict[str, Any], parser: PartitionTableParser, o
 
     # 6. Flash dynamic partition layout
     flash_dynamic_layout(
-        port, baud, chip, flash_mode,
-        flash_freq, flash_size, parser, binary_mapping, dry_run
+        port,
+        baud,
+        chip,
+        flash_mode,
+        flash_freq,
+        flash_size,
+        parser,
+        binary_mapping,
+        dry_run,
     )
 
     # 7. Extract specific key files by purpose for audit trail
@@ -290,39 +330,71 @@ def step_provision_hardware(cfg: Dict[str, Any], parser: PartitionTableParser, o
     audit_logger = AuditLogger(audit_dir)
     audit_file = audit_logger.record_provisioning_event(
         mac_address=mac_addr,
-        device_id=cfg.get("nvs_generation", {}).get("template_variables", {}).get("DEVICE_ID", "UNKNOWN"),
-        hsvn=int(cfg.get("nvs_generation", {}).get("template_variables", {}).get("HSVN", 1)),
+        device_id=cfg.get("nvs_generation", {})
+        .get("template_variables", {})
+        .get("DEVICE_ID", "UNKNOWN"),
+        hsvn=int(
+            cfg.get("nvs_generation", {}).get("template_variables", {}).get("HSVN", 1)
+        ),
         flash_key_file=flash_key_file,
         sb_key_file=sb_key_file,
         nvs_key_file=str(cfg.get("nvs_generation", {}).get("output_key_bin", "NONE")),
-        status="PROVISIONED_SUCCESS" if not dry_run else "DRY_RUN_SUCCESS"
+        status="PROVISIONED_SUCCESS" if not dry_run else "DRY_RUN_SUCCESS",
     )
 
     print(f"[SUCCESS] Unit {mac_addr} provisioned. Audit record: {audit_file}")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generic ESP-IDF Provisioning Orchestrator.")
-    parser.add_argument("--config", "-c", type=Path, default=Path("Source/Scripts/provisioning/config.yaml"), help="Path to config.yaml")
-    parser.add_argument("--project-root", "-r", type=Path, default=None, help="Explicit project root directory override")
-    parser.add_argument("--step", "-s", choices=["all", "nvs", "sign", "provision"], default="all", help="Target step")
+    parser = argparse.ArgumentParser(
+        description="Generic ESP-IDF Provisioning Orchestrator."
+    )
+    parser.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        default=Path("Source/Scripts/provisioning/config.yaml"),
+        help="Path to config.yaml",
+    )
+    parser.add_argument(
+        "--project-root",
+        "-r",
+        type=Path,
+        default=None,
+        help="Explicit project root directory override",
+    )
+    parser.add_argument(
+        "--step",
+        "-s",
+        choices=["all", "nvs", "sign", "provision"],
+        default="all",
+        help="Target step",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Force dry-run mode")
     args = parser.parse_args()
 
     try:
         config, config_dir, roots = load_config(args.config, args.project_root)
 
-        partitions_csv_path = find_partitions_csv(config["paths"]["partitions_csv"], roots)
+        partitions_csv_path = find_partitions_csv(
+            config["paths"]["partitions_csv"], roots
+        )
 
         # Dynamic SSoT resolution of flash offsets
-        pt_offset_raw = config.get("hardware", {}).get("partition_table_offset", "0x10000")
+        pt_offset_raw = config.get("hardware", {}).get(
+            "partition_table_offset", "0x10000"
+        )
         pt_offset = int(pt_offset_raw, 0)
-        boot_offset = 0x0000 if config.get("hardware", {}).get("chip", "esp32s3") == "esp32s3" else 0x1000
+        boot_offset = (
+            0x0000
+            if config.get("hardware", {}).get("chip", "esp32s3") == "esp32s3"
+            else 0x1000
+        )
 
         pt_parser = PartitionTableParser(
             partitions_csv_path=partitions_csv_path,
             partition_table_offset=pt_offset,
-            bootloader_offset=boot_offset
+            bootloader_offset=boot_offset,
         )
 
         if args.step in ["all", "nvs"]:

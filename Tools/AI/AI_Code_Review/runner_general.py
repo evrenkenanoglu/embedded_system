@@ -21,7 +21,7 @@ DEFAULT_FILES = [
     # Hardcode default files or directories to review here, e.g.:
     "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Source/HAL/IHAL/IHal_Mem_Ota.h",
     "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Source/HAL/Platform/ESP32/mem_ota.cpp",
-    "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Source/HAL/Platform/ESP32/mem_ota.hpp"
+    "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Source/HAL/Platform/ESP32/mem_ota.hpp",
 ]
 # ==============================================================================
 

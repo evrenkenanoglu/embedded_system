@@ -4,7 +4,14 @@ import ctypes
 import re
 import time  # <-- Added this for a slight delay
 
-from Smart_Attach_Common import TARGET_VID_PID, is_admin, run_as_admin, find_bus_id, try_attach
+from Smart_Attach_Common import (
+    TARGET_VID_PID,
+    is_admin,
+    run_as_admin,
+    find_bus_id,
+    try_attach,
+)
+
 
 def main():
     if not is_admin():
@@ -26,6 +33,7 @@ def main():
 
     print("\n" + "=" * 30)
     input("Press Enter to close this window...")
+
 
 if __name__ == "__main__":
     main()

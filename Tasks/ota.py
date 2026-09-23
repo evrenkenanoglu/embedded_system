@@ -26,12 +26,18 @@ def server(c: Context, dry_run: bool = False, config: str = "", opts: str = "") 
         raise FileNotFoundError(f"OTA server script not found: {script_path}")
 
     # 1. Resolve raw input config path
-    raw_config = Path(config) if config and str(config).strip() else Path(CONFIG.paths.es_config_ota_server)
+    raw_config = (
+        Path(config)
+        if config and str(config).strip()
+        else Path(CONFIG.paths.es_config_ota_server)
+    )
     if not raw_config.is_absolute():
         raw_config = (Path(CONFIG.paths.workspace_dir) / raw_config).resolve()
 
     # 2. Compile into flat, standalone YAML in build/configs/
-    resolved_config_file = resolve_to_file(raw_config, workspace_root=CONFIG.paths.workspace_dir)
+    resolved_config_file = resolve_to_file(
+        raw_config, workspace_root=CONFIG.paths.workspace_dir
+    )
 
     # 3. Pass via CLI flag AND OTA_CONFIG_PATH env var for Uvicorn reload workers
     execution_env = dict(CONFIG.env or {})
@@ -66,12 +72,18 @@ def release(
     selected_target = target or getattr(CONFIG.esp32, "target", "esp32s3")
     toolchain = get_toolchain()
 
-    print(f"\n[*] [OTA RELEASE: STEP 1/2] Compiling firmware for target '{selected_target}'...")
+    print(
+        f"\n[*] [OTA RELEASE: STEP 1/2] Compiling firmware for target '{selected_target}'..."
+    )
     toolchain.build(c, target=selected_target, dry_run=dry_run, opts=build_opts)
 
-    print(f"\n[*] [OTA RELEASE: STEP 2/2] Signing release binary and packaging manifest...")
+    print(
+        f"\n[*] [OTA RELEASE: STEP 2/2] Signing release binary and packaging manifest..."
+    )
     provision_sign(c, dry_run=dry_run, config=config)
-    print("\n[SUCCESS] OTA release compilation, code-signing, and catalog update completed.\n")
+    print(
+        "\n[SUCCESS] OTA release compilation, code-signing, and catalog update completed.\n"
+    )
 
 
 @task(
@@ -95,12 +107,20 @@ def factory_provision(
     selected_target = target or getattr(CONFIG.esp32, "target", "esp32s3")
     toolchain = get_toolchain()
 
-    print(f"\n[*] [FACTORY PROVISION: STEP 1/3] Compiling factory firmware for target '{selected_target}'...")
+    print(
+        f"\n[*] [FACTORY PROVISION: STEP 1/3] Compiling factory firmware for target '{selected_target}'..."
+    )
     toolchain.build(c, target=selected_target, dry_run=dry_run, opts=build_opts)
 
-    print(f"\n[*] [FACTORY PROVISION: STEP 2/3] Generating encrypted factory NVS partition...")
+    print(
+        f"\n[*] [FACTORY PROVISION: STEP 2/3] Generating encrypted factory NVS partition..."
+    )
     provision_nvs(c, dry_run=dry_run, config=config)
 
-    print(f"\n[*] [FACTORY PROVISION: STEP 3/3] Burning silicon eFuses and flashing layout (Simulate={simulate})...")
+    print(
+        f"\n[*] [FACTORY PROVISION: STEP 3/3] Burning silicon eFuses and flashing layout (Simulate={simulate})..."
+    )
     provision_flash(c, simulate=simulate, dry_run=dry_run, config=config)
-    print("\n[SUCCESS] Factory build, NVS encryption, and silicon provisioning completed.\n")
+    print(
+        "\n[SUCCESS] Factory build, NVS encryption, and silicon provisioning completed.\n"
+    )

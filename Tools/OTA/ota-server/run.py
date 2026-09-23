@@ -9,7 +9,9 @@ sys.path.append(str(PROJECT_ROOT))
 
 # Parse CLI configuration before initializing Settings
 parser = argparse.ArgumentParser(description="Secure Embedded OTA Server")
-parser.add_argument("--config", "-c", type=Path, default=None, help="Path to config_ota_server.yaml")
+parser.add_argument(
+    "--config", "-c", type=Path, default=None, help="Path to config_ota_server.yaml"
+)
 args, remaining_args = parser.parse_known_args()
 
 if args.config:
@@ -30,7 +32,9 @@ def verify_certificates():
         print("ERROR: Required SSL/TLS credentials are missing:")
         for item in missing:
             print(f"  - {item}")
-        print("\nGenerate the certificates prior to launching the server (e.g. via Tools/PKI/generate_pki.py).")
+        print(
+            "\nGenerate the certificates prior to launching the server (e.g. via Tools/PKI/generate_pki.py)."
+        )
         sys.exit(1)
 
 

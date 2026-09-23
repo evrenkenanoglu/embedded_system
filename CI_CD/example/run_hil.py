@@ -26,11 +26,15 @@ def main():
     tc = get_toolchain(config)
 
     print_start("HIL TESTS")
-    
+
     extract_zip(f"{config.ARTIFACT_NAME}.zip", config.EXTRACTED_PACKAGE_DIR)
 
     if args.method == "usb":
-        tc.flash_usb(port= config.SERIAL_PORT, binary_dir=config.EXTRACTED_PACKAGE_DIR, flash_args= config.FLASH_ARGS_FILENAME)
+        tc.flash_usb(
+            port=config.SERIAL_PORT,
+            binary_dir=config.EXTRACTED_PACKAGE_DIR,
+            flash_args=config.FLASH_ARGS_FILENAME,
+        )
     else:
         tc.flash_ota(args.port, config.EXTRACTED_PACKAGE_DIR, config.DEFAULT_OTA_PORT)
 

@@ -8,7 +8,7 @@ source_files = [
     # f'{Embedded_System_Dir}/Source/Scripts/static_code_analysis/testfiles/test.cpp'
     # f'{Embedded_System_Dir}/Source/Scripts/static_code_analysis/testfiles/test_cert.cpp'
     # f'{Embedded_System_Dir}/Source/Scripts/static_code_analysis/testfiles/test_misra.cpp'
-    f'{Embedded_System_Dir}/Source/Scripts/static_code_analysis/testfiles/test_iot_security.cpp'
+    f"{Embedded_System_Dir}/Source/Scripts/static_code_analysis/testfiles/test_iot_security.cpp"
     # f'{Embedded_System_Dir}/Source/System/error_macros.h'
 ]
 

@@ -30,9 +30,7 @@ def build_tree_and_files(
 
         if item.is_dir():
             next_prefix = prefix + ("    " if is_last else "│   ")
-            sub_lines, sub_files = build_tree_and_files(
-                dir_path, item, next_prefix
-            )
+            sub_lines, sub_files = build_tree_and_files(dir_path, item, next_prefix)
             tree_lines.extend(sub_lines)
             files_list.extend(sub_files)
         else:

@@ -7,17 +7,28 @@ class IToolchain(ABC):
     """Universal interface common to all embedded platforms."""
 
     @abstractmethod
-    def build(self, c: Context, target: str = "", image_bin: str = "", dry_run: bool = False, opts: str = "") -> None:
+    def build(
+        self,
+        c: Context,
+        target: str = "",
+        image_bin: str = "",
+        dry_run: bool = False,
+        opts: str = "",
+    ) -> None:
         """Compile firmware and generate output binaries."""
         pass
 
     @abstractmethod
-    def flash(self, c: Context, port: str = "", dry_run: bool = False, opts: str = "") -> None:
+    def flash(
+        self, c: Context, port: str = "", dry_run: bool = False, opts: str = ""
+    ) -> None:
         """Flash firmware onto target device."""
         pass
 
     @abstractmethod
-    def monitor(self, c: Context, port: str = "", dry_run: bool = False, opts: str = "") -> None:
+    def monitor(
+        self, c: Context, port: str = "", dry_run: bool = False, opts: str = ""
+    ) -> None:
         """Open interactive device monitor / serial console."""
         pass
 

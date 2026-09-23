@@ -24,9 +24,15 @@ class DockerManager:
     def _get_host_pip_cache_dir(self) -> Path:
         """Resolves host pip cache across Windows, WSL, and Linux."""
         if IS_WINDOWS:
-            cache = Path(os.environ.get("LOCALAPPDATA", "~/AppData/Local")).expanduser() / "pip" / "cache"
+            cache = (
+                Path(os.environ.get("LOCALAPPDATA", "~/AppData/Local")).expanduser()
+                / "pip"
+                / "cache"
+            )
         else:
-            cache = Path(os.environ.get("XDG_CACHE_HOME", "~/.cache")).expanduser() / "pip"
+            cache = (
+                Path(os.environ.get("XDG_CACHE_HOME", "~/.cache")).expanduser() / "pip"
+            )
         cache.mkdir(parents=True, exist_ok=True)
         return cache.resolve()
 
@@ -48,8 +54,13 @@ class DockerManager:
 
         # 3. Verify Python packages via import check before calling pip
         if pip_dependencies:
-            import_modules = [pkg.replace("-", "_").split("=")[0].split(">")[0].split("<")[0] for pkg in pip_dependencies]
-            import_check = f"python3 -c 'import {', '.join(import_modules)}' >/dev/null 2>&1"
+            import_modules = [
+                pkg.replace("-", "_").split("=")[0].split(">")[0].split("<")[0]
+                for pkg in pip_dependencies
+            ]
+            import_check = (
+                f"python3 -c 'import {', '.join(import_modules)}' >/dev/null 2>&1"
+            )
             install_cmd = f"pip install --no-cache-dir {' '.join(pip_dependencies)}"
             steps.append(f"{import_check} || {install_cmd}")
 
@@ -73,9 +84,12 @@ class DockerManager:
             "docker",
             "run",
             "--rm",
-            "-v", f"{host_mount}:/project",
-            "-v", f"{pip_cache_host}:/root/.cache/pip",
-            "-w", container_workdir,
+            "-v",
+            f"{host_mount}:/project",
+            "-v",
+            f"{pip_cache_host}:/root/.cache/pip",
+            "-w",
+            container_workdir,
         ]
 
         if volumes:
@@ -84,7 +98,9 @@ class DockerManager:
                 cmd.extend(["-v", f"{posix_host}:{cont_path}"])
 
         # Combine bootstrap preamble with payload command
-        preamble = self._build_shell_preamble(container_workdir, env_scripts, pip_dependencies)
+        preamble = self._build_shell_preamble(
+            container_workdir, env_scripts, pip_dependencies
+        )
         full_command = f"{preamble} && {command}"
 
         cmd.extend([image, "bash", "-c", full_command])
@@ -95,7 +111,9 @@ class DockerManager:
     def cleanup_path(self, relative_path: str) -> None:
         """Cross-platform directory removal with fallback for container root-owned files."""
         if not relative_path or str(relative_path).strip() in ["/", ".", "./"]:
-            print(f"⚠️ Cleanup blocked: Attempted to delete protected root path '{relative_path}'")
+            print(
+                f"⚠️ Cleanup blocked: Attempted to delete protected root path '{relative_path}'"
+            )
             return
 
         target_path = (self.project_root / relative_path).resolve()
@@ -105,8 +123,10 @@ class DockerManager:
         print(f"🧹 Wiping directory: {target_path}")
 
         try:
+
             def _handle_readonly(func, path, exc_info):
                 import stat
+
                 os.chmod(path, stat.S_IWRITE)
                 func(path)
 
@@ -117,9 +137,11 @@ class DockerManager:
                 "docker",
                 "run",
                 "--rm",
-                "-v", f"{self.project_root.as_posix()}:/project",
+                "-v",
+                f"{self.project_root.as_posix()}:/project",
                 "alpine",
                 "sh",
-                "-c", f"rm -rf /project/{posix_rel}",
+                "-c",
+                f"rm -rf /project/{posix_rel}",
             ]
             run_cmd(cmd)

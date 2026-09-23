@@ -62,7 +62,13 @@ today = date.today()
 current_year = today.strftime("%Y")
 
 # Generate the file contents using the templates and the user input
-header_content = header_template.format(filename=filename, filename_upper=filename.upper(), classname=classname, brief=brief, author=author)
+header_content = header_template.format(
+    filename=filename,
+    filename_upper=filename.upper(),
+    classname=classname,
+    brief=brief,
+    author=author,
+)
 source_content = source_template.format(filename=filename, classname=classname)
 
 # Write the generated file contents to disk

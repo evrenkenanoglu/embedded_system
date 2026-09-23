@@ -38,20 +38,20 @@ def return_inline_script_files_from_directory(directory):
                 # Get the relative path from the input directory
                 rel_path = os.path.relpath(os.path.join(root, file), directory)
                 # Replace backslashes with forward slashes for proper web paths
-                rel_path = rel_path.replace('\\', '/')
+                rel_path = rel_path.replace("\\", "/")
                 # Create script tag with the relative path
                 script_tag = f'<script src="js/{rel_path}"></script>'
                 inline_scripts.append(script_tag)
-    
+
     # Sort the script tags to ensure consistent ordering
     inline_scripts.sort()
-    
+
     # Join all script tags into a single block
     inline_scripts_str = "\n    ".join(inline_scripts)
-    
+
     if not inline_scripts:
         print("No JavaScript files found in the specified directory.")
-    
+
     return inline_scripts_str
 
 
@@ -59,7 +59,7 @@ def return_inline_style_files_from_directory(directory):
     # return only .css file names list, not their content
     inline_styles = []
     css_directory = os.path.join(directory, "css")
-    
+
     if os.path.exists(css_directory):
         for root, _, files in os.walk(css_directory):
             for file in files:
@@ -67,20 +67,20 @@ def return_inline_style_files_from_directory(directory):
                     # Get the relative path from the css directory
                     rel_path = os.path.relpath(os.path.join(root, file), directory)
                     # Replace backslashes with forward slashes for proper web paths
-                    rel_path = rel_path.replace('\\', '/')
+                    rel_path = rel_path.replace("\\", "/")
                     # Create link tag with the relative path
                     style_tag = f'<link rel="stylesheet" href="{rel_path}">'
                     inline_styles.append(style_tag)
-    
+
     # Sort the style tags to ensure consistent ordering
     inline_styles.sort()
-    
+
     # Join all style tags into a single block
     inline_styles_str = "\n    ".join(inline_styles)
-    
+
     if not inline_styles:
         print("No CSS files found in the specified directory.")
-    
+
     return inline_styles_str
 
 
@@ -90,9 +90,8 @@ if __name__ == "__main__":
     # change current_dir to the parent directory one level up
     current_dir = os.path.join(current_dir, "..")
 
-
     template_path = os.path.join(current_dir, "template/template.html")
-    output_path = os.path.join(current_dir, f'{filename}.html')
+    output_path = os.path.join(current_dir, f"{filename}.html")
     stylesheet_list_path = os.path.join(current_dir, "css", "styleSheetlist.txt")
     script_list_path = os.path.join(current_dir, "js", "scriptList.txt")
     js_directory = os.path.join(current_dir, "js")
@@ -111,7 +110,6 @@ if __name__ == "__main__":
 
     inline_scripts = return_inline_script_files_from_directory(js_directory)
     inline_styles = return_inline_style_files_from_directory(current_dir)
-
 
     # Define placeholder values
     placeholders = {

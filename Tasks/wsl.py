@@ -1,6 +1,7 @@
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 
+
 @task
 def usb_bridge(c: Context, dry_run: bool = False, opts: str = "") -> None:
     """Run the WSL Smart Attach/Detach script for USB devices."""

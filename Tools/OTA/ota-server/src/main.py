@@ -43,7 +43,7 @@ def get_local_ip():
         s.connect(("8.8.8.8", 80))
         local_ip = s.getsockname()[0]
     except Exception:
-        local_ip = "127.0.0.1" # Fallback to loopback if not connected to any network
+        local_ip = "127.0.0.1"  # Fallback to loopback if not connected to any network
     finally:
         s.close()
     return local_ip
@@ -62,5 +62,5 @@ if __name__ == "__main__":
         port=settings.PORT,
         ssl_keyfile=str(settings.SSL_KEY_FILE),
         ssl_certfile=str(settings.SSL_CERT_FILE),
-        reload=settings.RELOAD
+        reload=settings.RELOAD,
     )

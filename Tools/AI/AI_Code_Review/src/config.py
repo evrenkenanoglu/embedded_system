@@ -19,8 +19,9 @@ DEFAULT_PROVIDERS = {
     "anthropic": {
         "url": "https://api.anthropic.com/v1/messages",
         "model": "claude-3-5-haiku-20241022",
-    }
+    },
 }
+
 
 def load_auth_config():
     """Attempts to read the local authentication.json file."""
@@ -34,65 +35,62 @@ def load_auth_config():
             print(f"⚠️ Warning: Failed to parse authentication.json ({e}).")
     return {}
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Modular AI Code Reviewer")
     parser.add_argument(
         "--provider",
         choices=["ollama", "openai", "gemini", "anthropic"],
         default=os.environ.get("AI_PROVIDER", "ollama"),
-        help="Target AI service provider (default: ollama)"
+        help="Target AI service provider (default: ollama)",
     )
     parser.add_argument(
-        "--model",
-        default=os.environ.get("AI_MODEL"),
-        help="Specify LLM model"
+        "--model", default=os.environ.get("AI_MODEL"), help="Specify LLM model"
     )
     parser.add_argument(
         "--key",
-        help="Explicit API Key (overrides authentication.json and env variables)"
+        help="Explicit API Key (overrides authentication.json and env variables)",
     )
     parser.add_argument(
-        "--url",
-        default=os.environ.get("AI_API_URL"),
-        help="Override endpoint URL"
+        "--url", default=os.environ.get("AI_API_URL"), help="Override endpoint URL"
     )
     parser.add_argument(
         "--templates",
         nargs="+",
         default=["cpp_review"],
-        help="One or more prompt templates from prompts/ directory (without .md)"
+        help="One or more prompt templates from prompts/ directory (without .md)",
     )
     parser.add_argument(
         "--report-template",
         default="report_template",
-        help="Specify the output formatting template name from prompts/ (without .md)"
+        help="Specify the output formatting template name from prompts/ (without .md)",
     )
     parser.add_argument(
         "--files",
         nargs="+",
-        help="Specific files to review directly (bypasses git diff if provided)"
+        help="Specific files to review directly (bypasses git diff if provided)",
     )
     parser.add_argument(
         "--format",
         choices=["markdown", "json"],
         default="markdown",
-        help="Output report format (default: markdown)"
+        help="Output report format (default: markdown)",
     )
     parser.add_argument(
-        "--output-file",
-        help="Path to save the generated review report"
+        "--output-file", help="Path to save the generated review report"
     )
     parser.add_argument(
         "--diff-branch",
-        help="Compare branch expression (e.g. origin/main...feature_branch) to fetch raw diff content directly"
+        help="Compare branch expression (e.g. origin/main...feature_branch) to fetch raw diff content directly",
     )
 
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Enable verbose debug logging of raw diffs, files, and commits"
+        help="Enable verbose debug logging of raw diffs, files, and commits",
     )
     return parser.parse_args()
+
 
 def get_api_key(provider, cli_key):
     """Retrieves API key with priority: CLI Arg > authentication.json > Environment Var."""
@@ -106,6 +104,6 @@ def get_api_key(provider, cli_key):
     env_vars = {
         "openai": "OPENAI_API_KEY",
         "gemini": "GEMINI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY"
+        "anthropic": "ANTHROPIC_API_KEY",
     }
     return os.environ.get(env_vars.get(provider, ""))

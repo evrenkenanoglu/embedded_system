@@ -89,9 +89,7 @@ def get_matcher_for_dir(base_dir: Path) -> GitignoreMatcher:
         local_gitignore = base_dir / ".gitignore"
         if local_gitignore.exists() and local_gitignore.is_file():
             try:
-                lines = (
-                    local_gitignore.read_text(encoding="utf-8").splitlines()
-                )
+                lines = local_gitignore.read_text(encoding="utf-8").splitlines()
                 patterns.extend(lines)
             except Exception as e:
                 print(f"[Warning] Failed to read local .gitignore: {e}")

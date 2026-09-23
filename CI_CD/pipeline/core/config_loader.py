@@ -20,7 +20,9 @@ class ConfigNode(dict):
         self[name] = value
 
 
-def _flatten_dict(d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Dict[str, str]:
+def _flatten_dict(
+    d: Dict[str, Any], parent_key: str = "", sep: str = "."
+) -> Dict[str, str]:
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -49,7 +51,9 @@ def _expand_placeholders(data: Any, context: Dict[str, str]) -> Any:
     return data
 
 
-def load_config(config_path: Union[str, Path], workspace_root: Union[str, Path, None] = None) -> ConfigNode:
+def load_config(
+    config_path: Union[str, Path], workspace_root: Union[str, Path, None] = None
+) -> ConfigNode:
     """Load a YAML configuration file, bind project_root, and resolve placeholders."""
     cfg_file = Path(config_path).resolve()
     if not cfg_file.exists():

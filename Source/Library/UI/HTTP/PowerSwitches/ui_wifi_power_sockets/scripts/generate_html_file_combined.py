@@ -88,9 +88,9 @@ if __name__ == "__main__":
     filename = os.path.basename(os.path.dirname(current_dir))
     # change the current directory to parent directory one level up
     current_dir = os.path.join(current_dir, "..")
-    
+
     template_path = os.path.join(current_dir, "template/template.html")
-    output_path = os.path.join(current_dir, f'output/html/{filename}_combined.html')
+    output_path = os.path.join(current_dir, f"output/html/{filename}_combined.html")
     stylesheet_list_path = os.path.join(current_dir, "css", "styleSheetlist.txt")
     script_list_path = os.path.join(current_dir, "js", "scriptList.txt")
     js_directory = os.path.join(current_dir, "js")
@@ -109,7 +109,6 @@ if __name__ == "__main__":
 
     inline_scripts = return_inline_scripts_from_directory(js_directory)
     inline_styles = return_inline_styles_from_directory(current_dir)
-
 
     # Define placeholder values
     placeholders = {

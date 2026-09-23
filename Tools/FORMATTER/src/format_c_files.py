@@ -55,7 +55,10 @@ def format_c_check(
                 print(f"  [MISMATCH] {file_path.relative_to(root_dir)}")
                 all_passed = False
         except FileNotFoundError:
-            print("Error: 'clang-format' is not installed or not in PATH.", file=sys.stderr)
+            print(
+                "Error: 'clang-format' is not installed or not in PATH.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     if all_passed:
@@ -87,7 +90,10 @@ def format_c_apply(
             print(f"Error formatting {file_path}: {e}", file=sys.stderr)
             return False
         except FileNotFoundError:
-            print("Error: 'clang-format' is not installed or not in PATH.", file=sys.stderr)
+            print(
+                "Error: 'clang-format' is not installed or not in PATH.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     return True

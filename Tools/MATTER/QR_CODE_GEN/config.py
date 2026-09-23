@@ -15,9 +15,9 @@ DISCRIMINATOR = 3840
 SETUP_PIN_CODE = 20202021
 
 # --- Device Identity ---
-# Vendor ID (VID). 0xFFF1 is for "Test Vendor". 
+# Vendor ID (VID). 0xFFF1 is for "Test Vendor".
 # For a pro product, you must acquire a VID from the CSA (Connectivity Standards Alliance).
-VENDOR_ID = 0xFFF1 
+VENDOR_ID = 0xFFF1
 
 # Product ID (PID). 0x8000 is a "Test Product".
 PRODUCT_ID = 0x8000
@@ -25,13 +25,13 @@ PRODUCT_ID = 0x8000
 # --- Discovery Capabilities (Rendezvous) ---
 # 2: BLE (Standard for ESP32/ESP32-C3/S3)
 # 4: On-Network (Use this ONLY if you used your own WiFi Manager first)
-RENDEZVOUS = 2 
+RENDEZVOUS = 2
 
 # --- Commissioning Flow ---
 # 0: Standard (No user interaction required on device)
 # 1: User Intent (User must press a button on device to allow pairing)
 # 2: Custom
-COMMISSIONING_FLOW = 0 
+COMMISSIONING_FLOW = 0
 
 # --- Versioning ---
 VERSION = 0

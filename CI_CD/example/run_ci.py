@@ -30,9 +30,11 @@ def main():
     docker_manager.cleanup_path(config.TEMP_WORKSPACE_NAME)
     # remove the artifacts
     if os.path.exists(config.EXTRACTED_PACKAGE_DIR):
-        print(f"🧹 Removing existing extracted package at {config.EXTRACTED_PACKAGE_DIR}")
+        print(
+            f"🧹 Removing existing extracted package at {config.EXTRACTED_PACKAGE_DIR}"
+        )
         run_cmd(["rm", "-rf", config.EXTRACTED_PACKAGE_DIR])
-    
+
     if os.path.exists(config.ARTIFACT_NAME + ".zip"):
         print(f"🧹 Removing existing artifact at {config.ARTIFACT_NAME}.zip")
         run_cmd(["rm", "-rf", config.ARTIFACT_NAME + ".zip"])

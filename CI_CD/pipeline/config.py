@@ -21,7 +21,9 @@ class ConfigNode(dict):
         self[name] = value
 
 
-def _flatten_dict(d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Dict[str, str]:
+def _flatten_dict(
+    d: Dict[str, Any], parent_key: str = "", sep: str = "."
+) -> Dict[str, str]:
     """Flattens nested dictionaries into single dot-separated string keys."""
     items = []
     for k, v in d.items():

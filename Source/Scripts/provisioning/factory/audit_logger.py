@@ -25,7 +25,7 @@ class AuditLogger:
         sb_key_file: str,
         nvs_key_file: str,
         status: str,
-        extra_metadata: Dict[str, Any] = None
+        extra_metadata: Dict[str, Any] = None,
     ) -> Path:
         record: Dict[str, Any] = {
             "mac_address": mac_address,
@@ -36,7 +36,7 @@ class AuditLogger:
             "sb_key_file": sb_key_file,
             "nvs_key_file": nvs_key_file,
             "status": status,
-            "extra_metadata": extra_metadata or {}
+            "extra_metadata": extra_metadata or {},
         }
 
         audit_file = self.output_dir / f"audit_{mac_address.replace(':', '-')}.json"

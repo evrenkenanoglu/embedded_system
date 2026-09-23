@@ -24,7 +24,9 @@ class PipelineEngine:
         self.cfg = self._load_and_resolve(self.config_path)
         self.docker_manager = DockerManager(str(self.workspace_root))
 
-    def _flatten_dict(self, d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Dict[str, str]:
+    def _flatten_dict(
+        self, d: Dict[str, Any], parent_key: str = "", sep: str = "."
+    ) -> Dict[str, str]:
         items = []
         for k, v in d.items():
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -75,7 +77,9 @@ class PipelineEngine:
         # Dynamic OS port resolution for HIL
         hil_cfg = merged.setdefault("hil", {})
         serial_ports = hil_cfg.get("serial_ports", {})
-        hil_cfg["resolved_port"] = serial_ports.get("windows" if IS_WINDOWS else "linux", "AUTO")
+        hil_cfg["resolved_port"] = serial_ports.get(
+            "windows" if IS_WINDOWS else "linux", "AUTO"
+        )
 
         # Multi-pass iterative resolution to resolve chained dependencies
         for _ in range(10):

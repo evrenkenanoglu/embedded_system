@@ -24,7 +24,9 @@ class TelemetryReport(BaseModel):
     previous_version: str = Field(..., description="Currently installed SemVer")
     target_version: str = Field(..., description="Destination OTA SemVer attempt")
     status: str = Field(..., description="'success' or 'failure'")
-    error_code: int = Field(0, description="Platform crash or code-sign failure reason code")
+    error_code: int = Field(
+        0, description="Platform crash or code-sign failure reason code"
+    )
 
 
 def is_newer_version(current: str, latest: str) -> bool:
@@ -36,7 +38,9 @@ def is_newer_version(current: str, latest: str) -> bool:
         return latest != current
 
 
-def is_in_canary_group(device_id: str, target_version: str, target_percentage: int) -> bool:
+def is_in_canary_group(
+    device_id: str, target_version: str, target_percentage: int
+) -> bool:
     """Determines deterministically if a device falls within the canary target rollout percentage."""
     if target_percentage >= 100:
         return True
@@ -48,13 +52,13 @@ def is_in_canary_group(device_id: str, target_version: str, target_percentage: i
     return hash_value < target_percentage
 
 
-def generate_download_token(filename: str, expires_in_sec: int = settings.TOKEN_EXPIRATION_SECONDS) -> str:
+def generate_download_token(
+    filename: str, expires_in_sec: int = settings.TOKEN_EXPIRATION_SECONDS
+) -> str:
     expire_time = int(time.time()) + expires_in_sec
     message = f"{filename}:{expire_time}".encode("utf-8")
     signature = hmac.new(
-        settings.API_KEY.encode("utf-8"), 
-        message, 
-        hashlib.sha256
+        settings.API_KEY.encode("utf-8"), message, hashlib.sha256
     ).hexdigest()
     return f"{expire_time}.{signature}"
 
@@ -68,9 +72,7 @@ def verify_download_token(filename: str, token: str) -> bool:
             return False
         message = f"{filename}:{expire_time}".encode("utf-8")
         expected_sig = hmac.new(
-            settings.API_KEY.encode("utf-8"), 
-            message, 
-            hashlib.sha256
+            settings.API_KEY.encode("utf-8"), message, hashlib.sha256
         ).hexdigest()
         return hmac.compare_digest(expected_sig, signature)
     except Exception:
@@ -86,7 +88,7 @@ def authenticate_request(request: Request, filename: str, token: str = None):
     logger.warning(f"Unauthorized access attempt to download '{filename}'")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid, missing, or expired download credentials."
+        detail="Invalid, missing, or expired download credentials.",
     )
 
 
@@ -94,30 +96,28 @@ async def get_validated_file_response(filename: str) -> FileResponse:
     file_path = (settings.FIRMWARE_DIR / filename).resolve()
     if not file_path.is_relative_to(settings.FIRMWARE_DIR.resolve()):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Access denied. Directory traversal detected."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Directory traversal detected.",
         )
     if not file_path.exists() or not file_path.is_file():
         logger.error(f"Binary file not found on disk: {file_path}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="Requested binary file not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requested binary file not found.",
         )
     return FileResponse(
-        path=file_path,
-        media_type="application/octet-stream",
-        filename=filename
+        path=file_path, media_type="application/octet-stream", filename=filename
     )
 
 
 def log_telemetry(report: TelemetryReport):
     """Saves structured telemetry payload to local storage directory, sanitizing path delimiters."""
     settings.TELEMETRY_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     # Sanitize the device_id for Windows OS filesystem compatibility (replace colons with dashes)
     safe_device_id = report.device_id.replace(":", "-")
     log_file = settings.TELEMETRY_LOG_DIR / f"device_{safe_device_id}.json"
-    
+
     device_history = []
     if log_file.exists():
         try:
@@ -125,11 +125,11 @@ def log_telemetry(report: TelemetryReport):
                 device_history = json.load(f)
         except json.JSONDecodeError:
             pass
-            
+
     report_dict = report.model_dump()
     report_dict["timestamp"] = int(time.time())
     device_history.append(report_dict)
-    
+
     with open(log_file, "w") as f:
         json.dump(device_history, f, indent=2)
 
@@ -185,16 +185,19 @@ def _soft_rollback_version_in_manifest(target_version: str):
         target_channel = target_update.get("channel", settings.DEFAULT_CHANNEL)
 
         remaining_versions_in_channel = [
-            v for v, info in data.get("updates", {}).items() 
+            v
+            for v, info in data.get("updates", {}).items()
             if info.get("channel") == target_channel and info.get("status") == "active"
         ]
 
         if remaining_versions_in_channel:
+
             def semver_key(v):
                 try:
                     return [int(x) for x in v.split(".")]
                 except ValueError:
                     return [0]
+
             sorted_versions = sorted(remaining_versions_in_channel, key=semver_key)
             data["channels"][target_channel]["latest_version"] = sorted_versions[-1]
         else:
@@ -204,13 +207,17 @@ def _soft_rollback_version_in_manifest(target_version: str):
         with open(temp_path, "w") as f:
             json.dump(data, f, indent=2)
         os.replace(temp_path, settings.MANIFEST_FILE)
-        logger.warning(f"Version {target_version} successfully deactivated in channel {target_channel}.")
+        logger.warning(
+            f"Version {target_version} successfully deactivated in channel {target_channel}."
+        )
 
 
 @router.post("/status")
 async def ota_status_report(request: Request, report: TelemetryReport):
     """Receives structured execution outcomes and enforces automatic rolling halts."""
-    authenticate_request(request, "telemetry", request.headers.get(settings.API_KEY_HEADER))
+    authenticate_request(
+        request, "telemetry", request.headers.get(settings.API_KEY_HEADER)
+    )
     log_telemetry(report)
     evaluate_auto_rollback(report.target_version)
     return {"status": "recorded"}
@@ -223,7 +230,7 @@ async def ota_check(
     hw: str = Query(None, description="Backup query parameter for hardware"),
     device_id: str = Query(None, description="Device UUID / MAC address"),
     channel: str = Query(None, description="Target deployment stream channel"),
-    hsvn: int = Query(None, description="Hardware security version constraint")
+    hsvn: int = Query(None, description="Hardware security version constraint"),
 ):
     """Resolves and delivers updates considering canary profiles and security constraints."""
     api_key = request.headers.get(settings.API_KEY_HEADER)
@@ -232,9 +239,15 @@ async def ota_check(
     client_version = request.headers.get(settings.HEADER_VERSION_KEY) or ver
     client_hardware = request.headers.get(settings.HEADER_HARDWARE_KEY) or hw
     client_device_id = request.headers.get(settings.HEADER_DEVICE_ID_KEY) or device_id
-    client_channel = request.headers.get(settings.HEADER_CHANNEL_KEY) or channel or settings.DEFAULT_CHANNEL
-    
-    raw_hsvn = request.headers.get(settings.HEADER_HSVN_KEY) or hsvn or settings.DEFAULT_HSVN
+    client_channel = (
+        request.headers.get(settings.HEADER_CHANNEL_KEY)
+        or channel
+        or settings.DEFAULT_CHANNEL
+    )
+
+    raw_hsvn = (
+        request.headers.get(settings.HEADER_HSVN_KEY) or hsvn or settings.DEFAULT_HSVN
+    )
     try:
         client_hsvn = int(raw_hsvn)
     except (ValueError, TypeError):
@@ -244,13 +257,13 @@ async def ota_check(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Missing identification keys. Required headers: "
-                   f"'{settings.HEADER_VERSION_KEY}', '{settings.HEADER_HARDWARE_KEY}', '{settings.HEADER_DEVICE_ID_KEY}'."
+            f"'{settings.HEADER_VERSION_KEY}', '{settings.HEADER_HARDWARE_KEY}', '{settings.HEADER_DEVICE_ID_KEY}'.",
         )
 
     if not settings.MANIFEST_FILE.exists():
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="No updates deployed on this server."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No updates deployed on this server.",
         )
 
     with open(settings.MANIFEST_FILE, "r") as f:
@@ -258,25 +271,29 @@ async def ota_check(
             manifest = json.load(f)
         except json.JSONDecodeError:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-                detail="Corrupted update directory."
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Corrupted update directory.",
             )
 
     manifest_hardware = manifest.get("hardware_device", "")
     if client_hardware != manifest_hardware:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Incompatible hardware profile. Target: {client_hardware}, Required: {manifest_hardware}"
+            detail=f"Incompatible hardware profile. Target: {client_hardware}, Required: {manifest_hardware}",
         )
 
-    latest_channel_version = manifest.get("channels", {}).get(client_channel, {}).get("latest_version")
-    
-    if latest_channel_version and is_newer_version(client_version, latest_channel_version):
+    latest_channel_version = (
+        manifest.get("channels", {}).get(client_channel, {}).get("latest_version")
+    )
+
+    if latest_channel_version and is_newer_version(
+        client_version, latest_channel_version
+    ):
         update_info = manifest.get("updates", {}).get(latest_channel_version)
         if not update_info or update_info.get("status") != "active":
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Version metadata unavailable or de-activated."
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Version metadata unavailable or de-activated.",
             )
 
         target_hsvn = update_info.get("hsvn", settings.DEFAULT_HSVN)
@@ -287,29 +304,39 @@ async def ota_check(
             )
             return {
                 "update_available": False,
-                "message": "Update aborted: Hardware anti-downgrade boundary protection active."
+                "message": "Update aborted: Hardware anti-downgrade boundary protection active.",
             }
 
-        canary_percent = update_info.get("canary_percentage", settings.DEFAULT_CANARY_PERCENTAGE)
-        if not is_in_canary_group(client_device_id, latest_channel_version, canary_percent):
-            logger.info(f"Device '{client_device_id}' bypassed: Not targeted in {canary_percent}% canary rollout group.")
+        canary_percent = update_info.get(
+            "canary_percentage", settings.DEFAULT_CANARY_PERCENTAGE
+        )
+        if not is_in_canary_group(
+            client_device_id, latest_channel_version, canary_percent
+        ):
+            logger.info(
+                f"Device '{client_device_id}' bypassed: Not targeted in {canary_percent}% canary rollout group."
+            )
             return {
                 "update_available": False,
-                "message": "Device not targeted in staggered rollout cohort."
+                "message": "Device not targeted in staggered rollout cohort.",
             }
 
         patches_map = update_info.get("patches", {})
         signing_cert_pem = get_signing_certificate_pem()
-        
+
         if client_version in patches_map:
-            logger.info(f"Target delta patch matched: Client version {client_version} -> {latest_channel_version}")
+            logger.info(
+                f"Target delta patch matched: Client version {client_version} -> {latest_channel_version}"
+            )
             patch_info = patches_map[client_version]
             patch_relative_path = patch_info.get("patch_path", "")
             patch_filename = f"patches/{Path(patch_relative_path).name}"
-            
+
             token = generate_download_token(patch_filename)
             base_url = str(request.base_url).rstrip("/")
-            download_url = f"{base_url}{DOWNLOAD_ROUTE_PREFIX}/{patch_filename}?token={token}"
+            download_url = (
+                f"{base_url}{DOWNLOAD_ROUTE_PREFIX}/{patch_filename}?token={token}"
+            )
 
             return {
                 "update_available": True,
@@ -321,9 +348,11 @@ async def ota_check(
                 "signature": patch_info.get("signature"),
                 "target_sha256": update_info.get("sha256"),
                 "target_signature": update_info.get("signature"),
-                "target_size": update_info.get("file_size_bytes"), # Sends exact reassembled binary size
+                "target_size": update_info.get(
+                    "file_size_bytes"
+                ),  # Sends exact reassembled binary size
                 "signing_cert": signing_cert_pem,
-                "notes": update_info.get("release_notes")
+                "notes": update_info.get("release_notes"),
             }
 
         logger.info(f"Delivering full binary updates.")
@@ -344,22 +373,21 @@ async def ota_check(
             "signature": update_info.get("signature"),
             "target_sha256": update_info.get("sha256"),
             "target_signature": update_info.get("signature"),
-            "target_size": update_info.get("file_size_bytes"), # Sends exact application binary size
+            "target_size": update_info.get(
+                "file_size_bytes"
+            ),  # Sends exact application binary size
             "signing_cert": signing_cert_pem,
-            "notes": update_info.get("release_notes")
+            "notes": update_info.get("release_notes"),
         }
 
-    return {
-        "update_available": False,
-        "message": "Firmware is already up-to-date."
-    }
+    return {"update_available": False, "message": "Firmware is already up-to-date."}
 
 
 @router.get("/download/{filename:path}")
 async def ota_download(
-    filename: str, 
+    filename: str,
     request: Request,
-    token: str = Query(None, description="Temporary presigned query token")
+    token: str = Query(None, description="Temporary presigned query token"),
 ):
     authenticate_request(request, filename, token)
     return await get_validated_file_response(filename)
@@ -367,9 +395,9 @@ async def ota_download(
 
 @direct_router.get(f"{DOWNLOAD_ROUTE_PREFIX}/{{filename:path}}")
 async def direct_ota_download(
-    filename: str, 
+    filename: str,
     request: Request,
-    token: str = Query(None, description="Temporary presigned query token")
+    token: str = Query(None, description="Temporary presigned query token"),
 ):
     authenticate_request(request, filename, token)
     return await get_validated_file_response(filename)

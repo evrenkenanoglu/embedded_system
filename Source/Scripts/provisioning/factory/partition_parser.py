@@ -28,22 +28,24 @@ class PartitionTableParser:
     """Parses standard ESP-IDF partitions.csv and resolves offsets dynamically."""
 
     # Silicon Hardware Constraints (Non-configurable physical flash limits)
-    APP_ALIGNMENT = 0x10000   # 64 KB ESP32 MMU execution boundary
-    DATA_ALIGNMENT = 0x1000   # 4 KB physical flash sector erase boundary
+    APP_ALIGNMENT = 0x10000  # 64 KB ESP32 MMU execution boundary
+    DATA_ALIGNMENT = 0x1000  # 4 KB physical flash sector erase boundary
     PARTITION_TABLE_SIZE = 0x1000  # 4 KB allocated partition table sector
 
     def __init__(
-        self, 
-        partitions_csv_path: Path, 
+        self,
+        partitions_csv_path: Path,
         partition_table_offset: int = 0x8000,
-        bootloader_offset: int = 0x0000
+        bootloader_offset: int = 0x0000,
     ):
         self.csv_path = partitions_csv_path
         self.partition_table_offset = partition_table_offset
         self.bootloader_offset = bootloader_offset
         # First partition always starts at the sector immediately following the partition table
-        self.first_partition_offset = self.partition_table_offset + self.PARTITION_TABLE_SIZE
-        
+        self.first_partition_offset = (
+            self.partition_table_offset + self.PARTITION_TABLE_SIZE
+        )
+
         self.partitions: Dict[str, PartitionEntry] = {}
         self._parse()
 
@@ -68,10 +70,16 @@ class PartitionTableParser:
                 subtype = parts[2]
                 offset_str = parts[3]
                 size_str = parts[4]
-                flags = [f.strip() for f in parts[5].split(":")] if len(parts) > 5 and parts[5] else []
+                flags = (
+                    [f.strip() for f in parts[5].split(":")]
+                    if len(parts) > 5 and parts[5]
+                    else []
+                )
 
                 size = int(size_str, 0)
-                alignment = self.APP_ALIGNMENT if ptype == "app" else self.DATA_ALIGNMENT
+                alignment = (
+                    self.APP_ALIGNMENT if ptype == "app" else self.DATA_ALIGNMENT
+                )
 
                 # Resolve offset dynamically if not explicitly specified in CSV
                 if offset_str:
@@ -89,12 +97,14 @@ class PartitionTableParser:
                     subtype=subtype,
                     offset=offset,
                     size=size,
-                    flags=flags
+                    flags=flags,
                 )
 
     def get_partition(self, name: str) -> PartitionEntry:
         if name not in self.partitions:
-            raise KeyError(f"Partition '{name}' not found. Available: {list(self.partitions.keys())}")
+            raise KeyError(
+                f"Partition '{name}' not found. Available: {list(self.partitions.keys())}"
+            )
         return self.partitions[name]
 
     def get_offset(self, name: str) -> int:
@@ -108,7 +118,9 @@ class PartitionTableParser:
 
         for target, bin_path in binary_mapping.items():
             if not bin_path.exists():
-                raise FileNotFoundError(f"Binary file for '{target}' missing: {bin_path}")
+                raise FileNotFoundError(
+                    f"Binary file for '{target}' missing: {bin_path}"
+                )
 
             if target == "__bootloader__":
                 offset = self.bootloader_offset

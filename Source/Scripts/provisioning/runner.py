@@ -45,8 +45,10 @@ def run_main(config_path: Path, step: str, dry_run: bool = False) -> int:
     cmd = [
         sys.executable,
         str(MAIN_PY),
-        "--config", str(config_path),
-        "--step", step,
+        "--config",
+        str(config_path),
+        "--step",
+        step,
     ]
     if dry_run:
         cmd.append("--dry-run")
@@ -105,13 +107,40 @@ def main() -> int:
         description="Quick runner for ESP32 provisioning operations.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--config", "-c", type=Path, default=None, help="Path to config_provisioning.yaml")
-    parser.add_argument("--step", "-s", choices=["all", "nvs", "sign", "provision"], default=None, help="Target step to execute")
-    parser.add_argument("--all", action="store_true", help="Run full pipeline (NVS -> Sign -> Provision)")
-    parser.add_argument("--nvs", action="store_true", help="Generate encrypted NVS partition only")
-    parser.add_argument("--sign", action="store_true", help="Sign firmware and update server manifest")
-    parser.add_argument("--provision", action="store_true", help="Provision hardware silicon")
-    parser.add_argument("--dry-run", "-d", action="store_true", help="Run in dry-run mode (no eFuse burning)")
+    parser.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        default=None,
+        help="Path to config_provisioning.yaml",
+    )
+    parser.add_argument(
+        "--step",
+        "-s",
+        choices=["all", "nvs", "sign", "provision"],
+        default=None,
+        help="Target step to execute",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run full pipeline (NVS -> Sign -> Provision)",
+    )
+    parser.add_argument(
+        "--nvs", action="store_true", help="Generate encrypted NVS partition only"
+    )
+    parser.add_argument(
+        "--sign", action="store_true", help="Sign firmware and update server manifest"
+    )
+    parser.add_argument(
+        "--provision", action="store_true", help="Provision hardware silicon"
+    )
+    parser.add_argument(
+        "--dry-run",
+        "-d",
+        action="store_true",
+        help="Run in dry-run mode (no eFuse burning)",
+    )
     args = parser.parse_args()
 
     config_file = args.config.resolve() if args.config else resolve_default_config()

@@ -108,11 +108,21 @@ class Settings:
 
     _paths = _cfg.get("paths", {})
     CERT_DIR: Path = Path(_paths.get("cert_dir", SERVER_ROOT_DIR / "certs")).resolve()
-    FIRMWARE_DIR: Path = Path(_paths.get("firmware_dir", SERVER_ROOT_DIR / "firmware_storage")).resolve()
-    TEMPLATES_DIR: Path = Path(_paths.get("templates_dir", SERVER_ROOT_DIR / "src/templates")).resolve()
-    STATIC_DIR: Path = Path(_paths.get("static_dir", SERVER_ROOT_DIR / "src/static")).resolve()
-    TELEMETRY_LOG_DIR: Path = Path(_paths.get("telemetry_dir", SERVER_ROOT_DIR / "telemetry_logs")).resolve()
-    MANIFEST_FILE: Path = (FIRMWARE_DIR / _paths.get("manifest_filename", "manifest.json")).resolve()
+    FIRMWARE_DIR: Path = Path(
+        _paths.get("firmware_dir", SERVER_ROOT_DIR / "firmware_storage")
+    ).resolve()
+    TEMPLATES_DIR: Path = Path(
+        _paths.get("templates_dir", SERVER_ROOT_DIR / "src/templates")
+    ).resolve()
+    STATIC_DIR: Path = Path(
+        _paths.get("static_dir", SERVER_ROOT_DIR / "src/static")
+    ).resolve()
+    TELEMETRY_LOG_DIR: Path = Path(
+        _paths.get("telemetry_dir", SERVER_ROOT_DIR / "telemetry_logs")
+    ).resolve()
+    MANIFEST_FILE: Path = (
+        FIRMWARE_DIR / _paths.get("manifest_filename", "manifest.json")
+    ).resolve()
 
     _certs = _cfg.get("certificates", {})
     _ca_cfg = _certs.get("ca", {})
@@ -135,12 +145,18 @@ class Settings:
     STATIC_DNS_SANS: List[str] = _srv_cfg.get("dns_sans", ["localhost", "ota.local"])
     STATIC_IP_SANS: List[str] = _srv_cfg.get("ip_sans", ["127.0.0.1", "192.168.1.100"])
 
-    SIGNING_CERT_COMMON_NAME: str = _sign_cfg.get("common_name", "DeveloperFirmwareSigning")
+    SIGNING_CERT_COMMON_NAME: str = _sign_cfg.get(
+        "common_name", "DeveloperFirmwareSigning"
+    )
     SIGNING_CERT_ORG: str = _sign_cfg.get("organization", "Firmware Release Authority")
     SIGNING_KEY_TYPE: str = _sign_cfg.get("key_type", "ec-secp256r1")
     SIGNING_VALIDITY_DAYS: int = int(_sign_cfg.get("validity_days", 365))
-    SIGNING_CRT_FILE: Path = (CERT_DIR / _sign_cfg.get("cert_file", "signing.crt")).resolve()
-    SIGNING_KEY_FILE: Path = (CERT_DIR / _sign_cfg.get("key_file", "signing.key")).resolve()
+    SIGNING_CRT_FILE: Path = (
+        CERT_DIR / _sign_cfg.get("cert_file", "signing.crt")
+    ).resolve()
+    SIGNING_KEY_FILE: Path = (
+        CERT_DIR / _sign_cfg.get("key_file", "signing.key")
+    ).resolve()
 
     _auth = _cfg.get("auth", {})
     API_KEY_HEADER: str = _auth.get("api_key_header", "X-Device-API-Key")
@@ -163,8 +179,12 @@ class Settings:
     CHUNK_SIZE_BYTES: int = int(_deploy.get("chunk_size_bytes", 8192))
 
     _rollback = _cfg.get("rollback", {})
-    MAX_FAILURE_RATE_PERCENT: float = float(_rollback.get("max_failure_rate_percent", 10.0))
-    MIN_STATUS_REPORTS_FOR_ROLLBACK: int = int(_rollback.get("min_reports_for_rollback", 5))
+    MAX_FAILURE_RATE_PERCENT: float = float(
+        _rollback.get("max_failure_rate_percent", 10.0)
+    )
+    MIN_STATUS_REPORTS_FOR_ROLLBACK: int = int(
+        _rollback.get("min_reports_for_rollback", 5)
+    )
 
 
 settings = Settings()

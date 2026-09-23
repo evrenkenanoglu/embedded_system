@@ -28,7 +28,10 @@ try:
     from cryptography.hazmat.primitives.asymmetric import ec, rsa
     from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 except ImportError:
-    print("[ERROR] Cryptography library is required. Run: pip install cryptography", file=sys.stderr)
+    print(
+        "[ERROR] Cryptography library is required. Run: pip install cryptography",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
@@ -39,7 +42,9 @@ def auto_detect_roots() -> Tuple[Path, Path]:
     project_root = None
 
     while curr != curr.parent:
-        if curr.name == "embedded_system" or ((curr / "Source").exists() and (curr / "CMakeLists.txt").exists()):
+        if curr.name == "embedded_system" or (
+            (curr / "Source").exists() and (curr / "CMakeLists.txt").exists()
+        ):
             embedded_system_root = curr
             project_root = curr.parent
             break
@@ -69,7 +74,9 @@ def expand_variables(data: Any, env_map: Dict[str, str]) -> Any:
     return data
 
 
-def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> Tuple[Dict[str, Any], Path, Tuple[Path, Path]]:
+def load_config(
+    config_path: Path, cli_project_root: Optional[Path] = None
+) -> Tuple[Dict[str, Any], Path, Tuple[Path, Path]]:
     """Loads YAML configuration, auto-anchoring roots and expanding path placeholders."""
     if not config_path.exists():
         candidate = (Path.cwd() / config_path).resolve()
@@ -87,7 +94,7 @@ def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> T
 
     env_map: Dict[str, str] = {
         "project_root_dir": str(project_root),
-        "embedded_system_dir": str(embedded_system_root)
+        "embedded_system_dir": str(embedded_system_root),
     }
 
     for _ in range(4):
@@ -100,7 +107,9 @@ def load_config(config_path: Path, cli_project_root: Optional[Path] = None) -> T
     return cfg, config_path.parent.resolve(), (project_root, embedded_system_root)
 
 
-def generate_private_key(key_type: str) -> Union[ec.EllipticCurvePrivateKey, rsa.RSAPrivateKey]:
+def generate_private_key(
+    key_type: str,
+) -> Union[ec.EllipticCurvePrivateKey, rsa.RSAPrivateKey]:
     """Generates an asymmetric private key according to configured algorithm."""
     key_type = key_type.lower()
     if key_type == "ec-secp256r1":
@@ -119,15 +128,25 @@ def build_x509_name(subject_cfg: Dict[str, str]) -> x509.Name:
     """Dynamically converts configuration dictionary into x509.Name attributes."""
     attributes = []
     if "common_name" in subject_cfg:
-        attributes.append(x509.NameAttribute(NameOID.COMMON_NAME, subject_cfg["common_name"]))
+        attributes.append(
+            x509.NameAttribute(NameOID.COMMON_NAME, subject_cfg["common_name"])
+        )
     if "organization" in subject_cfg:
-        attributes.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, subject_cfg["organization"]))
+        attributes.append(
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, subject_cfg["organization"])
+        )
     if "country" in subject_cfg:
-        attributes.append(x509.NameAttribute(NameOID.COUNTRY_NAME, subject_cfg["country"]))
+        attributes.append(
+            x509.NameAttribute(NameOID.COUNTRY_NAME, subject_cfg["country"])
+        )
     if "state" in subject_cfg:
-        attributes.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, subject_cfg["state"]))
+        attributes.append(
+            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, subject_cfg["state"])
+        )
     if "locality" in subject_cfg:
-        attributes.append(x509.NameAttribute(NameOID.LOCALITY_NAME, subject_cfg["locality"]))
+        attributes.append(
+            x509.NameAttribute(NameOID.LOCALITY_NAME, subject_cfg["locality"])
+        )
 
     return x509.Name(attributes)
 
@@ -191,7 +210,9 @@ def generate_root_ca(ca_cfg: Dict[str, Any]) -> Tuple[Any, x509.Certificate]:
     return key, cert
 
 
-def generate_code_signing_cert(signing_cfg: Dict[str, Any], ca_key: Any, ca_cert: x509.Certificate) -> Tuple[Any, x509.Certificate]:
+def generate_code_signing_cert(
+    signing_cfg: Dict[str, Any], ca_key: Any, ca_cert: x509.Certificate
+) -> Tuple[Any, x509.Certificate]:
     """Generates a developer code-signing certificate signed by the Root CA."""
     key = generate_private_key(signing_cfg.get("key_type", "ec-secp256r1"))
     subject = build_x509_name(signing_cfg["subject"])
@@ -234,7 +255,9 @@ def generate_code_signing_cert(signing_cfg: Dict[str, Any], ca_key: Any, ca_cert
     return key, cert
 
 
-def generate_server_tls_cert(server_cfg: Dict[str, Any], ca_key: Any, ca_cert: x509.Certificate) -> Tuple[Any, x509.Certificate]:
+def generate_server_tls_cert(
+    server_cfg: Dict[str, Any], ca_key: Any, ca_cert: x509.Certificate
+) -> Tuple[Any, x509.Certificate]:
     """Generates an HTTPS TLS server certificate signed by the Root CA."""
     key = generate_private_key(server_cfg.get("key_type", "ec-secp256r1"))
     subject = build_x509_name(server_cfg["subject"])
@@ -266,7 +289,9 @@ def generate_server_tls_cert(server_cfg: Dict[str, Any], ca_key: Any, ca_cert: x
     )
 
     if san_list:
-        builder = builder.add_extension(x509.SubjectAlternativeName(san_list), critical=False)
+        builder = builder.add_extension(
+            x509.SubjectAlternativeName(san_list), critical=False
+        )
 
     cert = builder.sign(ca_key, hashes.SHA256())
 
@@ -296,33 +321,57 @@ def generate_silicon_hardware_keys(silicon_cfg: Dict[str, Any]) -> None:
     sb_digest.parent.mkdir(parents=True, exist_ok=True)
 
     cmd_gen = [
-        sys.executable, "-m", "espsecure",
+        sys.executable,
+        "-m",
+        "espsecure",
         "generate_signing_key",
-        "--version", "2",
-        "--scheme", scheme,
-        str(sb_pem.resolve())
+        "--version",
+        "2",
+        "--scheme",
+        scheme,
+        str(sb_pem.resolve()),
     ]
     res_gen = subprocess.run(cmd_gen, capture_output=True, text=True, check=False)
     if res_gen.returncode != 0:
         raise RuntimeError(f"Failed to generate Secure Boot V2 key:\n{res_gen.stderr}")
 
     cmd_dig = [
-        sys.executable, "-m", "espsecure",
+        sys.executable,
+        "-m",
+        "espsecure",
         "digest_sbv2_public_key",
-        "--keyfile", str(sb_pem.resolve()),
-        "--output", str(sb_digest.resolve())
+        "--keyfile",
+        str(sb_pem.resolve()),
+        "--output",
+        str(sb_digest.resolve()),
     ]
     res_dig = subprocess.run(cmd_dig, capture_output=True, text=True, check=False)
     if res_dig.returncode != 0:
-        raise RuntimeError(f"Failed to extract Secure Boot V2 digest:\n{res_dig.stderr}")
+        raise RuntimeError(
+            f"Failed to extract Secure Boot V2 digest:\n{res_dig.stderr}"
+        )
 
     print(f"[OK] Secure Boot V2 key and digest generated: {sb_digest.name}")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generic Data-Driven PKI & Silicon Key Generator.")
-    parser.add_argument("--config", "-c", type=Path, default=SCRIPT_DIR / "config.yaml", help="Path to config.yaml")
-    parser.add_argument("--project-root", "-r", type=Path, default=None, help="Explicit project root directory override")
+    parser = argparse.ArgumentParser(
+        description="Generic Data-Driven PKI & Silicon Key Generator."
+    )
+    parser.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        default=SCRIPT_DIR / "config.yaml",
+        help="Path to config.yaml",
+    )
+    parser.add_argument(
+        "--project-root",
+        "-r",
+        type=Path,
+        default=None,
+        help="Explicit project root directory override",
+    )
     args = parser.parse_args()
 
     try:
@@ -340,26 +389,34 @@ def main() -> int:
         root_cfg = config.get("root_ca", {})
         if root_cfg.get("enabled", True):
             ca_key, ca_cert = generate_root_ca(root_cfg)
-            print(f"[OK] Root CA Authority generated: {Path(root_cfg['cert_file']).name}")
+            print(
+                f"[OK] Root CA Authority generated: {Path(root_cfg['cert_file']).name}"
+            )
 
             # 2. Code-Signing Certificate Generation
             signing_cfg = config.get("code_signing", {})
             if signing_cfg.get("enabled", True):
                 generate_code_signing_cert(signing_cfg, ca_key, ca_cert)
-                print(f"[OK] Developer Signing Certificate generated: {Path(signing_cfg['cert_file']).name}")
+                print(
+                    f"[OK] Developer Signing Certificate generated: {Path(signing_cfg['cert_file']).name}"
+                )
 
             # 3. Server HTTPS TLS Generation
             server_cfg = config.get("server_tls", {})
             if server_cfg.get("enabled", True):
                 generate_server_tls_cert(server_cfg, ca_key, ca_cert)
-                print(f"[OK] Server TLS Certificate generated: {Path(server_cfg['cert_file']).name}")
+                print(
+                    f"[OK] Server TLS Certificate generated: {Path(server_cfg['cert_file']).name}"
+                )
 
         # 4. Silicon Hardware Keys Generation
         silicon_cfg = config.get("silicon_keys", {})
         if silicon_cfg.get("enabled", True):
             generate_silicon_hardware_keys(silicon_cfg)
 
-        print("\n[SUCCESS] All PKI certificates and silicon keys generated successfully.")
+        print(
+            "\n[SUCCESS] All PKI certificates and silicon keys generated successfully."
+        )
         return 0
 
     except Exception as e:

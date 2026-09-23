@@ -21,7 +21,6 @@ IGNORE_PATTERNS = [
     "build/",
     "dist/",
     "OUT/",  # Automatically ignores the output folder
-
     # Extensions / Wildcards
     "*.pyc",
     "*.pyo",
@@ -39,7 +38,6 @@ IGNORE_PATTERNS = [
     "*.db",
     "*.sqlite",
     "__init__.py",  # Ignore Python package init files
-
     # Specific file names
     ".DS_Store",
     "Thumbs.db",

@@ -1,6 +1,7 @@
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 
+
 @task
 def serialize(c: Context, dry_run: bool = False, opts: str = "") -> None:
     """Run the AI Content Serializer script."""

@@ -15,7 +15,9 @@ class EspIdfToolchain(BaseToolchain):
     def __init__(self, config: Any) -> None:
         super().__init__(config)
         self.work_dir = Path(getattr(self.config.paths, "workspace_dir", ".")).resolve()
-        self.activation_script = self._cfg("idf_activate_script", "activate_esp-5.4-matter_1.4.2.sh")
+        self.activation_script = self._cfg(
+            "idf_activate_script", "activate_esp-5.4-matter_1.4.2.sh"
+        )
 
     def _cfg(self, key: str, default: Any = "") -> Any:
         section = getattr(self.config, "esp32", {})
@@ -26,7 +28,9 @@ class EspIdfToolchain(BaseToolchain):
         return val if val is not None else default
 
     def _get_default_target(self) -> str:
-        return str(self._cfg("target", getattr(self.config, "target_platform", "esp32"))).strip()
+        return str(
+            self._cfg("target", getattr(self.config, "target_platform", "esp32"))
+        ).strip()
 
     def _get_default_port(self) -> str:
         return str(self._cfg("port", "")).strip()
@@ -36,13 +40,19 @@ class EspIdfToolchain(BaseToolchain):
 
         if not in_container and self.activation_script:
             script_path = Path(self.activation_script)
-            resolved = script_path if script_path.is_absolute() else (self.work_dir / script_path).resolve()
+            resolved = (
+                script_path
+                if script_path.is_absolute()
+                else (self.work_dir / script_path).resolve()
+            )
             script_posix = resolved.as_posix()
 
             if IS_WINDOWS:
                 prefix = [f'if exist "{resolved}" call "{resolved}"']
             else:
-                prefix = [f'if [ -f "{script_posix}" ]; then source "{script_posix}"; fi']
+                prefix = [
+                    f'if [ -f "{script_posix}" ]; then source "{script_posix}"; fi'
+                ]
         else:
             prefix = []
 
@@ -53,20 +63,31 @@ class EspIdfToolchain(BaseToolchain):
 
     # --- GENERIC ABSTRACT HOOKS ---
 
-    def _build(self, c: Context, target: str, image_bin: str, dry_run: bool, opts: str) -> None:
+    def _build(
+        self, c: Context, target: str, image_bin: str, dry_run: bool, opts: str
+    ) -> None:
         work_posix = self.work_dir.as_posix()
         resolved_target = target or self._get_default_target()
 
         # 1. Resolve base sdkconfig.defaults
         raw_defaults = self._cfg("sdkconfig_defaults", "sdkconfig.defaults")
         defaults_path = Path(raw_defaults)
-        resolved_defaults = defaults_path if defaults_path.is_absolute() else (self.work_dir / defaults_path).resolve()
+        resolved_defaults = (
+            defaults_path
+            if defaults_path.is_absolute()
+            else (self.work_dir / defaults_path).resolve()
+        )
 
         # 2. Resolve hardware SSoT overlay if present (sdkconfig.hardware)
         paths_cfg = getattr(self.config, "paths", {})
-        raw_hw = self._cfg("sdkconfig_hardware", getattr(paths_cfg, "sdkconfig_hardware", "sdkconfig.hardware"))
+        raw_hw = self._cfg(
+            "sdkconfig_hardware",
+            getattr(paths_cfg, "sdkconfig_hardware", "sdkconfig.hardware"),
+        )
         hw_path = Path(raw_hw) if raw_hw else Path("sdkconfig.hardware")
-        resolved_hw = hw_path if hw_path.is_absolute() else (self.work_dir / hw_path).resolve()
+        resolved_hw = (
+            hw_path if hw_path.is_absolute() else (self.work_dir / hw_path).resolve()
+        )
 
         # Merge defaults via native ESP-IDF semicolon delimiter
         if resolved_hw.exists():
@@ -84,7 +105,11 @@ class EspIdfToolchain(BaseToolchain):
             ver_num = getattr(proj_cfg, "version_number", 1)
 
         # 4. Resolve output binary name
-        out_name = Path(image_bin).name if image_bin and str(image_bin).strip() else "factory.bin"
+        out_name = (
+            Path(image_bin).name
+            if image_bin and str(image_bin).strip()
+            else "factory.bin"
+        )
 
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
@@ -153,7 +178,9 @@ class EspIdfToolchain(BaseToolchain):
             serializer.add("idf.py menuconfig", extra=opts)
             serializer.run(c, dry_run=dry_run)
 
-    def erase(self, c: Context, port: str = "", dry_run: bool = False, opts: str = "") -> None:
+    def erase(
+        self, c: Context, port: str = "", dry_run: bool = False, opts: str = ""
+    ) -> None:
         resolved_port = port or self._get_default_port()
         port_label = resolved_port or "AUTO"
         with self._stage("🗑️", "ERASE FLASH", port_label):
@@ -164,11 +191,23 @@ class EspIdfToolchain(BaseToolchain):
             serializer.add(f"idf.py {port_flag} erase-flash".strip(), extra=opts)
             serializer.run(c, dry_run=dry_run)
 
-    def flash_ota(self, c: Context, port: str = "", ota_port: int = 8032, dry_run: bool = False, opts: str = "") -> None:
+    def flash_ota(
+        self,
+        c: Context,
+        port: str = "",
+        ota_port: int = 8032,
+        dry_run: bool = False,
+        opts: str = "",
+    ) -> None:
         resolved_port = port or self._get_default_port()
         port_label = resolved_port or "AUTO"
         with self._stage("📡", "FLASH OTA", f"{port_label}:{ota_port}"):
-            test_script = (self.work_dir / "tests" / "hil" / "test_ota_trigger.py").as_posix()
+            test_script = (
+                self.work_dir / "tests" / "hil" / "test_ota_trigger.py"
+            ).as_posix()
             serializer = self._get_serializer()
-            serializer.add(f'pytest "{test_script}" --port={resolved_port} --ota-port={ota_port}', extra=opts)
+            serializer.add(
+                f'pytest "{test_script}" --port={resolved_port} --ota-port={ota_port}',
+                extra=opts,
+            )
             serializer.run(c, dry_run=dry_run)

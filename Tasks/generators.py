@@ -58,7 +58,9 @@ def generate_sdkconfig_hardware(config: Dict[str, Any], output_path: Path) -> No
 def generate_all(config_project_path: Path, workspace_root: Path) -> None:
     """Loads SSoT project configuration and regenerates all hardware build files."""
     if not config_project_path.exists():
-        raise FileNotFoundError(f"Master project config not found at: {config_project_path}")
+        raise FileNotFoundError(
+            f"Master project config not found at: {config_project_path}"
+        )
 
     with open(config_project_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}

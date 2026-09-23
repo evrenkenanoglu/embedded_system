@@ -5,6 +5,8 @@ from core.config_resolver import resolve_to_file
 
 VALID_FORMAT_LANGS = ("all", "c", "python")
 VALID_FORMAT_MODES = ("apply", "check")
+
+
 @task(
     help={
         "dry_run": "Print execution command without running",
@@ -15,7 +17,9 @@ def system_file_generator(c: Context, dry_run: bool = False, opts: str = "") -> 
     """Run the System Source Files Generator script."""
     script_path = CONFIG.paths.system_file_generator_script
     if not script_path.exists():
-        raise FileNotFoundError(f"System file generator script not found: {script_path}")
+        raise FileNotFoundError(
+            f"System file generator script not found: {script_path}"
+        )
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
@@ -23,8 +27,6 @@ def system_file_generator(c: Context, dry_run: bool = False, opts: str = "") -> 
     )
     serializer.add(f'python "{script_path}"', extra=opts)
     serializer.run(c, dry_run=dry_run)
-
-
 
 
 @task(
@@ -46,10 +48,14 @@ def format_code(
 ) -> None:
     """Resolve SSoT config to a flat temporary file and invoke standalone code formatter."""
     if mode not in VALID_FORMAT_MODES:
-        raise ValueError(f"Invalid mode '{mode}'. Available options: {', '.join(VALID_FORMAT_MODES)}")
+        raise ValueError(
+            f"Invalid mode '{mode}'. Available options: {', '.join(VALID_FORMAT_MODES)}"
+        )
 
     if lang not in VALID_FORMAT_LANGS:
-        raise ValueError(f"Invalid language '{lang}'. Available options: {', '.join(VALID_FORMAT_LANGS)}")
+        raise ValueError(
+            f"Invalid language '{lang}'. Available options: {', '.join(VALID_FORMAT_LANGS)}"
+        )
 
     script_path = Path(CONFIG.paths.code_formatter_script).resolve()
     if not script_path.exists():
@@ -61,7 +67,9 @@ def format_code(
         raise ValueError("No formatter configuration file specified.")
 
     # 2. Compile into a flat, standalone YAML file in build/configs/
-    resolved_config_file = resolve_to_file(raw_config, workspace_root=CONFIG.paths.workspace_dir)
+    resolved_config_file = resolve_to_file(
+        raw_config, workspace_root=CONFIG.paths.workspace_dir
+    )
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
@@ -109,3 +117,22 @@ def format_check(
 ) -> None:
     """Check formatting across the workspace without modifying files (CI/CD dry-run)."""
     format_code(c, mode="check", lang=lang, dry_run=dry_run, config=config, opts=opts)
+
+
+@task(
+    help={
+        "check": "Check formatting without modifying files (exits non-zero if changes needed)",
+        "path": "Target directory or file path (defaults to configs/ and CI_CD/)",
+    }
+)
+def format_yaml(c: Context, check: bool = False, path: str = "") -> None:
+    """Format YAML files using yamlfix."""
+    check_flag = "--check" if check else ""
+    target = path if path else "configs CI_CD .github"
+
+    serializer = CommandSerializer(
+        prefix_commands=[CONFIG.venv_activate_cmd],
+        env=CONFIG.env,
+    )
+    serializer.add(f'yamlfix {check_flag} {target}'.strip())
+    serializer.run(c)

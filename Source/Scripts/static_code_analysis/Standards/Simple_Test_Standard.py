@@ -9,12 +9,3 @@ class SimpleTestStandard(Analysis_Standard_Base):
             rule_file=f"{script_dir}/simple-test.yml",
             severity="INFO",
         )
-
-
-
-
-
-
-
-
-

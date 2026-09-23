@@ -13,7 +13,9 @@ VALID_PROVISION_STEPS = ("all", "nvs", "sign", "provision")
         "opts": "Forward arbitrary arguments to the PKI generation script",
     }
 )
-def generate_pki(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
+def generate_pki(
+    c: Context, dry_run: bool = False, config: str = "", opts: str = ""
+) -> None:
     """Resolve SSoT config to a flat temporary file and invoke standalone PKI generator."""
     script_path = Path(CONFIG.paths.generate_pki_script).resolve()
     if not script_path.exists():
@@ -25,7 +27,9 @@ def generate_pki(c: Context, dry_run: bool = False, config: str = "", opts: str 
         raise ValueError("No PKI configuration file specified.")
 
     # 2. Compile into a flat, standalone YAML file in build/configs/
-    resolved_config_file = resolve_to_file(raw_config, workspace_root=CONFIG.paths.workspace_dir)
+    resolved_config_file = resolve_to_file(
+        raw_config, workspace_root=CONFIG.paths.workspace_dir
+    )
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
@@ -56,7 +60,9 @@ def provision_hardware(
 ) -> None:
     """Resolve SSoT config to a flat temporary file and invoke standalone provisioning script."""
     if step not in VALID_PROVISION_STEPS:
-        raise ValueError(f"Invalid step '{step}'. Available options: {', '.join(VALID_PROVISION_STEPS)}")
+        raise ValueError(
+            f"Invalid step '{step}'. Available options: {', '.join(VALID_PROVISION_STEPS)}"
+        )
 
     script_path = Path(CONFIG.paths.provision_hardware_script).resolve()
     if not script_path.exists():
@@ -66,7 +72,9 @@ def provision_hardware(
     if not raw_config:
         raise ValueError("No provisioning configuration file specified.")
 
-    resolved_config_file = resolve_to_file(raw_config, workspace_root=CONFIG.paths.workspace_dir)
+    resolved_config_file = resolve_to_file(
+        raw_config, workspace_root=CONFIG.paths.workspace_dir
+    )
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
@@ -88,7 +96,9 @@ def provision_hardware(
         "opts": "Additional options",
     }
 )
-def provision_nvs(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
+def provision_nvs(
+    c: Context, dry_run: bool = False, config: str = "", opts: str = ""
+) -> None:
     """Step 1: Generate encrypted NVS partition binary and encryption keys."""
     provision_hardware(c, step="nvs", dry_run=dry_run, config=config, opts=opts)
 
@@ -100,7 +110,9 @@ def provision_nvs(c: Context, dry_run: bool = False, config: str = "", opts: str
         "opts": "Additional options",
     }
 )
-def provision_sign(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
+def provision_sign(
+    c: Context, dry_run: bool = False, config: str = "", opts: str = ""
+) -> None:
     """Step 2: Sign application binary and package release into server manifest."""
     provision_hardware(c, step="sign", dry_run=dry_run, config=config, opts=opts)
 
@@ -121,4 +133,11 @@ def provision_flash(
     opts: str = "",
 ) -> None:
     """Step 3: Burn hardware eFuses and flash encrypted image layout to physical ESP32."""
-    provision_hardware(c, step="provision", simulate=simulate, dry_run=dry_run, config=config, opts=opts)
+    provision_hardware(
+        c,
+        step="provision",
+        simulate=simulate,
+        dry_run=dry_run,
+        config=config,
+        opts=opts,
+    )

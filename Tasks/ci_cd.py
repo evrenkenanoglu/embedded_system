@@ -5,7 +5,9 @@ from core.config_resolver import resolve_to_file
 from embedded_system.CI_CD.pipeline.core.engine import PipelineEngine
 
 
-def _resolve_config_path(config_arg: str, default_filename: str, workspace_root: Path) -> Path:
+def _resolve_config_path(
+    config_arg: str, default_filename: str, workspace_root: Path
+) -> Path:
     """Resolves config path from CLI argument, configured CI/CD directory, or workspace root."""
     ci_cd_dir = Path(getattr(CONFIG.paths, "ci_cd_dir", workspace_root / "CI_CD"))
 
@@ -36,13 +38,19 @@ def _run_engine(c: Context, config_arg: str, default_name: str, dry_run: bool) -
         raise FileNotFoundError(f"Pipeline config not found: {raw_config_path}")
 
     # Compile SSoT inheritance (base_config) and tokens into flat YAML in build/configs/
-    resolved_config_path = resolve_to_file(raw_config_path, workspace_root=workspace_root)
+    resolved_config_path = resolve_to_file(
+        raw_config_path, workspace_root=workspace_root
+    )
 
     if dry_run:
-        print(f"[DRY-RUN] Would execute engine using configuration: {resolved_config_path}")
+        print(
+            f"[DRY-RUN] Would execute engine using configuration: {resolved_config_path}"
+        )
         return
 
-    engine = PipelineEngine(config_path=resolved_config_path, workspace_root=workspace_root)
+    engine = PipelineEngine(
+        config_path=resolved_config_path, workspace_root=workspace_root
+    )
     engine.run()
 
 

@@ -1,12 +1,14 @@
 from templates.System_Types import SYSTEM_TYPES
 from templates.File_Generator import File_Generator
 
+
 class FileSpec:
     def __init__(self):
         self.filename = ""
         self.classname = ""
         self.brief = ""
         self.system_type = ""
+
 
 class UserInterface:
     def collect_file_specification(self):
@@ -52,7 +54,6 @@ class UserInterface:
         file_spec.system_type = system_type  # Keep uppercase for SYSTEM_TYPES lookup
 
         return file_spec
-
 
 
 def main():

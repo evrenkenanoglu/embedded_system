@@ -95,3 +95,11 @@ indent-style = "space"
 
 # Keep docstrings clean and standardized
 docstring-code-format = true
+
+[tool.yamlfix]
+indent_mapping = 2
+indent_offset = 2
+indent_sequence = 4
+preserve_quotes = true
+sequence_style = "block_style"
+explicit_start = false
