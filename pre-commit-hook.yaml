@@ -1,0 +1,27 @@
+# ==============================================================================
+# Pre-Commit Configuration (.pre-commit-config.yaml)
+# Project: Embedded_IoT_BT_WIFI_Base_Project
+# ==============================================================================
+
+repos:
+  # 1. Standard File Hygiene & Syntax Checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-unhashable-keys]
+        exclude: ^(build/|Out/)
+      - id: check-added-large-files
+        args: [--maxkb=5000]
+
+  # 2. In-Repo Multi-Language Formatter (C++, Python, YAML, CMake)
+  - repo: local
+    hooks:
+      - id: format-staged
+        name: In-Repo Formatter (C++, Python, YAML, CMake)
+        entry: inv es.util.format-apply --lang=all --scope=changed
+        language: system
+        pass_filenames: false
+        always_run: true
