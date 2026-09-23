@@ -93,6 +93,7 @@ public:
     void        setDeltaMode(bool isDelta) override;
     sys_error_t read(size_t offset, uint8_t* buffer, size_t length) override;
     size_t      getPartitionSize() const override;
+    sys_error_t getRunningImageState(OtaImageState& outState) override;
 
 public:
     /**

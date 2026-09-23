@@ -17,6 +17,17 @@
 #include <stdint.h>
 
 /**
+ * @brief Platform-agnostic running firmware image verification states.
+ */
+enum class OtaImageState : uint8_t
+{
+    Valid = 0,     ///< Partition has been confirmed healthy and rollback is cancelled
+    Invalid,       ///< Partition failed self-checks or crashed; marked for bootloader rollback
+    PendingVerify, ///< First trial boot of a newly flashed image; awaiting self-test validation
+    Unknown        ///< State cannot be determined or running outside an OTA partition slot
+};
+
+/**
  * @class IHal_Mem_Ota
  * @brief Interface for Hardware Abstraction Layer (HAL) memory operations specific to OTA updates.
  *
@@ -117,6 +128,14 @@ public:
      * @return size_t Partition size in bytes.
      */
     virtual size_t getPartitionSize() const = 0;
+
+    /**
+     * @brief Queries the operational/verification state of the currently executing image slot.
+     *
+     * @param[out] outState Populated with the active partition state (e.g. PendingVerify, Valid).
+     * @return sys_error_t ERROR_SUCCESS on successful query, otherwise an error status code.
+     */
+    virtual sys_error_t getRunningImageState(OtaImageState& outState) = 0;
 };
 
 #endif // FILE_IHAL_MEM_OTA_H
