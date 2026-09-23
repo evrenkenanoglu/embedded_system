@@ -4,11 +4,11 @@ from invoke import Context, task
 from core import CONFIG, CommandSerializer
 from core.config_resolver import resolve_to_file
 
-FormatLang = Literal["all", "c", "python", "yaml"]
+FormatLang = Literal["all", "c", "python", "yaml", "cmake"]
 FormatMode = Literal["apply", "check"]
 FormatScope = Literal["changed", "all"]
 
-VALID_FORMAT_LANGS = ("all", "c", "python", "yaml")
+VALID_FORMAT_LANGS = ("all", "c", "python", "yaml", "cmake")
 VALID_FORMAT_MODES = ("apply", "check")
 VALID_FORMAT_SCOPES = ("changed", "all")
 

@@ -3,15 +3,15 @@
 # ############################################################################
 
 # add the unit test executable
-file(GLOB_RECURSE UNIT_TEST_FILES   ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Tests/*.c*
-                                    ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Tests/*.h*
+file(GLOB_RECURSE UNIT_TEST_FILES ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Tests/*.c*
+     ${EMBEDDED_SYSTEM_SOURCE_DIR}/Tests/Unit_Tests/*.h*
 )
 
 message(STATUS "UNIT TEST FILES -> ")
 
-foreach(file ${UNIT_TEST_FILES})
+foreach (file ${UNIT_TEST_FILES})
     message(STATUS ${file})
-endforeach()
+endforeach ()
 
 add_executable(unit_tests ${UNIT_TEST_FILES})
 
@@ -25,18 +25,16 @@ gtest_discover_tests(unit_tests)
 # enable testing with CTest
 enable_testing()
 
-# # add a custom command to generate mock classes and functions
-# add_custom_command(
-# OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mocks.h
-# COMMAND python ${GTEST_DIR}/googlemock/scripts/generator/gmock_gen.py --output-dir=${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Mock/myMock.h
-# DEPENDS ${PROJECT_SOURCE_DIR}/Mock/myMock.h
-# )
+# # add a custom command to generate mock classes and functions add_custom_command( OUTPUT
+# ${CMAKE_CURRENT_BINARY_DIR}/mocks.h COMMAND python
+# ${GTEST_DIR}/googlemock/scripts/generator/gmock_gen.py --output-dir=${CMAKE_CURRENT_BINARY_DIR}
+# ${PROJECT_SOURCE_DIR}/Mock/myMock.h DEPENDS ${PROJECT_SOURCE_DIR}/Mock/myMock.h )
 
 # # add the generated mocks.h file to the include directories for the project
 # target_include_directories(Embedded_System_Library PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
-# # add the generated mocks.h file to the unit test executable
-# target_sources(unit_tests PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mocks.h)
+# # add the generated mocks.h file to the unit test executable target_sources(unit_tests PRIVATE
+# ${CMAKE_CURRENT_BINARY_DIR}/mocks.h)
 
 # Specify the output directory for makefile
 set(CMAKE_BINARY_DIR ${PROJECT_SOURCE_DIR}/build)

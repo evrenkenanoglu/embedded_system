@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from src.format_c_files import format_c_apply, format_c_check
 from src.format_python_files import format_python_apply, format_python_check
 from src.format_yaml_files import format_yaml_apply, format_yaml_check
+from src.format_cmake_files import format_cmake_apply, format_cmake_check
 
 
 def get_git_modified_files() -> List[Path]:
@@ -69,9 +70,9 @@ def main() -> None:
     parser.add_argument(
         "-l",
         "--lang",
-        choices=["all", "c", "python", "yaml"],
+        choices=["all", "c", "python", "yaml", "cmake"],
         default="all",
-        help="Target language: 'c', 'python', 'yaml', or 'all' (default: all)",
+        help="Target language: 'c', 'python', 'yaml', 'cmake', or 'all' (default: all)",
     )
     parser.add_argument(
         "-m",
@@ -144,6 +145,18 @@ def main() -> None:
             passed = format_yaml_check(args.config, files=target_files)
         else:
             passed = format_yaml_apply(args.config, files=target_files)
+        success = success and passed
+
+    # 4. CMake Execution
+    if args.lang in ("cmake", "all"):
+        if args.mode == "check":
+            passed = _dispatch_formatter(
+                format_cmake_check, args.config, None, target_files
+            )
+        else:
+            passed = _dispatch_formatter(
+                format_cmake_apply, args.config, None, target_files
+            )
         success = success and passed
 
     if not success and args.mode == "check":
