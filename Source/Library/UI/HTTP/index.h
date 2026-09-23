@@ -1,7 +1,8 @@
 #ifndef INDEX_H
 #define INDEX_H
 
-#define HTML_INDEX_CONTENT "<!DOCTYPE HTML>\
+#define HTML_INDEX_CONTENT \
+    "<!DOCTYPE HTML>\
 <html>\
 \
 <head>\

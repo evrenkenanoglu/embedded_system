@@ -1,7 +1,8 @@
 #ifndef UI_WIFI_SETUP_H
 #define UI_WIFI_SETUP_H
 
-#define HTML_UI_WIFI_SETUP_CONTENT "<!DOCTYPE html>\
+#define HTML_UI_WIFI_SETUP_CONTENT \
+    "<!DOCTYPE html>\
 <html>\
  <head>\
   <title>\

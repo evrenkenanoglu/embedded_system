@@ -26,7 +26,7 @@ static void        ip_event_handler(void* arg, esp_event_base_t event_base, int3
 static std::string printAuthMode(int authmode);
 namespace
 {
-constexpr uint16_t wifi_scan_get_result_timeout = WIFI_SCAN_TIMEOUT; // 1.5 seconds
+    constexpr uint16_t wifi_scan_get_result_timeout = WIFI_SCAN_TIMEOUT; // 1.5 seconds
 
 } // namespace
 

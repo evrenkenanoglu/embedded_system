@@ -10,299 +10,299 @@ using namespace esp_matter::endpoint;
 
 namespace
 {
-/**
- * @brief Convert attribute callback type to IMatterStack event type
- * @param type Attribute callback type
- * @return MatterTypes::Event Converted event type
- */
-static MatterTypes::Event convert_event_type(attribute::callback_type_t type)
-{
-    switch (type)
+    /**
+     * @brief Convert attribute callback type to IMatterStack event type
+     * @param type Attribute callback type
+     * @return MatterTypes::Event Converted event type
+     */
+    static MatterTypes::Event convert_event_type(attribute::callback_type_t type)
     {
-        case attribute::PRE_UPDATE:
-            return MatterTypes::Event::PRE_UPDATE;
-        case attribute::POST_UPDATE:
-            return MatterTypes::Event::POST_UPDATE;
-        case attribute::READ:
-            return MatterTypes::Event::READ;
-        default:
-            return MatterTypes::Event::READ;
+        switch (type)
+        {
+            case attribute::PRE_UPDATE:
+                return MatterTypes::Event::PRE_UPDATE;
+            case attribute::POST_UPDATE:
+                return MatterTypes::Event::POST_UPDATE;
+            case attribute::READ:
+                return MatterTypes::Event::READ;
+            default:
+                return MatterTypes::Event::READ;
+        }
     }
-}
 
-/**
- * @brief Convert ESP Matter generic value to Core AttributeValue_t
- * @param val Pointer to ESP Matter attribute value
- * @return MatterTypes::AttributeValue_t Complete structure with Type and Value
- */
-static MatterTypes::AttributeValue_t convert_to_system_value(const esp_matter_attr_val_t* const val)
-{
-    // 1. Initialize with safe defaults
-    MatterTypes::AttributeValue_t result;
-    memset(&result, 0, sizeof(MatterTypes::AttributeValue_t));
-    result.type = MatterTypes::Value::INVALID;
+    /**
+     * @brief Convert ESP Matter generic value to Core AttributeValue_t
+     * @param val Pointer to ESP Matter attribute value
+     * @return MatterTypes::AttributeValue_t Complete structure with Type and Value
+     */
+    static MatterTypes::AttributeValue_t convert_to_system_value(const esp_matter_attr_val_t* const val)
+    {
+        // 1. Initialize with safe defaults
+        MatterTypes::AttributeValue_t result;
+        memset(&result, 0, sizeof(MatterTypes::AttributeValue_t));
+        result.type = MatterTypes::Value::INVALID;
 
-    // 2. Safety check
-    if (!val)
+        // 2. Safety check
+        if (!val)
+            return result;
+
+        switch (val->type)
+        {
+            // --- Boolean ---
+            case ESP_MATTER_VAL_TYPE_BOOLEAN:
+                result.type    = MatterTypes::Value::BOOLEAN;
+                result.value.b = val->val.b;
+                break;
+
+            // --- Integers (Signed) ---
+            case ESP_MATTER_VAL_TYPE_INTEGER:
+                result.type    = MatterTypes::Value::INTEGER;
+                result.value.i = val->val.i;
+                break;
+            case ESP_MATTER_VAL_TYPE_INT8:
+                result.type     = MatterTypes::Value::INT8;
+                result.value.i8 = val->val.i8;
+                break;
+            case ESP_MATTER_VAL_TYPE_INT16:
+                result.type      = MatterTypes::Value::INT16;
+                result.value.i16 = val->val.i16;
+                break;
+            case ESP_MATTER_VAL_TYPE_INT32:
+                result.type      = MatterTypes::Value::INT32;
+                result.value.i32 = val->val.i32;
+                break;
+            case ESP_MATTER_VAL_TYPE_INT64:
+                result.type      = MatterTypes::Value::INT64;
+                result.value.i64 = val->val.i64;
+                break;
+
+            // --- 8-Bit Unsigned / Enum / Bitmap ---
+            case ESP_MATTER_VAL_TYPE_UINT8:
+                result.type     = MatterTypes::Value::UINT8;
+                result.value.u8 = val->val.u8;
+                break;
+            case ESP_MATTER_VAL_TYPE_ENUM8:
+                result.type     = MatterTypes::Value::ENUM8;
+                result.value.u8 = val->val.u8;
+                break;
+            case ESP_MATTER_VAL_TYPE_BITMAP8:
+                result.type     = MatterTypes::Value::BITMAP8;
+                result.value.u8 = val->val.u8;
+                break;
+
+            // --- 16-Bit Unsigned / Enum / Bitmap ---
+            case ESP_MATTER_VAL_TYPE_UINT16:
+                result.type      = MatterTypes::Value::UINT16;
+                result.value.u16 = val->val.u16;
+                break;
+            case ESP_MATTER_VAL_TYPE_ENUM16:
+                result.type      = MatterTypes::Value::ENUM16;
+                result.value.u16 = val->val.u16;
+                break;
+            case ESP_MATTER_VAL_TYPE_BITMAP16:
+                result.type      = MatterTypes::Value::BITMAP16;
+                result.value.u16 = val->val.u16;
+                break;
+
+            // --- 32-Bit Unsigned / Bitmap ---
+            case ESP_MATTER_VAL_TYPE_UINT32:
+                result.type      = MatterTypes::Value::UINT32;
+                result.value.u32 = val->val.u32;
+                break;
+            case ESP_MATTER_VAL_TYPE_BITMAP32:
+                result.type      = MatterTypes::Value::BITMAP32;
+                result.value.u32 = val->val.u32;
+                break;
+
+            // --- 64-Bit Unsigned ---
+            case ESP_MATTER_VAL_TYPE_UINT64:
+                result.type      = MatterTypes::Value::UINT64;
+                result.value.u64 = val->val.u64;
+                break;
+
+            // --- Floating Point ---
+            case ESP_MATTER_VAL_TYPE_FLOAT:
+                result.type    = MatterTypes::Value::FLOAT;
+                result.value.f = val->val.f;
+                break;
+
+            // --- Arrays & Strings ---
+            case ESP_MATTER_VAL_TYPE_ARRAY:
+                result.type      = MatterTypes::Value::ARRAY;
+                result.value.a.b = (uint8_t*)val->val.a.b;
+                result.value.a.s = val->val.a.s;
+                result.value.a.t = val->val.a.t;
+                break;
+
+            case ESP_MATTER_VAL_TYPE_CHAR_STRING:
+                result.type      = MatterTypes::Value::CHAR_STRING;
+                result.value.a.b = (uint8_t*)val->val.a.b;
+                result.value.a.s = val->val.a.s;
+                result.value.a.t = val->val.a.t;
+                break;
+
+            case ESP_MATTER_VAL_TYPE_OCTET_STRING:
+                result.type      = MatterTypes::Value::OCTET_STRING;
+                result.value.a.b = (uint8_t*)val->val.a.b;
+                result.value.a.s = val->val.a.s;
+                result.value.a.t = val->val.a.t;
+                break;
+
+            case ESP_MATTER_VAL_TYPE_LONG_CHAR_STRING:
+                result.type      = MatterTypes::Value::LONG_CHAR_STRING;
+                result.value.a.b = (uint8_t*)val->val.a.b;
+                result.value.a.s = val->val.a.s;
+                result.value.a.t = val->val.a.t;
+                break;
+
+            case ESP_MATTER_VAL_TYPE_LONG_OCTET_STRING:
+                result.type      = MatterTypes::Value::LONG_OCTET_STRING;
+                result.value.a.b = (uint8_t*)val->val.a.b;
+                result.value.a.s = val->val.a.s;
+                result.value.a.t = val->val.a.t;
+                break;
+
+            default:
+                result.type = MatterTypes::Value::INVALID;
+                break;
+        }
+
         return result;
-
-    switch (val->type)
-    {
-        // --- Boolean ---
-        case ESP_MATTER_VAL_TYPE_BOOLEAN:
-            result.type    = MatterTypes::Value::BOOLEAN;
-            result.value.b = val->val.b;
-            break;
-
-        // --- Integers (Signed) ---
-        case ESP_MATTER_VAL_TYPE_INTEGER:
-            result.type    = MatterTypes::Value::INTEGER;
-            result.value.i = val->val.i;
-            break;
-        case ESP_MATTER_VAL_TYPE_INT8:
-            result.type     = MatterTypes::Value::INT8;
-            result.value.i8 = val->val.i8;
-            break;
-        case ESP_MATTER_VAL_TYPE_INT16:
-            result.type      = MatterTypes::Value::INT16;
-            result.value.i16 = val->val.i16;
-            break;
-        case ESP_MATTER_VAL_TYPE_INT32:
-            result.type      = MatterTypes::Value::INT32;
-            result.value.i32 = val->val.i32;
-            break;
-        case ESP_MATTER_VAL_TYPE_INT64:
-            result.type      = MatterTypes::Value::INT64;
-            result.value.i64 = val->val.i64;
-            break;
-
-        // --- 8-Bit Unsigned / Enum / Bitmap ---
-        case ESP_MATTER_VAL_TYPE_UINT8:
-            result.type     = MatterTypes::Value::UINT8;
-            result.value.u8 = val->val.u8;
-            break;
-        case ESP_MATTER_VAL_TYPE_ENUM8:
-            result.type     = MatterTypes::Value::ENUM8;
-            result.value.u8 = val->val.u8;
-            break;
-        case ESP_MATTER_VAL_TYPE_BITMAP8:
-            result.type     = MatterTypes::Value::BITMAP8;
-            result.value.u8 = val->val.u8;
-            break;
-
-        // --- 16-Bit Unsigned / Enum / Bitmap ---
-        case ESP_MATTER_VAL_TYPE_UINT16:
-            result.type      = MatterTypes::Value::UINT16;
-            result.value.u16 = val->val.u16;
-            break;
-        case ESP_MATTER_VAL_TYPE_ENUM16:
-            result.type      = MatterTypes::Value::ENUM16;
-            result.value.u16 = val->val.u16;
-            break;
-        case ESP_MATTER_VAL_TYPE_BITMAP16:
-            result.type      = MatterTypes::Value::BITMAP16;
-            result.value.u16 = val->val.u16;
-            break;
-
-        // --- 32-Bit Unsigned / Bitmap ---
-        case ESP_MATTER_VAL_TYPE_UINT32:
-            result.type      = MatterTypes::Value::UINT32;
-            result.value.u32 = val->val.u32;
-            break;
-        case ESP_MATTER_VAL_TYPE_BITMAP32:
-            result.type      = MatterTypes::Value::BITMAP32;
-            result.value.u32 = val->val.u32;
-            break;
-
-        // --- 64-Bit Unsigned ---
-        case ESP_MATTER_VAL_TYPE_UINT64:
-            result.type      = MatterTypes::Value::UINT64;
-            result.value.u64 = val->val.u64;
-            break;
-
-        // --- Floating Point ---
-        case ESP_MATTER_VAL_TYPE_FLOAT:
-            result.type    = MatterTypes::Value::FLOAT;
-            result.value.f = val->val.f;
-            break;
-
-        // --- Arrays & Strings ---
-        case ESP_MATTER_VAL_TYPE_ARRAY:
-            result.type      = MatterTypes::Value::ARRAY;
-            result.value.a.b = (uint8_t*)val->val.a.b;
-            result.value.a.s = val->val.a.s;
-            result.value.a.t = val->val.a.t;
-            break;
-
-        case ESP_MATTER_VAL_TYPE_CHAR_STRING:
-            result.type      = MatterTypes::Value::CHAR_STRING;
-            result.value.a.b = (uint8_t*)val->val.a.b;
-            result.value.a.s = val->val.a.s;
-            result.value.a.t = val->val.a.t;
-            break;
-
-        case ESP_MATTER_VAL_TYPE_OCTET_STRING:
-            result.type      = MatterTypes::Value::OCTET_STRING;
-            result.value.a.b = (uint8_t*)val->val.a.b;
-            result.value.a.s = val->val.a.s;
-            result.value.a.t = val->val.a.t;
-            break;
-
-        case ESP_MATTER_VAL_TYPE_LONG_CHAR_STRING:
-            result.type      = MatterTypes::Value::LONG_CHAR_STRING;
-            result.value.a.b = (uint8_t*)val->val.a.b;
-            result.value.a.s = val->val.a.s;
-            result.value.a.t = val->val.a.t;
-            break;
-
-        case ESP_MATTER_VAL_TYPE_LONG_OCTET_STRING:
-            result.type      = MatterTypes::Value::LONG_OCTET_STRING;
-            result.value.a.b = (uint8_t*)val->val.a.b;
-            result.value.a.s = val->val.a.s;
-            result.value.a.t = val->val.a.t;
-            break;
-
-        default:
-            result.type = MatterTypes::Value::INVALID;
-            break;
     }
 
-    return result;
-}
-
-/**
- * @brief Convert generic MatterTypes value to ESP Matter SDK value
- * @param custom_val Pointer to your generic AttributeValue_t
- * @return esp_matter_attr_val_t The SDK specific struct
- */
-static esp_matter_attr_val_t convert_to_esp_value(const MatterTypes::AttributeValue_t* const custom_val)
-{
-    // Initialize with "Invalid" defaults to be safe
-    esp_matter_attr_val_t esp_val = {.type = ESP_MATTER_VAL_TYPE_INVALID, .val = {0}};
-
-    if (!custom_val)
+    /**
+     * @brief Convert generic MatterTypes value to ESP Matter SDK value
+     * @param custom_val Pointer to your generic AttributeValue_t
+     * @return esp_matter_attr_val_t The SDK specific struct
+     */
+    static esp_matter_attr_val_t convert_to_esp_value(const MatterTypes::AttributeValue_t* const custom_val)
     {
+        // Initialize with "Invalid" defaults to be safe
+        esp_matter_attr_val_t esp_val = {.type = ESP_MATTER_VAL_TYPE_INVALID, .val = {0}};
+
+        if (!custom_val)
+        {
+            return esp_val;
+        }
+
+        switch (custom_val->type)
+        {
+            // --- Boolean ---
+            case MatterTypes::Value::BOOLEAN:
+                esp_val.type  = ESP_MATTER_VAL_TYPE_BOOLEAN;
+                esp_val.val.b = custom_val->value.b;
+                break;
+
+            // --- Integers (Signed) ---
+            case MatterTypes::Value::INTEGER:
+                esp_val.type  = ESP_MATTER_VAL_TYPE_INTEGER;
+                esp_val.val.i = custom_val->value.i;
+                break;
+            case MatterTypes::Value::INT8:
+                esp_val.type   = ESP_MATTER_VAL_TYPE_INT8;
+                esp_val.val.i8 = custom_val->value.i8;
+                break;
+            case MatterTypes::Value::INT16:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_INT16;
+                esp_val.val.i16 = custom_val->value.i16;
+                break;
+            case MatterTypes::Value::INT32:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_INT32;
+                esp_val.val.i32 = custom_val->value.i32;
+                break;
+            case MatterTypes::Value::INT64:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_INT64;
+                esp_val.val.i64 = custom_val->value.i64;
+                break;
+
+            // --- Integers (Unsigned) & Bitmaps/Enums ---
+            case MatterTypes::Value::UINT8:
+                esp_val.type   = ESP_MATTER_VAL_TYPE_UINT8;
+                esp_val.val.u8 = custom_val->value.u8;
+                break;
+            case MatterTypes::Value::ENUM8:
+                esp_val.type   = ESP_MATTER_VAL_TYPE_ENUM8;
+                esp_val.val.u8 = custom_val->value.u8;
+                break;
+            case MatterTypes::Value::BITMAP8:
+                esp_val.type   = ESP_MATTER_VAL_TYPE_BITMAP8;
+                esp_val.val.u8 = custom_val->value.u8;
+                break;
+
+            case MatterTypes::Value::UINT16:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_UINT16;
+                esp_val.val.u16 = custom_val->value.u16;
+                break;
+            case MatterTypes::Value::ENUM16:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_ENUM16;
+                esp_val.val.u16 = custom_val->value.u16;
+                break;
+            case MatterTypes::Value::BITMAP16:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_BITMAP16;
+                esp_val.val.u16 = custom_val->value.u16;
+                break;
+
+            case MatterTypes::Value::UINT32:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_UINT32;
+                esp_val.val.u32 = custom_val->value.u32;
+                break;
+            case MatterTypes::Value::BITMAP32:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_BITMAP32;
+                esp_val.val.u32 = custom_val->value.u32;
+                break;
+
+            case MatterTypes::Value::UINT64:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_UINT64;
+                esp_val.val.u64 = custom_val->value.u64;
+                break;
+
+            // --- Floating Point ---
+            case MatterTypes::Value::FLOAT:
+                esp_val.type  = ESP_MATTER_VAL_TYPE_FLOAT;
+                esp_val.val.f = custom_val->value.f;
+                break;
+
+            // --- Complex Types (Strings / Arrays) ---
+            case MatterTypes::Value::CHAR_STRING:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_CHAR_STRING;
+                esp_val.val.a.b = custom_val->value.a.b;
+                esp_val.val.a.s = custom_val->value.a.s;
+                break;
+
+            case MatterTypes::Value::OCTET_STRING:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_OCTET_STRING;
+                esp_val.val.a.b = custom_val->value.a.b;
+                esp_val.val.a.s = custom_val->value.a.s;
+                break;
+
+            case MatterTypes::Value::ARRAY:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_ARRAY;
+                esp_val.val.a.b = custom_val->value.a.b;
+                esp_val.val.a.s = custom_val->value.a.s;
+                // Note: 't' or 'n' (total/count) might be needed depending on ESP SDK version
+                // esp_val.val.a.t = custom_val->value.a.t;
+                break;
+
+            case MatterTypes::Value::LONG_CHAR_STRING:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_LONG_CHAR_STRING;
+                esp_val.val.a.b = custom_val->value.a.b;
+                esp_val.val.a.s = custom_val->value.a.s;
+                break;
+
+            case MatterTypes::Value::LONG_OCTET_STRING:
+                esp_val.type    = ESP_MATTER_VAL_TYPE_LONG_OCTET_STRING;
+                esp_val.val.a.b = custom_val->value.a.b;
+                esp_val.val.a.s = custom_val->value.a.s;
+                break;
+
+            default:
+                // Type is INVALID or unhandled
+                esp_val.type = ESP_MATTER_VAL_TYPE_INVALID;
+                break;
+        }
+
         return esp_val;
     }
-
-    switch (custom_val->type)
-    {
-        // --- Boolean ---
-        case MatterTypes::Value::BOOLEAN:
-            esp_val.type  = ESP_MATTER_VAL_TYPE_BOOLEAN;
-            esp_val.val.b = custom_val->value.b;
-            break;
-
-        // --- Integers (Signed) ---
-        case MatterTypes::Value::INTEGER:
-            esp_val.type  = ESP_MATTER_VAL_TYPE_INTEGER;
-            esp_val.val.i = custom_val->value.i;
-            break;
-        case MatterTypes::Value::INT8:
-            esp_val.type   = ESP_MATTER_VAL_TYPE_INT8;
-            esp_val.val.i8 = custom_val->value.i8;
-            break;
-        case MatterTypes::Value::INT16:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_INT16;
-            esp_val.val.i16 = custom_val->value.i16;
-            break;
-        case MatterTypes::Value::INT32:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_INT32;
-            esp_val.val.i32 = custom_val->value.i32;
-            break;
-        case MatterTypes::Value::INT64:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_INT64;
-            esp_val.val.i64 = custom_val->value.i64;
-            break;
-
-        // --- Integers (Unsigned) & Bitmaps/Enums ---
-        case MatterTypes::Value::UINT8:
-            esp_val.type   = ESP_MATTER_VAL_TYPE_UINT8;
-            esp_val.val.u8 = custom_val->value.u8;
-            break;
-        case MatterTypes::Value::ENUM8:
-            esp_val.type   = ESP_MATTER_VAL_TYPE_ENUM8;
-            esp_val.val.u8 = custom_val->value.u8;
-            break;
-        case MatterTypes::Value::BITMAP8:
-            esp_val.type   = ESP_MATTER_VAL_TYPE_BITMAP8;
-            esp_val.val.u8 = custom_val->value.u8;
-            break;
-
-        case MatterTypes::Value::UINT16:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_UINT16;
-            esp_val.val.u16 = custom_val->value.u16;
-            break;
-        case MatterTypes::Value::ENUM16:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_ENUM16;
-            esp_val.val.u16 = custom_val->value.u16;
-            break;
-        case MatterTypes::Value::BITMAP16:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_BITMAP16;
-            esp_val.val.u16 = custom_val->value.u16;
-            break;
-
-        case MatterTypes::Value::UINT32:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_UINT32;
-            esp_val.val.u32 = custom_val->value.u32;
-            break;
-        case MatterTypes::Value::BITMAP32:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_BITMAP32;
-            esp_val.val.u32 = custom_val->value.u32;
-            break;
-
-        case MatterTypes::Value::UINT64:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_UINT64;
-            esp_val.val.u64 = custom_val->value.u64;
-            break;
-
-        // --- Floating Point ---
-        case MatterTypes::Value::FLOAT:
-            esp_val.type  = ESP_MATTER_VAL_TYPE_FLOAT;
-            esp_val.val.f = custom_val->value.f;
-            break;
-
-        // --- Complex Types (Strings / Arrays) ---
-        case MatterTypes::Value::CHAR_STRING:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_CHAR_STRING;
-            esp_val.val.a.b = custom_val->value.a.b;
-            esp_val.val.a.s = custom_val->value.a.s;
-            break;
-
-        case MatterTypes::Value::OCTET_STRING:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_OCTET_STRING;
-            esp_val.val.a.b = custom_val->value.a.b;
-            esp_val.val.a.s = custom_val->value.a.s;
-            break;
-
-        case MatterTypes::Value::ARRAY:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_ARRAY;
-            esp_val.val.a.b = custom_val->value.a.b;
-            esp_val.val.a.s = custom_val->value.a.s;
-            // Note: 't' or 'n' (total/count) might be needed depending on ESP SDK version
-            // esp_val.val.a.t = custom_val->value.a.t;
-            break;
-
-        case MatterTypes::Value::LONG_CHAR_STRING:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_LONG_CHAR_STRING;
-            esp_val.val.a.b = custom_val->value.a.b;
-            esp_val.val.a.s = custom_val->value.a.s;
-            break;
-
-        case MatterTypes::Value::LONG_OCTET_STRING:
-            esp_val.type    = ESP_MATTER_VAL_TYPE_LONG_OCTET_STRING;
-            esp_val.val.a.b = custom_val->value.a.b;
-            esp_val.val.a.s = custom_val->value.a.s;
-            break;
-
-        default:
-            // Type is INVALID or unhandled
-            esp_val.type = ESP_MATTER_VAL_TYPE_INVALID;
-            break;
-    }
-
-    return esp_val;
-}
 
 } // namespace
 // namespace
@@ -483,7 +483,7 @@ sys_error_t MatterWrapper::addDevice(IMatterDevice& device)
         {
             // Configure On/Off Plugin Unit (Relay)
             on_off_plugin_unit::config_t config = {};
-            config.on_off.on_off = false;
+            config.on_off.on_off                = false;
 
             // Create the endpoint and register priv_data
             ep_handle = on_off_plugin_unit::create(_node_handle, &config, ENDPOINT_FLAG_NONE, priv_data);
@@ -500,7 +500,7 @@ sys_error_t MatterWrapper::addDevice(IMatterDevice& device)
             // Configure generic On/Off Light (Actuator)
             // Note: If you meant a physical wall controller (remote), use on_off_light_switch
             // But usually for IoT projects "LightSwitch" implies a relay controlling a light.
-            on_off_light::config_t config = {};
+            on_off_light::config_t config          = {};
             config.on_off.on_off                   = false;
             config.on_off_lighting.start_up_on_off = nullptr;
 

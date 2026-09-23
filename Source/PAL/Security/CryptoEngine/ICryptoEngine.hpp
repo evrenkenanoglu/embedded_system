@@ -242,8 +242,5 @@ public:
      *
      * @return sys_error_t         ERROR_SUCCESS on successful validation.
      */
-    virtual sys_error_t verifyCertificateChain(
-        const std::string& rootCaPem,
-        const std::string& signingCertPem,
-        const std::string& backupRootCaPem = "") = 0;
+    virtual sys_error_t verifyCertificateChain(const std::string& rootCaPem, const std::string& signingCertPem, const std::string& backupRootCaPem = "") = 0;
 };

@@ -1,7 +1,8 @@
 #ifndef UI_WIFI_POWER_SOCKETS_H
 #define UI_WIFI_POWER_SOCKETS_H
 
-#define HTML_UI_WIFI_POWER_SOCKETS_CONTENT "<!DOCTYPE html>\
+#define HTML_UI_WIFI_POWER_SOCKETS_CONTENT \
+    "<!DOCTYPE html>\
 <html>\
  <head>\
   <title>\

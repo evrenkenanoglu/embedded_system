@@ -427,23 +427,19 @@ sys_error_t OtaManager::loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem)
     std::lock_guard<std::mutex> lock(_mutex);
 
     RETURN_ON_ERROR(
-        factoryMem.init(),                                                               // Expression
+        factoryMem.init(),                                                                // Expression
         SYS_LOG_E("Failed to initialize factory storage device for trust anchor readout") // Log message
     );
 
     std::vector<char> certBuf(4096, 0);
 
     // 1. Read primary Root CA trust anchor
-    sys_error_t err = factoryMem.readData(
-        "root_ca_pem",
-        reinterpret_cast<uint8_t*>(certBuf.data()),
-        certBuf.size() - 1
-    );
+    sys_error_t err = factoryMem.readData("root_ca_pem", reinterpret_cast<uint8_t*>(certBuf.data()), certBuf.size() - 1);
 
     RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS),                                                           // Expression
-        err,                                                                              // Error code
-        SYS_LOG_E("Failed to load primary 'root_ca_pem' from secure factory storage")    // Error message
+        (err != ERROR_SUCCESS),                                                       // Expression
+        err,                                                                          // Error code
+        SYS_LOG_E("Failed to load primary 'root_ca_pem' from secure factory storage") // Error message
     );
 
     _options.serverCert = certBuf.data();
@@ -451,11 +447,7 @@ sys_error_t OtaManager::loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem)
 
     // 2. Read optional secondary Root CA trust anchor (supports scheduled CA rotation)
     std::fill(certBuf.begin(), certBuf.end(), 0);
-    err = factoryMem.readData(
-        "root_ca_backup_pem",
-        reinterpret_cast<uint8_t*>(certBuf.data()),
-        certBuf.size() - 1
-    );
+    err = factoryMem.readData("root_ca_backup_pem", reinterpret_cast<uint8_t*>(certBuf.data()), certBuf.size() - 1);
 
     if (err == ERROR_SUCCESS && std::strlen(certBuf.data()) > 0)
     {

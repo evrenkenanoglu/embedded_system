@@ -626,29 +626,28 @@ esp_err_t mem_ota::_handleWriteTarget(const uint8_t* buf_p, size_t size)
     return esp_ota_write(_updateHandle, buf_p, size);
 }
 
-
 sys_error_t mem_ota::getRunningImageState(OtaImageState& outState)
 {
     RETURN_IF_ERROR(
-        (!_isInitialized),                                        // Expression
-        ERROR_NOT_INITIALIZED,                                    // Error code
-        SYS_LOG_E("Cannot query state: OTA HAL not initialized")  // Error message
+        (!_isInitialized),                                       // Expression
+        ERROR_NOT_INITIALIZED,                                   // Error code
+        SYS_LOG_E("Cannot query state: OTA HAL not initialized") // Error message
     );
 
     const esp_partition_t* running = esp_ota_get_running_partition();
     RETURN_IF_ERROR(
-        (running == nullptr),                                     // Expression
-        ERROR_INVALID_STATE,                                      // Error code
-        SYS_LOG_E("Failed to resolve active running partition")   // Error message
+        (running == nullptr),                                   // Expression
+        ERROR_INVALID_STATE,                                    // Error code
+        SYS_LOG_E("Failed to resolve active running partition") // Error message
     );
 
     esp_ota_img_states_t espState = ESP_OTA_IMG_UNDEFINED;
     const esp_err_t      err      = esp_ota_get_state_partition(running, &espState);
 
     RETURN_IF_ERROR(
-        (err != ESP_OK),                                                                                  // Expression
-        TRANSLATE_ERROR(err),                                                                             // Error code
-        SYS_LOG_E("esp_ota_get_state_partition failed: %s (0x%x)", ERROR_MESSAGE(err), err)              // Error message
+        (err != ESP_OK),                                                                    // Expression
+        TRANSLATE_ERROR(err),                                                               // Error code
+        SYS_LOG_E("esp_ota_get_state_partition failed: %s (0x%x)", ERROR_MESSAGE(err), err) // Error message
     );
 
     switch (espState)

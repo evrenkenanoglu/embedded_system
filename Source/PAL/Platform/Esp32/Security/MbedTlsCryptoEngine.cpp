@@ -211,17 +211,17 @@ sys_error_t MbedTlsCryptoEngine::getRandomBytes(uint8_t* outBuffer, size_t len)
 }
 
 sys_error_t MbedTlsCryptoEngine::aesGcmEncrypt(
-    const uint8_t* key, //
-     size_t keyLen, //
-     const uint8_t* iv, //
-     size_t ivLen, //
-     const uint8_t* aad, //
-     size_t aadLen, //
-     const uint8_t* plaintext, //
-     size_t plaintextLen, //
-    uint8_t* outCiphertext, //
-     uint8_t* outTag //
-    )
+    const uint8_t* key,           //
+    size_t         keyLen,        //
+    const uint8_t* iv,            //
+    size_t         ivLen,         //
+    const uint8_t* aad,           //
+    size_t         aadLen,        //
+    const uint8_t* plaintext,     //
+    size_t         plaintextLen,  //
+    uint8_t*       outCiphertext, //
+    uint8_t*       outTag         //
+)
 {
     GcmContext gcm;
 
@@ -471,9 +471,9 @@ sys_error_t MbedTlsCryptoEngine::signHash(KeyType type, const std::string& priva
 sys_error_t MbedTlsCryptoEngine::_ieee1363ToDer(const uint8_t* rawSig, size_t rawSigLen, std::vector<uint8_t>& outDer)
 {
     RETURN_IF_ERROR(
-        (rawSig == nullptr || rawSigLen != 64),                                                      // Expression
-        ERROR_INVALID_ARG,                                                                           // Error code
-        SYS_LOG_E("Raw IEEE P1363 signature must be exactly 64 bytes (R=32, S=32)")                // Error message
+        (rawSig == nullptr || rawSigLen != 64),                                     // Expression
+        ERROR_INVALID_ARG,                                                          // Error code
+        SYS_LOG_E("Raw IEEE P1363 signature must be exactly 64 bytes (R=32, S=32)") // Error message
     );
 
     const uint8_t* r    = rawSig;
@@ -528,29 +528,19 @@ sys_error_t MbedTlsCryptoEngine::_ieee1363ToDer(const uint8_t* rawSig, size_t ra
     return ERROR_SUCCESS;
 }
 
-sys_error_t MbedTlsCryptoEngine::verifySignature(
-    KeyType            type,
-    const std::string& publicKeyPemOrCert,
-    const uint8_t*     hash,
-    size_t             hashLen,
-    const uint8_t*     signature,
-    size_t             signatureLen
-)
+sys_error_t
+MbedTlsCryptoEngine::verifySignature(KeyType type, const std::string& publicKeyPemOrCert, const uint8_t* hash, size_t hashLen, const uint8_t* signature, size_t signatureLen)
 {
     RETURN_IF_ERROR(
         (hash == nullptr || hashLen == 0 || signature == nullptr || signatureLen == 0), // Expression
-        ERROR_INVALID_ARG,                                                               // Error code
-        SYS_LOG_E("Invalid null argument provided to verifySignature")                   // Error message
+        ERROR_INVALID_ARG,                                                              // Error code
+        SYS_LOG_E("Invalid null argument provided to verifySignature")                  // Error message
     );
 
     PkContext         pk;
     mbedtls_md_type_t mdType = (hashLen == 32) ? MBEDTLS_MD_SHA256 : MBEDTLS_MD_SHA512;
 
-    int ret = mbedtls_pk_parse_public_key(
-        pk.get(),
-        reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()),
-        publicKeyPemOrCert.length() + 1
-    );
+    int ret = mbedtls_pk_parse_public_key(pk.get(), reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()), publicKeyPemOrCert.length() + 1);
 
     mbedtls_x509_crt cert;
     mbedtls_x509_crt_init(&cert);
@@ -558,11 +548,7 @@ sys_error_t MbedTlsCryptoEngine::verifySignature(
 
     if (ret != 0)
     {
-        ret = mbedtls_x509_crt_parse(
-            &cert,
-            reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()),
-            publicKeyPemOrCert.length() + 1
-        );
+        ret = mbedtls_x509_crt_parse(&cert, reinterpret_cast<const unsigned char*>(publicKeyPemOrCert.c_str()), publicKeyPemOrCert.length() + 1);
         if (ret == 0)
         {
             isCert = true;
@@ -570,10 +556,10 @@ sys_error_t MbedTlsCryptoEngine::verifySignature(
     }
 
     RETURN_IF_ERROR(
-        (ret != 0),                                                                            // Expression
-        ERROR_FAIL,                                                                            // Error code
-        SYS_LOG_E("Failed to parse public key or certificate context: -0x%04X", -ret),         // Error message
-        mbedtls_x509_crt_free(&cert)                                                           // Cleanup
+        (ret != 0),                                                                    // Expression
+        ERROR_FAIL,                                                                    // Error code
+        SYS_LOG_E("Failed to parse public key or certificate context: -0x%04X", -ret), // Error message
+        mbedtls_x509_crt_free(&cert)                                                   // Cleanup
     );
 
     mbedtls_pk_context* verifyPk = isCert ? &cert.pk : pk.get();
@@ -587,10 +573,10 @@ sys_error_t MbedTlsCryptoEngine::verifySignature(
     {
         const sys_error_t transcodeErr = _ieee1363ToDer(signature, signatureLen, derBuffer);
         RETURN_IF_ERROR(
-            (transcodeErr != ERROR_SUCCESS),                                                   // Expression
-            transcodeErr,                                                                      // Error code
-            SYS_LOG_E("Failed to transcode IEEE P1363 signature to ASN.1 DER"),               // Error message
-            mbedtls_x509_crt_free(&cert)                                                       // Cleanup
+            (transcodeErr != ERROR_SUCCESS),                                    // Expression
+            transcodeErr,                                                       // Error code
+            SYS_LOG_E("Failed to transcode IEEE P1363 signature to ASN.1 DER"), // Error message
+            mbedtls_x509_crt_free(&cert)                                        // Cleanup
         );
 
         sigToVerify    = derBuffer.data();
@@ -621,11 +607,7 @@ sys_error_t MbedTlsCryptoEngine::_verifySingleChain(const std::string& rootCaPem
     mbedtls_x509_crt_init(&rootCa);
     mbedtls_x509_crt_init(&signingCert);
 
-    int ret = mbedtls_x509_crt_parse(
-        &rootCa,
-        reinterpret_cast<const unsigned char*>(rootCaPem.c_str()),
-        rootCaPem.length() + 1
-    );
+    int ret = mbedtls_x509_crt_parse(&rootCa, reinterpret_cast<const unsigned char*>(rootCaPem.c_str()), rootCaPem.length() + 1);
     if (ret != 0)
     {
         mbedtls_x509_crt_free(&rootCa);
@@ -634,11 +616,7 @@ sys_error_t MbedTlsCryptoEngine::_verifySingleChain(const std::string& rootCaPem
         return ERROR_FAIL;
     }
 
-    ret = mbedtls_x509_crt_parse(
-        &signingCert,
-        reinterpret_cast<const unsigned char*>(signingCertPem.c_str()),
-        signingCertPem.length() + 1
-    );
+    ret = mbedtls_x509_crt_parse(&signingCert, reinterpret_cast<const unsigned char*>(signingCertPem.c_str()), signingCertPem.length() + 1);
     if (ret != 0)
     {
         mbedtls_x509_crt_free(&rootCa);
@@ -649,7 +627,7 @@ sys_error_t MbedTlsCryptoEngine::_verifySingleChain(const std::string& rootCaPem
 
     /// Perform chain verification check [2].
     uint32_t flags = 0;
-    ret = mbedtls_x509_crt_verify(&signingCert, &rootCa, nullptr, nullptr, &flags, nullptr, nullptr);
+    ret            = mbedtls_x509_crt_verify(&signingCert, &rootCa, nullptr, nullptr, &flags, nullptr, nullptr);
 
     mbedtls_x509_crt_free(&rootCa);
     mbedtls_x509_crt_free(&signingCert);
@@ -657,11 +635,7 @@ sys_error_t MbedTlsCryptoEngine::_verifySingleChain(const std::string& rootCaPem
     return (ret == 0 && flags == 0) ? ERROR_SUCCESS : ERROR_FAIL;
 }
 
-sys_error_t MbedTlsCryptoEngine::verifyCertificateChain(
-    const std::string& rootCaPem,
-    const std::string& signingCertPem,
-    const std::string& backupRootCaPem
-)
+sys_error_t MbedTlsCryptoEngine::verifyCertificateChain(const std::string& rootCaPem, const std::string& signingCertPem, const std::string& backupRootCaPem)
 {
     /// Primary Trust Anchor validation attempt
     if (_verifySingleChain(rootCaPem, signingCertPem) == ERROR_SUCCESS)

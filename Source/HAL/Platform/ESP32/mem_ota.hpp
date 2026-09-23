@@ -42,7 +42,7 @@ private:
      *
      * @param[in] data   Pointer to the start of the firmware image data.
      * @param[in] length Length of the available header data buffer.
-     * 
+     *
      * @return sys_error_t ERROR_SUCCESS on successful validation.
      */
     sys_error_t _validateIncomingImageHeader(const uint8_t* data, size_t length);

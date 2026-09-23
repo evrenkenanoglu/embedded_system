@@ -7,7 +7,8 @@
  * @class IPAL_Service
  * @brief Interface for Platform Abstraction Layer (PAL) service operations.
  */
-class IPAL_Service {
+class IPAL_Service
+{
 public:
     /**
      * @brief Initialize the service.
@@ -50,12 +51,12 @@ public:
     virtual ~IPAL_Service() {}
 };
 
-
 /**
  * @class IPAL_IO
  * @brief Interface for Platform Abstraction Layer (PAL) I/O operations.
  */
-class IPAL_IO {
+class IPAL_IO
+{
 public:
     /**
      * @brief Initialize the I/O device.

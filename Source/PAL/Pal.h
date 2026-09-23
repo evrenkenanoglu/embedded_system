@@ -7,13 +7,15 @@
  * @class PAL_Service
  * @brief Abstract class for Platform Abstraction Layer (PAL) network service operations.
  */
-class PAL_Service : public IPAL_Service {
+class PAL_Service : public IPAL_Service
+{
 public:
     /**
      * @enum Status
      * @brief Enum class for network service status.
      */
-    enum class Status {
+    enum class Status
+    {
         UNINITIALIZED,
         INITIALIZED,
         STARTED,
@@ -55,7 +57,8 @@ public:
      *
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    virtual sys_error_t getStatus() override {
+    virtual sys_error_t getStatus() override
+    {
         return static_cast<sys_error_t>(status);
     }
 
@@ -64,7 +67,8 @@ public:
      *
      * @param newStatus The new status to set.
      */
-    void setStatus(Status newStatus) {
+    void setStatus(Status newStatus)
+    {
         status = newStatus;
     }
 
@@ -81,13 +85,15 @@ protected:
  * @class PAL_IO
  * @brief Abstract class for Platform Abstraction Layer (PAL) I/O operations.
  */
-class PAL_IO : public IPAL_IO {
+class PAL_IO : public IPAL_IO
+{
 public:
     /**
      * @enum Status
      * @brief Enum class for I/O status.
      */
-    enum class Status {
+    enum class Status
+    {
         UNINITIALIZED,
         INITIALIZED,
         READING,
@@ -123,7 +129,8 @@ public:
      *
      * @return sys_error_t The error code indicating the success or failure of the operation.
      */
-    virtual sys_error_t getStatus() override {
+    virtual sys_error_t getStatus() override
+    {
         return static_cast<sys_error_t>(status);
     }
 
@@ -132,7 +139,8 @@ public:
      *
      * @param newStatus The new status to set.
      */
-    void setStatus(Status newStatus) {
+    void setStatus(Status newStatus)
+    {
         status = newStatus;
     }
 

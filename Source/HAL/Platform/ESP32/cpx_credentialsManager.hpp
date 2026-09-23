@@ -15,15 +15,15 @@
 
 #include <vector>
 
-#define CERT_SUBJECT_NAME     "CN=ESP32-Server,O=Universe"
-#define KEY_NVS_NAME          "prvtkey"
-#define CERT_NVS_NAME         "servercert"
-#define KEY_PEM_BUF_SIZE      2048
-#define CERT_PEM_BUF_SIZE     2048
+#define CERT_SUBJECT_NAME "CN=ESP32-Server,O=Universe"
+#define KEY_NVS_NAME      "prvtkey"
+#define CERT_NVS_NAME     "servercert"
+#define KEY_PEM_BUF_SIZE  2048
+#define CERT_PEM_BUF_SIZE 2048
 
-#define KEY_GEN_STARTED       (1 << 0)
-#define KEY_GEN_COMPLETED     (1 << 1)
-#define KEY_GEN_FAILED        (1 << 2)
+#define KEY_GEN_STARTED   (1 << 0)
+#define KEY_GEN_COMPLETED (1 << 1)
+#define KEY_GEN_FAILED    (1 << 2)
 
 struct CredentialsCharData_t
 {
@@ -36,7 +36,7 @@ struct CredentialsCharData_t
 /**
  * @class cpx_credentialsManager
  * @brief High-level summary of the class's responsibility to manage dynamic storage credentials.
- * 
+ *
  * @note Thread-Safety: Thread safety is guaranteed internally via a FreeRTOS mutex semaphore,
  *       protecting credentials load, generate, and store transactions.
  */
@@ -62,14 +62,14 @@ private:
 private:
     /**
      * @brief Internal helper to trigger dynamic keypair and self-signed certificate generation [1, 2].
-     * 
+     *
      * @return sys_error_t ERROR_SUCCESS on success.
      */
     sys_error_t _generateKeys();
 
     /**
      * @brief Writes generated credential buffers to hardware NVS flash blocks.
-     * 
+     *
      * @return sys_error_t ERROR_SUCCESS on success.
      */
     sys_error_t _storeKeys();
@@ -83,7 +83,7 @@ public:
 
     /**
      * @brief Retrieves active credential pointers.
-     * 
+     *
      * @param[out] data Output pointer populated with the active CredentialsCharData_t struct pointer.
      * @return sys_error_t ERROR_SUCCESS on success.
      */
@@ -91,7 +91,7 @@ public:
 
     /**
      * @brief Configures key generation triggers.
-     * 
+     *
      * @param[in]  data Pointer containing boolean parameter to enforce generation.
      * @return sys_error_t ERROR_SUCCESS on success.
      */
@@ -102,14 +102,14 @@ public:
 
     /**
      * @brief Thread-safe routine to execute dynamic key generation and write cycles.
-     * 
+     *
      * @return sys_error_t ERROR_SUCCESS on success.
      */
-    sys_error_t        generateAndStoreKeys();
+    sys_error_t generateAndStoreKeys();
 
     /**
      * @brief Retrieves the active event group handler.
-     * 
+     *
      * @return EventGroupHandle_t FreeRTOS event group.
      */
     EventGroupHandle_t getEventGroup() const;

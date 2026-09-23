@@ -11,12 +11,11 @@
 #pragma once
 
 #include "App/Protocols/OTA/IOtaManager.hpp"
+#include "HAL/IHAL/IHal.h"
 #include "PAL/Protocols/HTTP/IHttpClient.hpp"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
-#include "HAL/IHAL/IHal.h"
 #include <mutex>
 #include <string>
-
 
 /**
  * @class OtaManager

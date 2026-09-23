@@ -10,14 +10,14 @@
 
 namespace
 {
-constexpr uint16_t led_task_delay        = 100;                       // ms
-constexpr uint16_t led_blink_slow_rate   = led_task_delay * 10;       // ms
-constexpr uint16_t led_blink_rate        = led_task_delay * 5;        // ms
-constexpr uint16_t led_blink_fast_rate   = led_task_delay;            // ms
-constexpr uint16_t led_blink_toggle_rate = led_task_delay * 2;        // ms
-constexpr uint16_t led_blink_once_rate   = led_blink_toggle_rate * 2; // ms
-constexpr uint16_t led_blick_twice_rate  = led_blink_once_rate * 2;   // ms
-constexpr uint16_t led_blick_thrice_rate = led_blink_once_rate * 3;   // ms
+    constexpr uint16_t led_task_delay        = 100;                       // ms
+    constexpr uint16_t led_blink_slow_rate   = led_task_delay * 10;       // ms
+    constexpr uint16_t led_blink_rate        = led_task_delay * 5;        // ms
+    constexpr uint16_t led_blink_fast_rate   = led_task_delay;            // ms
+    constexpr uint16_t led_blink_toggle_rate = led_task_delay * 2;        // ms
+    constexpr uint16_t led_blink_once_rate   = led_blink_toggle_rate * 2; // ms
+    constexpr uint16_t led_blick_twice_rate  = led_blink_once_rate * 2;   // ms
+    constexpr uint16_t led_blick_thrice_rate = led_blink_once_rate * 3;   // ms
 } // namespace
 
 /**

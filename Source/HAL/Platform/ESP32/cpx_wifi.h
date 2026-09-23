@@ -49,7 +49,7 @@ public:
     cpx_wifi(void* config);
     ~cpx_wifi();
 
-    sys_error_t init(void *params = nullptr) override;
+    sys_error_t init(void* params = nullptr) override;
 
     sys_error_t start() override;
 

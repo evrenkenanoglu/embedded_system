@@ -96,7 +96,6 @@ sys_error_t Serv_httpsServer::start()
     // Set the user callback for HTTPS server
     _sslConfig.user_cb = https_server_user_callback;
 
-
     // DEBUG PRINT ALL CONFIG VALUES
     SYS_LOG_I("SSL Config:");
     SYS_LOG_I("  transport_mode: " + std::to_string(_sslConfig.transport_mode));

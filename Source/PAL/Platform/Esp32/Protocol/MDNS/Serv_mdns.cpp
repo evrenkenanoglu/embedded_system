@@ -31,7 +31,7 @@ sys_error_t Serv_mdns::init()
         return ERROR_FAIL;
     }
 
-    SYS_LOG_I( "mDNS initialized");
+    SYS_LOG_I("mDNS initialized");
 
     return ERROR_SUCCESS;
 }
@@ -71,14 +71,14 @@ sys_error_t Serv_mdns::start()
         return ERROR_FAIL;
     }
 
-    SYS_LOG_I( "mDNS service started!");
+    SYS_LOG_I("mDNS service started!");
     return ERROR_SUCCESS;
 }
 
 sys_error_t Serv_mdns::stop()
 {
     mdns_free();
-    SYS_LOG_I( "mDNS stopped!");
+    SYS_LOG_I("mDNS stopped!");
     return ERROR_SUCCESS;
 }
 

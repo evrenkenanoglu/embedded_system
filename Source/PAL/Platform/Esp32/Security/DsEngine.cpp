@@ -41,27 +41,27 @@ DsEngine::~DsEngine()
 sys_error_t DsEngine::init(const DsConfig_t& config)
 {
     RETURN_IF_ERROR(
-        (_isInitialized),                                                // Expression
-        ERROR_SUCCESS,                                                   // Error code
-        SYS_LOG_I("Hardware DS Engine is already initialized")           // Error message
+        (_isInitialized),                                      // Expression
+        ERROR_SUCCESS,                                         // Error code
+        SYS_LOG_I("Hardware DS Engine is already initialized") // Error message
     );
 
     RETURN_IF_ERROR(
-        (_mutex == nullptr),                                             // Expression
-        ERROR_OUT_OF_MEMORY,                                             // Error code
-        SYS_LOG_E("Failed to allocate DS Engine synchronization mutex")  // Error message
+        (_mutex == nullptr),                                            // Expression
+        ERROR_OUT_OF_MEMORY,                                            // Error code
+        SYS_LOG_E("Failed to allocate DS Engine synchronization mutex") // Error message
     );
 
     RETURN_IF_ERROR(
-        (config.dsContext == nullptr),                                   // Expression
-        ERROR_INVALID_ARG,                                               // Error code
-        SYS_LOG_E("Invalid null esp_ds_data_t pointer provided")         // Error message
+        (config.dsContext == nullptr),                           // Expression
+        ERROR_INVALID_ARG,                                       // Error code
+        SYS_LOG_E("Invalid null esp_ds_data_t pointer provided") // Error message
     );
 
     RETURN_IF_ERROR(
         (config.rsaBitLength != 2048 && config.rsaBitLength != 3072 && config.rsaBitLength != 4096), // Expression
-        ERROR_INVALID_ARG,                                                                            // Error code
-        SYS_LOG_E("Unsupported DS RSA bit length: %zu", config.rsaBitLength)                          // Error message
+        ERROR_INVALID_ARG,                                                                           // Error code
+        SYS_LOG_E("Unsupported DS RSA bit length: %zu", config.rsaBitLength)                         // Error message
     );
 
     _config        = config;

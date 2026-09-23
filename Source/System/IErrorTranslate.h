@@ -4,8 +4,6 @@
 #include "error_definitions.h"
 #include <string>
 
-
-
 /**
  * @brief
  *

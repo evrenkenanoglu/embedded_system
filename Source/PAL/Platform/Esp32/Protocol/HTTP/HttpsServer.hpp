@@ -37,7 +37,7 @@ private:
      * @brief Populate server and SSL configurations from start options
      *
      * @param options start options provided by the user
-     * @param serverConfig 
+     * @param serverConfig
      * @param sslConfig
      */
     static sys_error_t populate_config(const HttpServerStartOptions_t& options, httpd_ssl_config_t& sslConfig);

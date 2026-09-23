@@ -18,26 +18,26 @@
 #include "esp_bit_defs.h"
 
 // Define event bits
-#define WIFI_CONFIG_AP_SETUP_READY          BIT0 // Access Point Setup Ready
-#define WIFI_CONFIG_AP_SETUP_FINISH         BIT1 // Access Point Setup Shutdown
+#define WIFI_CONFIG_AP_SETUP_READY       BIT0 // Access Point Setup Ready
+#define WIFI_CONFIG_AP_SETUP_FINISH      BIT1 // Access Point Setup Shutdown
 
-#define WIFI_CONFIG_STA_SETUP_READY         BIT2 // Station Setup Ready
-#define WIFI_CONFIG_STA_SETUP_FINISH        BIT3 // Station Setup Shutdown
+#define WIFI_CONFIG_STA_SETUP_READY      BIT2 // Station Setup Ready
+#define WIFI_CONFIG_STA_SETUP_FINISH     BIT3 // Station Setup Shutdown
 
-#define WIFI_CONFIG_SCAN_REQUESTED          BIT5 //
-#define WIFI_CONFIG_SCAN_DONE               BIT6
+#define WIFI_CONFIG_SCAN_REQUESTED       BIT5 //
+#define WIFI_CONFIG_SCAN_DONE            BIT6
 
-#define WIFI_CONFIG_CREDENTIALS_STORED      BIT7
+#define WIFI_CONFIG_CREDENTIALS_STORED   BIT7
 
-#define WIFI_CONFIG_CONNECTED_TO_AP         BIT8
-#define WIFI_CONFIG_DISCONNECTED_FROM_AP    BIT9
+#define WIFI_CONFIG_CONNECTED_TO_AP      BIT8
+#define WIFI_CONFIG_DISCONNECTED_FROM_AP BIT9
 
-#define WIFI_CONFIG_BITMAX                  BIT15
+#define WIFI_CONFIG_BITMAX               BIT15
 
-#define WIFI_SSID                           "wifiSsid"
-#define WIFI_SSID_LENGTH                    32
-#define WIFI_PASSWORD                       "wifiPassword"
-#define WIFI_PASSWORD_LENGTH                64
+#define WIFI_SSID                        "wifiSsid"
+#define WIFI_SSID_LENGTH                 32
+#define WIFI_PASSWORD                    "wifiPassword"
+#define WIFI_PASSWORD_LENGTH             64
 
 enum class ProgramState
 {
@@ -53,7 +53,6 @@ enum class ProgramState
     TRY_CONNECT,
     RESTART, // Restart WiFi
     CONNECTION_FAILED,
-
 };
 
 class Proc_wifiConfigurationManager : public Process

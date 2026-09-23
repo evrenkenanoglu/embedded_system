@@ -11,9 +11,9 @@
 
 namespace
 {
-constexpr uint16_t taskStackSize = 4096; // bytes
-constexpr uint8_t  taskPriority  = 5;
-constexpr char     taskName[]    = "networkServiceMngrTask";
+    constexpr uint16_t taskStackSize = 4096; // bytes
+    constexpr uint8_t  taskPriority  = 5;
+    constexpr char     taskName[]    = "networkServiceMngrTask";
 } // namespace
 
 SemaphoreHandle_t mutex;
@@ -43,7 +43,7 @@ sys_error_t Proc_networkServiceManager::start()
         return ERROR_FAIL;
     }
 
-    SYS_LOG_I( "Starting network service manager");
+    SYS_LOG_I("Starting network service manager");
     return ERROR_SUCCESS;
 }
 
@@ -71,7 +71,7 @@ sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& network
     // mutex lock
     xSemaphoreTake(mutex, portMAX_DELAY);
 
-    SYS_LOG_W( "Registering...");
+    SYS_LOG_W("Registering...");
     std::vector<IProcess*>& networkServices = (type == NetworkServiceType::AP) ? _networkServicesAP : _networkServicesSTA;
 
     // Check if the network service is already registered
@@ -84,7 +84,7 @@ sys_error_t Proc_networkServiceManager::registerNetworkService(IProcess& network
     }
     networkServices.emplace_back(&networkService);
 
-    SYS_LOG_W( "Registering Completed!");
+    SYS_LOG_W("Registering Completed!");
     // mutex unlock
     xSemaphoreGive(mutex);
     return ERROR_SUCCESS;
@@ -168,28 +168,29 @@ static void programTask(void* pvParameters)
     for (;;)
     {
         // Wait for any of the specified event bits to be set
-        EventBits_t eventBits = xEventGroupWaitBits(proc->getWifiConfigEventGroup(),   // Event Group Handle
-                                                                                       // Bits to wait for
-                                                    WIFI_CONFIG_AP_SETUP_READY |       //
-                                                        WIFI_CONFIG_AP_SETUP_FINISH |  //
-                                                        WIFI_CONFIG_STA_SETUP_READY |  //
-                                                        WIFI_CONFIG_STA_SETUP_FINISH | //
-                                                        WIFI_CONFIG_CONNECTED_TO_AP    //
-                                                    ,
-                                                    pdTRUE,         // Clear bits on exit
-                                                    pdFALSE,        // Wait for any bit
-                                                    portMAX_DELAY); // Wait indefinitely
+        EventBits_t eventBits = xEventGroupWaitBits(
+            proc->getWifiConfigEventGroup(),   // Event Group Handle
+                                               // Bits to wait for
+            WIFI_CONFIG_AP_SETUP_READY |       //
+                WIFI_CONFIG_AP_SETUP_FINISH |  //
+                WIFI_CONFIG_STA_SETUP_READY |  //
+                WIFI_CONFIG_STA_SETUP_FINISH | //
+                WIFI_CONFIG_CONNECTED_TO_AP    //
+            ,
+            pdTRUE,         // Clear bits on exit
+            pdFALSE,        // Wait for any bit
+            portMAX_DELAY); // Wait indefinitely
 
         // If the AP setup ready bit is set, start the AP network services
         if (eventBits & WIFI_CONFIG_AP_SETUP_READY)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::AP) == NetworkServiceState::RUNNING)
             {
-                SYS_LOG_I( "AP network services are already running");
+                SYS_LOG_I("AP network services are already running");
             }
             else
             {
-                SYS_LOG_I( "Start the AP network services");
+                SYS_LOG_I("Start the AP network services");
                 proc->setNetworkServiceState(NetworkServiceType::AP, NetworkServiceState::RUNNING);
                 proc->executeNetworkServices(NetworkServiceType::AP, true);
             }
@@ -199,11 +200,11 @@ static void programTask(void* pvParameters)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::AP) == NetworkServiceState::STOPPED)
             {
-                SYS_LOG_I( "AP network services are already stopped");
+                SYS_LOG_I("AP network services are already stopped");
             }
             else
             {
-                SYS_LOG_I( "Stop the AP network services");
+                SYS_LOG_I("Stop the AP network services");
                 proc->setNetworkServiceState(NetworkServiceType::AP, NetworkServiceState::STOPPED);
                 proc->executeNetworkServices(NetworkServiceType::AP, false);
             }
@@ -214,11 +215,11 @@ static void programTask(void* pvParameters)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::STA) == NetworkServiceState::RUNNING)
             {
-                SYS_LOG_I( "STA network services are already running");
+                SYS_LOG_I("STA network services are already running");
             }
             else
             {
-                SYS_LOG_I( "Start the STA network services");
+                SYS_LOG_I("Start the STA network services");
                 proc->setNetworkServiceState(NetworkServiceType::STA, NetworkServiceState::RUNNING);
                 proc->executeNetworkServices(NetworkServiceType::STA, true);
             }
@@ -228,11 +229,11 @@ static void programTask(void* pvParameters)
         {
             if (proc->getNetworkServiceState(NetworkServiceType::STA) == NetworkServiceState::STOPPED)
             {
-                SYS_LOG_I( "STA network services are already stopped");
+                SYS_LOG_I("STA network services are already stopped");
             }
             else
             {
-                SYS_LOG_I( "Stop the STA network services");
+                SYS_LOG_I("Stop the STA network services");
                 proc->setNetworkServiceState(NetworkServiceType::STA, NetworkServiceState::STOPPED);
                 proc->executeNetworkServices(NetworkServiceType::STA, false);
             }

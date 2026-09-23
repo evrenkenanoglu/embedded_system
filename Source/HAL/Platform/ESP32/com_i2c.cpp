@@ -22,47 +22,47 @@
 namespace
 {
 
-i2c_port_t convertI2cPort(uint8_t port)
-{
-    switch (port)
+    i2c_port_t convertI2cPort(uint8_t port)
     {
-        case 0:
-            return I2C_NUM_0;
-        case 1:
-            return I2C_NUM_1;
-        default:
-            return I2C_NUM_0; // Default to I2C_NUM_0 if invalid port is provided
-    }
-}
-
-i2c_config_t convertI2cConfig(const hal_com_i2c_config_t& config)
-{
-    i2c_config_t i2cConfig  = {};
-    i2cConfig.mode          = (config.mode == HAL_I2C_MODE_MASTER) ? I2C_MODE_MASTER : I2C_MODE_SLAVE;
-    i2cConfig.sda_io_num    = config.sda_config.pin_number;
-    i2cConfig.scl_io_num    = config.scl_config.pin_number;
-    i2cConfig.sda_pullup_en = config.sda_config.pullup_enable;
-    i2cConfig.scl_pullup_en = config.scl_config.pullup_enable;
-
-    if (config.mode == HAL_I2C_MODE_MASTER)
-    {
-        i2cConfig.master.clk_speed = config.clk_speed;
-    }
-    // Note: Slave mode configuration can be added here if needed
-
-    // Handle platform-specific configuration if provided
-    if (config.platform_config != nullptr)
-    {
-        const auto* platformConfig = static_cast<const platformSpecificConfig_t*>(config.platform_config);
-        i2cConfig.clk_flags        = platformConfig->clock_flags;
-    }
-    else
-    {
-        i2cConfig.clk_flags = 0; // Default clock flags
+        switch (port)
+        {
+            case 0:
+                return I2C_NUM_0;
+            case 1:
+                return I2C_NUM_1;
+            default:
+                return I2C_NUM_0; // Default to I2C_NUM_0 if invalid port is provided
+        }
     }
 
-    return i2cConfig;
-}
+    i2c_config_t convertI2cConfig(const hal_com_i2c_config_t& config)
+    {
+        i2c_config_t i2cConfig  = {};
+        i2cConfig.mode          = (config.mode == HAL_I2C_MODE_MASTER) ? I2C_MODE_MASTER : I2C_MODE_SLAVE;
+        i2cConfig.sda_io_num    = config.sda_config.pin_number;
+        i2cConfig.scl_io_num    = config.scl_config.pin_number;
+        i2cConfig.sda_pullup_en = config.sda_config.pullup_enable;
+        i2cConfig.scl_pullup_en = config.scl_config.pullup_enable;
+
+        if (config.mode == HAL_I2C_MODE_MASTER)
+        {
+            i2cConfig.master.clk_speed = config.clk_speed;
+        }
+        // Note: Slave mode configuration can be added here if needed
+
+        // Handle platform-specific configuration if provided
+        if (config.platform_config != nullptr)
+        {
+            const auto* platformConfig = static_cast<const platformSpecificConfig_t*>(config.platform_config);
+            i2cConfig.clk_flags        = platformConfig->clock_flags;
+        }
+        else
+        {
+            i2cConfig.clk_flags = 0; // Default clock flags
+        }
+
+        return i2cConfig;
+    }
 
 } // namespace
 

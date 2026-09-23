@@ -1,10 +1,10 @@
 #pragma once
 
-#include "System/system.h"
 #include "IHttpUri.hpp"
+#include "System/system.h"
+#include <functional>
 #include <string>
 #include <vector>
-#include <functional>
 
 /// Key-Value metadata structure for HTTP Headers
 struct HttpHeader
@@ -31,7 +31,7 @@ struct HttpClientOptions_t
 
 /**
  * @brief Callback signature for streaming HTTP response data.
- * 
+ *
  * @param chunk Pointer to the data chunk received from the TCP stream.
  * @param len Size of the incoming chunk.
  * @param is_last Flag indicating if this is the final block of the response body.
@@ -71,13 +71,9 @@ public:
      * @param out_status_code Output variable to capture the HTTP response status code
      * @param on_data_received Callback fired as chunks are received from the network
      */
-    virtual sys_error_t sendRequest(IHttpUri::HttpMethod           method,
-                                    const std::string&             path,
-                                    const std::vector<HttpHeader>& headers,
-                                    const uint8_t*                 body,
-                                    size_t                         body_len,
-                                    int&                           out_status_code,
-                                    HttpResponseStreamCb_t         on_data_received) = 0;
+    virtual sys_error_t sendRequest(
+        IHttpUri::HttpMethod method, const std::string& path, const std::vector<HttpHeader>& headers, const uint8_t* body, size_t body_len, int& out_status_code,
+        HttpResponseStreamCb_t on_data_received) = 0;
 
     /**
      * @brief Buffered overload. Used when the response is guaranteed to fit within memory limits.
@@ -90,18 +86,14 @@ public:
      * @param out_status_code Output variable to capture the HTTP response status code
      * @param out_response_body Vector populated with the entire response payload
      */
-    virtual sys_error_t sendRequest(IHttpUri::HttpMethod           method,
-                                    const std::string&             path,
-                                    const std::vector<HttpHeader>& headers,
-                                    const uint8_t*                 body,
-                                    size_t                         body_len,
-                                    int&                           out_status_code,
-                                    std::vector<uint8_t>&          out_response_body) = 0;
+    virtual sys_error_t sendRequest(
+        IHttpUri::HttpMethod method, const std::string& path, const std::vector<HttpHeader>& headers, const uint8_t* body, size_t body_len, int& out_status_code,
+        std::vector<uint8_t>& out_response_body) = 0;
 
     /**
      * @brief Exposes the platform-specific lower level handle (e.g., esp_http_client_handle_t)
      */
-    virtual void* nativeHandle() const 
+    virtual void* nativeHandle() const
     {
         return nullptr;
     }

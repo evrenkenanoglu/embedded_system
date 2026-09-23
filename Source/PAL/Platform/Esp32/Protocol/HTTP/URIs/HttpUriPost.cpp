@@ -18,6 +18,5 @@ HttpUriPost::HttpUriPost(const char* uriName, Handler handler, void* user_ctx)
         SYS_LOG_I("No user_ctx provided, using default HTML handler");
         // If No user_ctx provided, set user_ctx to this for default handler
         setUserContext(this);
-
     }
 }

@@ -1,7 +1,8 @@
 #ifndef UI_WELCOME_H
 #define UI_WELCOME_H
 
-#define HTML_UI_WELCOME_CONTENT "<!DOCTYPE html>\
+#define HTML_UI_WELCOME_CONTENT \
+    "<!DOCTYPE html>\
 <html>\
  <head>\
   <meta charset=\"utf-8\"/>\

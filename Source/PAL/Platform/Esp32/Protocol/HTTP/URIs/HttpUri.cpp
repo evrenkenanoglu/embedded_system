@@ -7,9 +7,9 @@
 
 namespace
 {
-constexpr size_t REQ_BUF_SZ      = 512;  // Request Buffer Size
-constexpr size_t RESP_BUF_SZ     = 1024; // Response Buffer Size
-constexpr size_t MAX_WS_FRAME_SZ = 256;  // Max WebSocket Frame Size
+    constexpr size_t REQ_BUF_SZ      = 512;  // Request Buffer Size
+    constexpr size_t RESP_BUF_SZ     = 1024; // Response Buffer Size
+    constexpr size_t MAX_WS_FRAME_SZ = 256;  // Max WebSocket Frame Size
 } // namespace
 
 // Map portable HttpMethod to esp-idf httpd_method_t
@@ -75,7 +75,14 @@ static inline void safe_strncpy(char* dst, const char* src, size_t dst_len)
 }
 
 HttpUri::HttpUri(const char* path, HttpMethod method, Handler handler, void* user_ctx)
-    : _esp{.uri = nullptr, .method = HTTP_GET, .handler = nullptr, .user_ctx = nullptr, .is_websocket = false, .handle_ws_control_frames = false, .supported_subprotocol = nullptr}
+    : _esp{
+          .uri                      = nullptr,
+          .method                   = HTTP_GET,
+          .handler                  = nullptr,
+          .user_ctx                 = nullptr,
+          .is_websocket             = false,
+          .handle_ws_control_frames = false,
+          .supported_subprotocol    = nullptr}
     , _handler(handler)
     , _user_ctx(user_ctx)
     , _static_content(nullptr)
@@ -171,7 +178,7 @@ esp_err_t HttpUri::handle_body_request(httpd_req_t* req)
     // Read the body into a buffer
     char req_buf[REQ_BUF_SZ] = {0};
 
-    int req_len = httpd_req_recv(req, req_buf, REQ_BUF_SZ - 1); // REQ_BUF_SZ - 1 for 
+    int req_len = httpd_req_recv(req, req_buf, REQ_BUF_SZ - 1); // REQ_BUF_SZ - 1 for
     if (req_len <= 0)
     {
         if (req_len == HTTPD_SOCK_ERR_TIMEOUT)

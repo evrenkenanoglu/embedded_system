@@ -1,7 +1,8 @@
 #ifndef APPLICATIONS_H
 #define APPLICATIONS_H
 
-#define HTML_APPLICATIONS_CONTENT "<!DOCTYPE html>\
+#define HTML_APPLICATIONS_CONTENT \
+    "<!DOCTYPE html>\
 <html>\
     <head>\
         <meta charset=\"utf-8\"/>\

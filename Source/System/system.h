@@ -19,9 +19,9 @@
 #include <string.h>
 
 ///** Errors Includes **///
-#include "system_macros.h"
 #include "error_definitions.h"
 #include "error_macros.h"
+#include "system_macros.h"
 
 ///** Logger Includes **///
 // #include "LogHandler.h"

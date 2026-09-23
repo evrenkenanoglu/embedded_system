@@ -45,7 +45,6 @@ public:
     std::string getErrorMessageName(int errorCode) const override;
 
     sys_error_t translateError(int errorCode) const override;
-
 };
 
 #endif // ERROR_TRANSLATE_IMPL_H

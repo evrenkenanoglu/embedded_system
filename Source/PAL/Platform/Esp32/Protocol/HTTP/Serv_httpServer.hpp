@@ -16,7 +16,6 @@
 #include <functional>
 #include <vector>
 
-
 class Serv_httpServer : public PAL_Service
 {
 private:
@@ -29,8 +28,6 @@ private:
 
     // Websocket callback function for stopping the Websocket server
     std::function<void()> _websocketStopCb;
-
-
 
 public:
     Serv_httpServer();

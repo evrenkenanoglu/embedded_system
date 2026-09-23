@@ -13,160 +13,160 @@
 static TimerHandle_t gpioTimers[GPIO_PIN_COUNT] = {nullptr};
 namespace
 {
-const uint32_t gpioIntBlockTime = 50; // ms
-// Helper functions to convert between enum types and ESP32 types
+    const uint32_t gpioIntBlockTime = 50; // ms
+    // Helper functions to convert between enum types and ESP32 types
 
-gpio_mode_t convertDirection(hal_gpio_direction_t direction)
-{
-    switch (direction)
+    gpio_mode_t convertDirection(hal_gpio_direction_t direction)
     {
-        case hal_gpio_direction_t::INPUT:
-            return GPIO_MODE_INPUT;
-        case hal_gpio_direction_t::OUTPUT:
-            return GPIO_MODE_OUTPUT;
-        case hal_gpio_direction_t::INPUT_OUTPUT:
-            return GPIO_MODE_INPUT_OUTPUT;
-        default:
-            return GPIO_MODE_INPUT;
-    }
-}
-
-hal_gpio_direction_t convertDirection(gpio_mode_t mode)
-{
-    switch (mode)
-    {
-        case GPIO_MODE_INPUT:
-            return hal_gpio_direction_t::INPUT;
-        case GPIO_MODE_OUTPUT:
-            return hal_gpio_direction_t::OUTPUT;
-        case GPIO_MODE_INPUT_OUTPUT:
-            return hal_gpio_direction_t::INPUT_OUTPUT;
-        case GPIO_MODE_OUTPUT_OD:
-            return hal_gpio_direction_t::OUTPUT;
-        default:
-            return hal_gpio_direction_t::INPUT;
-    }
-}
-
-gpio_pull_mode_t convertPull(hal_gpio_pull_t pull)
-{
-    switch (pull)
-    {
-        case hal_gpio_pull_t::NONE:
-            return GPIO_FLOATING;
-        case hal_gpio_pull_t::PULL_UP:
-            return GPIO_PULLUP_ONLY;
-        case hal_gpio_pull_t::PULL_DOWN:
-            return GPIO_PULLDOWN_ONLY;
-        default:
-            return GPIO_FLOATING;
-    }
-}
-
-hal_gpio_pull_t convertPull(gpio_pull_mode_t pullMode)
-{
-    switch (pullMode)
-    {
-        case GPIO_PULLUP_ONLY:
-            return hal_gpio_pull_t::PULL_UP;
-        case GPIO_PULLDOWN_ONLY:
-            return hal_gpio_pull_t::PULL_DOWN;
-        case GPIO_FLOATING:
-            return hal_gpio_pull_t::NONE;
-        default:
-            return hal_gpio_pull_t::NONE;
-    }
-}
-
-gpio_int_type_t convertInterrupt(hal_gpio_interrupt_t interrupt)
-{
-    switch (interrupt)
-    {
-        case hal_gpio_interrupt_t::DISABLED:
-            return GPIO_INTR_DISABLE;
-        case hal_gpio_interrupt_t::RISING_EDGE:
-            return GPIO_INTR_POSEDGE;
-        case hal_gpio_interrupt_t::FALLING_EDGE:
-            return GPIO_INTR_NEGEDGE;
-        case hal_gpio_interrupt_t::BOTH_EDGES:
-            return GPIO_INTR_ANYEDGE;
-        case hal_gpio_interrupt_t::LOW_LEVEL:
-            return GPIO_INTR_LOW_LEVEL;
-        case hal_gpio_interrupt_t::HIGH_LEVEL:
-            return GPIO_INTR_HIGH_LEVEL;
-        default:
-            return GPIO_INTR_DISABLE;
-    }
-}
-
-hal_gpio_interrupt_t convertInterrupt(gpio_int_type_t intType)
-{
-    switch (intType)
-    {
-        case GPIO_INTR_DISABLE:
-            return hal_gpio_interrupt_t::DISABLED;
-        case GPIO_INTR_POSEDGE:
-            return hal_gpio_interrupt_t::RISING_EDGE;
-        case GPIO_INTR_NEGEDGE:
-            return hal_gpio_interrupt_t::FALLING_EDGE;
-        case GPIO_INTR_ANYEDGE:
-            return hal_gpio_interrupt_t::BOTH_EDGES;
-        case GPIO_INTR_LOW_LEVEL:
-            return hal_gpio_interrupt_t::LOW_LEVEL;
-        case GPIO_INTR_HIGH_LEVEL:
-            return hal_gpio_interrupt_t::HIGH_LEVEL;
-        default:
-            return hal_gpio_interrupt_t::DISABLED;
-    }
-}
-
-gpio_config_t convertToESP32Config(const gpio_hal_config_t& halConfig)
-{
-    gpio_config_t esp32Config = {};
-
-    esp32Config.pin_bit_mask = (1ULL << halConfig.pinNumber);
-    esp32Config.mode         = convertDirection(halConfig.direction);
-    esp32Config.intr_type    = convertInterrupt(halConfig.interrupt);
-
-    // Handle pull resistor configuration
-    switch (halConfig.pull)
-    {
-        case hal_gpio_pull_t::PULL_UP:
-            esp32Config.pull_up_en   = GPIO_PULLUP_ENABLE;
-            esp32Config.pull_down_en = GPIO_PULLDOWN_DISABLE;
-            break;
-        case hal_gpio_pull_t::PULL_DOWN:
-            esp32Config.pull_up_en   = GPIO_PULLUP_DISABLE;
-            esp32Config.pull_down_en = GPIO_PULLDOWN_ENABLE;
-            break;
-        case hal_gpio_pull_t::NONE:
-        default:
-            esp32Config.pull_up_en   = GPIO_PULLUP_DISABLE;
-            esp32Config.pull_down_en = GPIO_PULLDOWN_DISABLE;
-            break;
+        switch (direction)
+        {
+            case hal_gpio_direction_t::INPUT:
+                return GPIO_MODE_INPUT;
+            case hal_gpio_direction_t::OUTPUT:
+                return GPIO_MODE_OUTPUT;
+            case hal_gpio_direction_t::INPUT_OUTPUT:
+                return GPIO_MODE_INPUT_OUTPUT;
+            default:
+                return GPIO_MODE_INPUT;
+        }
     }
 
-    return esp32Config;
-}
-
-// Add this to your main initialization (e.g., in main() or device init)
-static sys_error_t initGpioIsrService()
-{
-    static bool isrServiceInitialized = false;
-
-    RETURN_IF_ERROR(isrServiceInitialized != false, ERROR_SUCCESS);
-
-    esp_err_t result = gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
-    if (result == ESP_OK || result == ESP_ERR_INVALID_STATE)
+    hal_gpio_direction_t convertDirection(gpio_mode_t mode)
     {
-        isrServiceInitialized = true;
-        SYS_LOG_I("GPIO ISR service initialized successfully");
-        return ERROR_SUCCESS;
+        switch (mode)
+        {
+            case GPIO_MODE_INPUT:
+                return hal_gpio_direction_t::INPUT;
+            case GPIO_MODE_OUTPUT:
+                return hal_gpio_direction_t::OUTPUT;
+            case GPIO_MODE_INPUT_OUTPUT:
+                return hal_gpio_direction_t::INPUT_OUTPUT;
+            case GPIO_MODE_OUTPUT_OD:
+                return hal_gpio_direction_t::OUTPUT;
+            default:
+                return hal_gpio_direction_t::INPUT;
+        }
     }
 
-    SYS_LOG_E("Failed to initialize GPIO ISR service: %s", esp_err_to_name(result));
-    return ERROR_INIT_FAILED;
-}
+    gpio_pull_mode_t convertPull(hal_gpio_pull_t pull)
+    {
+        switch (pull)
+        {
+            case hal_gpio_pull_t::NONE:
+                return GPIO_FLOATING;
+            case hal_gpio_pull_t::PULL_UP:
+                return GPIO_PULLUP_ONLY;
+            case hal_gpio_pull_t::PULL_DOWN:
+                return GPIO_PULLDOWN_ONLY;
+            default:
+                return GPIO_FLOATING;
+        }
+    }
+
+    hal_gpio_pull_t convertPull(gpio_pull_mode_t pullMode)
+    {
+        switch (pullMode)
+        {
+            case GPIO_PULLUP_ONLY:
+                return hal_gpio_pull_t::PULL_UP;
+            case GPIO_PULLDOWN_ONLY:
+                return hal_gpio_pull_t::PULL_DOWN;
+            case GPIO_FLOATING:
+                return hal_gpio_pull_t::NONE;
+            default:
+                return hal_gpio_pull_t::NONE;
+        }
+    }
+
+    gpio_int_type_t convertInterrupt(hal_gpio_interrupt_t interrupt)
+    {
+        switch (interrupt)
+        {
+            case hal_gpio_interrupt_t::DISABLED:
+                return GPIO_INTR_DISABLE;
+            case hal_gpio_interrupt_t::RISING_EDGE:
+                return GPIO_INTR_POSEDGE;
+            case hal_gpio_interrupt_t::FALLING_EDGE:
+                return GPIO_INTR_NEGEDGE;
+            case hal_gpio_interrupt_t::BOTH_EDGES:
+                return GPIO_INTR_ANYEDGE;
+            case hal_gpio_interrupt_t::LOW_LEVEL:
+                return GPIO_INTR_LOW_LEVEL;
+            case hal_gpio_interrupt_t::HIGH_LEVEL:
+                return GPIO_INTR_HIGH_LEVEL;
+            default:
+                return GPIO_INTR_DISABLE;
+        }
+    }
+
+    hal_gpio_interrupt_t convertInterrupt(gpio_int_type_t intType)
+    {
+        switch (intType)
+        {
+            case GPIO_INTR_DISABLE:
+                return hal_gpio_interrupt_t::DISABLED;
+            case GPIO_INTR_POSEDGE:
+                return hal_gpio_interrupt_t::RISING_EDGE;
+            case GPIO_INTR_NEGEDGE:
+                return hal_gpio_interrupt_t::FALLING_EDGE;
+            case GPIO_INTR_ANYEDGE:
+                return hal_gpio_interrupt_t::BOTH_EDGES;
+            case GPIO_INTR_LOW_LEVEL:
+                return hal_gpio_interrupt_t::LOW_LEVEL;
+            case GPIO_INTR_HIGH_LEVEL:
+                return hal_gpio_interrupt_t::HIGH_LEVEL;
+            default:
+                return hal_gpio_interrupt_t::DISABLED;
+        }
+    }
+
+    gpio_config_t convertToESP32Config(const gpio_hal_config_t& halConfig)
+    {
+        gpio_config_t esp32Config = {};
+
+        esp32Config.pin_bit_mask = (1ULL << halConfig.pinNumber);
+        esp32Config.mode         = convertDirection(halConfig.direction);
+        esp32Config.intr_type    = convertInterrupt(halConfig.interrupt);
+
+        // Handle pull resistor configuration
+        switch (halConfig.pull)
+        {
+            case hal_gpio_pull_t::PULL_UP:
+                esp32Config.pull_up_en   = GPIO_PULLUP_ENABLE;
+                esp32Config.pull_down_en = GPIO_PULLDOWN_DISABLE;
+                break;
+            case hal_gpio_pull_t::PULL_DOWN:
+                esp32Config.pull_up_en   = GPIO_PULLUP_DISABLE;
+                esp32Config.pull_down_en = GPIO_PULLDOWN_ENABLE;
+                break;
+            case hal_gpio_pull_t::NONE:
+            default:
+                esp32Config.pull_up_en   = GPIO_PULLUP_DISABLE;
+                esp32Config.pull_down_en = GPIO_PULLDOWN_DISABLE;
+                break;
+        }
+
+        return esp32Config;
+    }
+
+    // Add this to your main initialization (e.g., in main() or device init)
+    static sys_error_t initGpioIsrService()
+    {
+        static bool isrServiceInitialized = false;
+
+        RETURN_IF_ERROR(isrServiceInitialized != false, ERROR_SUCCESS);
+
+        esp_err_t result = gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
+        if (result == ESP_OK || result == ESP_ERR_INVALID_STATE)
+        {
+            isrServiceInitialized = true;
+            SYS_LOG_I("GPIO ISR service initialized successfully");
+            return ERROR_SUCCESS;
+        }
+
+        SYS_LOG_E("Failed to initialize GPIO ISR service: %s", esp_err_to_name(result));
+        return ERROR_INIT_FAILED;
+    }
 
 } // namespace
 
@@ -185,8 +185,8 @@ static void gpioTimerCallback(TimerHandle_t xTimer)
 
     // Create event structure
     hal_gpio_event_t event = {
-        .gpio_num     = gpioClass->getGpioNumber(),              // Gpio Number
-        .level        = currentLevel,                            // Current Level
+        .gpio_num  = gpioClass->getGpioNumber(),              // Gpio Number
+        .level     = currentLevel,                            // Current Level
         .timestamp = xTaskGetTickCount() * portTICK_PERIOD_MS // Timestamp in ms
     };
 

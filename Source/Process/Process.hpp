@@ -8,8 +8,8 @@
 #ifndef PROCESS_HPP
 #define PROCESS_HPP
 
-#include "System/system.h"
 #include "IProcess.hpp"
+#include "System/system.h"
 
 class Process : public IProcess
 {

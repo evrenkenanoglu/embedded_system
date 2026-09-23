@@ -13,7 +13,6 @@ public:
 private:
     uint16_t handler(const char* req_ptr, size_t req_len, char* resp_buf, size_t resp_buf_len, void* user_ctx) override;
 
-
 private:
     EventGroupHandle_t& _wifiConfigEventGroup;
     IHAL_MEM&           _memDevice;

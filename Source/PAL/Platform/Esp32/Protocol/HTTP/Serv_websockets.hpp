@@ -43,6 +43,5 @@ public:
 
     // Broadcast a message to all connected websocket clients
     sys_error_t broadcast(uint8_t* payload, size_t len, httpd_ws_type_t type);
-    
 };
 #endif /* SERV_WEBSOCKETS_HPP */

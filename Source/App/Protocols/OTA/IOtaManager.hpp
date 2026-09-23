@@ -11,8 +11,8 @@
 #pragma once
 
 #include "System/errorTranslateHandler.h"
-#include <string>
 #include <functional>
+#include <string>
 
 // Forward declarations
 class IHAL_MEM;
@@ -22,12 +22,12 @@ class IHAL_MEM;
  */
 enum class OtaCheckResult : uint8_t
 {
-    NoUpdateAvailable = 0,  ///< The device is already running the latest firmware version
-    UpdateAvailable,        ///< Compatible target version detected on the remote server
-    HardwareMismatch,       ///< Manifest matches a version intended for another board layout
-    ManifestFetchError,     ///< Failed to establish link or download update details
-    ManifestParseError,     ///< JSON contents contain invalid keys or structures
-    IncompatibleVersion     ///< Target version fails validation constraints
+    NoUpdateAvailable = 0, ///< The device is already running the latest firmware version
+    UpdateAvailable,       ///< Compatible target version detected on the remote server
+    HardwareMismatch,      ///< Manifest matches a version intended for another board layout
+    ManifestFetchError,    ///< Failed to establish link or download update details
+    ManifestParseError,    ///< JSON contents contain invalid keys or structures
+    IncompatibleVersion    ///< Target version fails validation constraints
 };
 
 /**
@@ -44,7 +44,7 @@ struct OtaManagerOptions_t
     std::string hardwareType;                 ///< Hardware board layout or module identifier
     std::string deviceId;                     ///< Unique hardware address or MAC identifier
     std::string channel;                      ///< Active deployment cohort channel (stable/beta/testing)
-    uint32_t    currentHsvn = 0;              ///< Hardware Security Version Number
+    uint32_t    currentHsvn          = 0;     ///< Hardware Security Version Number
     uint32_t    baseCheckIntervalSec = 86400; ///< Periodic check baseline (24 hours)
     uint32_t    jitterRangeSec       = 1800;  ///< Maximum timing offset (30 minutes)
     uint8_t     minBatteryPct        = 80;    ///< Threshold for stage 2 download
@@ -60,15 +60,15 @@ struct OtaManagerOptions_t
 struct OtaPlatformHooks_t
 {
     std::function<uint8_t()>  getBatteryPercentage = nullptr; ///< Returns battery capacity (0-100%)
-    std::function<int()>      getCurrentLocalHour   = nullptr; ///< Returns local hour (0-23) or -1 if clock is unsynced
-    std::function<uint32_t()> getRandomNumber       = nullptr; ///< Returns a 32-bit random integer
-    std::function<void()>     rebootSystem          = nullptr; ///< Triggers system soft-reboot
+    std::function<int()>      getCurrentLocalHour  = nullptr; ///< Returns local hour (0-23) or -1 if clock is unsynced
+    std::function<uint32_t()> getRandomNumber      = nullptr; ///< Returns a 32-bit random integer
+    std::function<void()>     rebootSystem         = nullptr; ///< Triggers system soft-reboot
 };
 
 /**
  * @class IOtaManager
  * @brief High-level application orchestrator governing update triggers and self-test verification.
- * 
+ *
  * @note Thread-Safety: Interfaces derived from this class are thread-safe and can withstand
  *       asynchronous state requests from the system application loop.
  */

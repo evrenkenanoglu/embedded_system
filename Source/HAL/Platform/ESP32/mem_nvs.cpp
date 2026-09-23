@@ -58,11 +58,7 @@ sys_error_t mem_nvs::init(void* params)
     {
 #if CONFIG_NVS_SEC_KEY_PROTECT_USING_FLASH_ENC
         // Find the nvs_keys partition for Flash Encryption protection scheme
-        const esp_partition_t* keyPart = esp_partition_find_first(
-            ESP_PARTITION_TYPE_DATA,
-            ESP_PARTITION_SUBTYPE_DATA_NVS_KEYS,
-            "nvs_keys"
-        );
+        const esp_partition_t* keyPart = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS_KEYS, "nvs_keys");
 
         if (keyPart != nullptr)
         {
@@ -88,8 +84,8 @@ sys_error_t mem_nvs::init(void* params)
     }
 
     RETURN_IF_ERROR(
-        (err != ESP_OK),                                                                          // Expression
-        TRANSLATE_ERROR(err),                                                                     // Error code
+        (err != ESP_OK),                                                                        // Expression
+        TRANSLATE_ERROR(err),                                                                   // Error code
         SYS_LOG_E("Failed to initialize NVS partition '%s': 0x%x", _partitionName.c_str(), err) // Error message
     );
 
@@ -133,7 +129,7 @@ sys_error_t mem_nvs::readData(const void* addressOrKey, uint8_t* data, size_t le
     if (err == ESP_ERR_NVS_TYPE_MISMATCH)
     {
         reqLen = length;
-        err = nvs_get_str(handle, key, reinterpret_cast<char*>(data), &reqLen);
+        err    = nvs_get_str(handle, key, reinterpret_cast<char*>(data), &reqLen);
     }
 
     // If operation failed, close NVS and return error

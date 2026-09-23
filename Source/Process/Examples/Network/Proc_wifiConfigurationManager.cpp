@@ -11,23 +11,23 @@
 
 namespace
 {
-constexpr uint16_t programRoutineTaskDelay     = 1000; // milliseconds
-constexpr uint16_t programRoutineTaskStackSize = 6 * 1024; // bytes
-constexpr uint8_t  programRoutineTaskPriority  = 5;
-constexpr char     programRoutineTaskName[]    = "programRoutineTask";
+    constexpr uint16_t programRoutineTaskDelay     = 1000;     // milliseconds
+    constexpr uint16_t programRoutineTaskStackSize = 6 * 1024; // bytes
+    constexpr uint8_t  programRoutineTaskPriority  = 5;
+    constexpr char     programRoutineTaskName[]    = "programRoutineTask";
 
-constexpr uint16_t wifiEventHandlerStackSize = 4096; // bytes
-constexpr uint8_t  wifiEventHandlerPriority  = 5;
-constexpr char     wifiEventHandlerName[]    = "wifiEventHandler";
+    constexpr uint16_t wifiEventHandlerStackSize = 4096; // bytes
+    constexpr uint8_t  wifiEventHandlerPriority  = 5;
+    constexpr char     wifiEventHandlerName[]    = "wifiEventHandler";
 
-constexpr uint16_t wifiConfigEventHandlerStackSize = 4096; // bytes
-constexpr uint8_t  wifiConfigEventHandlerPriority  = 5;
-constexpr char     wifiConfigEventHandlerName[]    = "wifiConfigEventHandler";
+    constexpr uint16_t wifiConfigEventHandlerStackSize = 4096; // bytes
+    constexpr uint8_t  wifiConfigEventHandlerPriority  = 5;
+    constexpr char     wifiConfigEventHandlerName[]    = "wifiConfigEventHandler";
 
-constexpr uint8_t tryConnectCount = 3;
-constexpr uint8_t tryConnectDelay = 100; // milliseconds
+    constexpr uint8_t tryConnectCount = 3;
+    constexpr uint8_t tryConnectDelay = 100; // milliseconds
 
-constexpr uint16_t staReadyTimeout = 10000; // milliseconds
+    constexpr uint16_t staReadyTimeout = 10000; // milliseconds
 } // namespace
 
 /**

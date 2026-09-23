@@ -7,7 +7,8 @@
 
 #include "Proc_mdns.hpp"
 
-Proc_mdns::Proc_mdns(IPAL_Service& networkService) : _networkService(networkService)
+Proc_mdns::Proc_mdns(IPAL_Service& networkService)
+    : _networkService(networkService)
 {
     setState(Process::State::INITIALIZED);
 }

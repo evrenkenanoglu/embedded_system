@@ -11,12 +11,12 @@
 
 namespace
 {
-constexpr uint16_t SwitchesTaskStackSize   = 4096; // bytes
-constexpr uint8_t  SwitchesTaskPriority    = 5;
-constexpr char     SwitchesTaskName[]      = "SwitchesTask";
-constexpr uint16_t programRoutineTaskDelay = 20;                          // milliseconds
-constexpr uint8_t  SwitchesQueueSize       = sizeof(SWITCH::EventData_t); // Size of each item in the queue
-constexpr uint8_t  SwitchesQueueLength     = 32;                          // Number of items in the queue
+    constexpr uint16_t SwitchesTaskStackSize   = 4096; // bytes
+    constexpr uint8_t  SwitchesTaskPriority    = 5;
+    constexpr char     SwitchesTaskName[]      = "SwitchesTask";
+    constexpr uint16_t programRoutineTaskDelay = 20;                          // milliseconds
+    constexpr uint8_t  SwitchesQueueSize       = sizeof(SWITCH::EventData_t); // Size of each item in the queue
+    constexpr uint8_t  SwitchesQueueLength     = 32;                          // Number of items in the queue
 } // namespace
 
 Proc_Switches::Proc_Switches(std::map<uint16_t, SWITCH::Instance_t>& switches, QueueHandle_t switchesQueue)

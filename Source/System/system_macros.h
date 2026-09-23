@@ -14,8 +14,13 @@
 #define BIT_MASK(n)        ((1U << (n)) - 1)
 #define IS_POWER_OF_TWO(x) ((x) && !((x) & ((x) - 1)))
 #define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
-#define SWAP(a, b)         do { auto temp = (a); (a) = (b); (b) = temp; } while(0)
-
+#define SWAP(a, b)        \
+    do                    \
+    {                     \
+        auto temp = (a);  \
+        (a)       = (b);  \
+        (b)       = temp; \
+    } while (0)
 
 #define UNUSED(x) (void)(x) // To avoid unused variable warnings
 

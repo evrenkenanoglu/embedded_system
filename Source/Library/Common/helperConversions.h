@@ -11,7 +11,7 @@
 
 namespace mac
 {
-std::string convertToMac(uint8_t mac[6]);
+    std::string convertToMac(uint8_t mac[6]);
 }
 
 #endif /* HELPERCONVERSIONS_HPP */

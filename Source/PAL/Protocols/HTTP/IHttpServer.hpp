@@ -32,19 +32,19 @@ public:
     virtual ~IHttpServer() = default;
 
     // Start/stop server. Pass nullptr to use defaults.
-    virtual sys_error_t start()  = 0;
-    virtual sys_error_t stop()   = 0;
+    virtual sys_error_t start() = 0;
+    virtual sys_error_t stop()  = 0;
 
     // Register/unregister HTTP URI. Server does NOT take ownership.
-    virtual sys_error_t registerUri(IHttpUri& uri)    = 0;
-    virtual sys_error_t unregisterUri(IHttpUri& uri)  = 0;
+    virtual sys_error_t registerUri(IHttpUri& uri)   = 0;
+    virtual sys_error_t unregisterUri(IHttpUri& uri) = 0;
 
     // WebSocket send helpers. clientId is implementation-specific (opaque).
-    virtual sys_error_t sendWsMessage(int clientId, const uint8_t* data, size_t len, WsFrameType ws_type)  = 0;
-    virtual sys_error_t broadcastWs(const uint8_t* data, size_t len, WsFrameType ws_type)                  = 0;
+    virtual sys_error_t sendWsMessage(int clientId, const uint8_t* data, size_t len, WsFrameType ws_type) = 0;
+    virtual sys_error_t broadcastWs(const uint8_t* data, size_t len, WsFrameType ws_type)                 = 0;
 
     // Optional: expose native handle (platform-specific) for advanced use.
-    virtual void* nativeHandle() const 
+    virtual void* nativeHandle() const
     {
         return nullptr;
     }

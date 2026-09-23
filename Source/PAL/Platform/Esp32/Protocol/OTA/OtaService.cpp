@@ -110,11 +110,7 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
         }
 
         /// Delegate X.509 chain verification directly to the CryptoEngine with backup Root CA fallback [1, 2].
-        sys_error_t verifyErr = _cryptoEngine.verifyCertificateChain(
-            options.serverCert,
-            options.signingCert,
-            options.backupServerCert
-        );
+        sys_error_t verifyErr = _cryptoEngine.verifyCertificateChain(options.serverCert, options.signingCert, options.backupServerCert);
 
         RETURN_IF_ERROR((verifyErr != ERROR_SUCCESS),                                              // Expression
                         verifyErr,                                                                 // Error code
@@ -363,9 +359,9 @@ sys_error_t OtaService::_handleTransportChunk(const uint8_t* data, size_t length
 sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outHash)
 {
     RETURN_IF_ERROR(
-        (outHash == nullptr),                                   // Expression
-        ERROR_INVALID_ARG,                                      // Error code
-        SYS_LOG_E("Invalid output hash pointer provided")       // Error message
+        (outHash == nullptr),                             // Expression
+        ERROR_INVALID_ARG,                                // Error code
+        SYS_LOG_E("Invalid output hash pointer provided") // Error message
     );
 
     const size_t partitionSize = _memOta.getPartitionSize();
@@ -378,9 +374,9 @@ sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outH
 
     /// Target size must be non-zero and bounded by partition size to prevent hashing erased flash filler (0xFF)
     RETURN_IF_ERROR(
-        (targetSize == 0 || targetSize > partitionSize),                                                                              // Expression
-        ERROR_INVALID_ARG,                                                                                                           // Error code
-        SYS_LOG_E("Invalid targetSize for hashing: %zu bytes (partition size: %zu bytes)", targetSize, partitionSize)               // Error message
+        (targetSize == 0 || targetSize > partitionSize),                                                              // Expression
+        ERROR_INVALID_ARG,                                                                                            // Error code
+        SYS_LOG_E("Invalid targetSize for hashing: %zu bytes (partition size: %zu bytes)", targetSize, partitionSize) // Error message
     );
 
     /// Use the decoupled progressive hashing APIs of the ICryptoEngine [1, 2].
@@ -400,16 +396,16 @@ sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outH
         /// Direct read of physical blocks from target partition
         const sys_error_t readErr = _memOta.read(offset, readBuffer, readSize);
         RETURN_IF_ERROR(
-            (readErr != ERROR_SUCCESS),                                    // Expression
-            readErr,                                                       // Error code
+            (readErr != ERROR_SUCCESS),                                   // Expression
+            readErr,                                                      // Error code
             SYS_LOG_E("Flash read failure during progressive hash check") // Error message
         );
 
         /// Progressive SHA-256 hash calculation [1, 2]
         const sys_error_t updateErr = _cryptoEngine.hashUpdate(readBuffer, readSize);
         RETURN_IF_ERROR(
-            (updateErr != ERROR_SUCCESS),                                        // Expression
-            updateErr,                                                           // Error code
+            (updateErr != ERROR_SUCCESS),                                       // Expression
+            updateErr,                                                          // Error code
             SYS_LOG_E("Progressive hash update failure at offset: %zu", offset) // Error message
         );
 
@@ -433,8 +429,8 @@ sys_error_t OtaService::_hexStringToBytes(const std::string& hex, uint8_t* outBy
 
     /// Stack buffer bounds validation check to prevent buffer overflow vulnerabilities
     RETURN_IF_ERROR(
-        (expectedLen > max_signature_buffer_len),                                                                                     // Expression
-        ERROR_OUT_OF_MEMORY,                                                                                                          // Error code
+        (expectedLen > max_signature_buffer_len),                                                                                       // Expression
+        ERROR_OUT_OF_MEMORY,                                                                                                            // Error code
         SYS_LOG_E("Signature byte length exceeds maximum buffer capacity: %zu bytes (max: %zu)", expectedLen, max_signature_buffer_len) // Error message
     );
 

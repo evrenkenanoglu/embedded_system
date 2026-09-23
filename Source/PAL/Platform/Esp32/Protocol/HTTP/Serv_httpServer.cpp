@@ -35,13 +35,13 @@ sys_error_t Serv_httpServer::start()
 {
     std::stringstream ss;
     ss << "Starting server on port: " << _config.server_port;
-    SYS_LOG_I( ss.str());
+    SYS_LOG_I(ss.str());
 
     _config.stack_size = 8192; // Set stack size for the server task
 
     if (httpd_start(&_server, &_config) == ESP_OK)
     {
-        SYS_LOG_I( "HTTP server started successfully");
+        SYS_LOG_I("HTTP server started successfully");
         setStatus(Status::STARTED);
 
         for (auto uri : _uriList)
@@ -57,9 +57,9 @@ sys_error_t Serv_httpServer::start()
         {
             _websocketStartCb(_server);
         }
-        else 
+        else
         {
-            SYS_LOG_W( "Websocket start callback is not set");
+            SYS_LOG_W("Websocket start callback is not set");
         }
     }
     else
@@ -97,7 +97,7 @@ sys_error_t Serv_httpServer::registerUri(const httpd_uri_t* uri)
         return ERROR_FAIL;
     }
 
-    SYS_LOG_I( "URI handler registered successfully");
+    SYS_LOG_I("URI handler registered successfully");
 
     return ERROR_SUCCESS;
 }
@@ -110,7 +110,7 @@ sys_error_t Serv_httpServer::unregisterUri(const httpd_uri_t* uri)
         return ERROR_FAIL;
     }
 
-    SYS_LOG_I( "URI handler unregistered successfully");
+    SYS_LOG_I("URI handler unregistered successfully");
     return ERROR_SUCCESS;
 }
 

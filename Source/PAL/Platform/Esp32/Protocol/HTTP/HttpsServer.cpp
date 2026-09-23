@@ -10,24 +10,24 @@
 
 namespace
 {
-httpd_ws_type_t toPlatformWsType(WsFrameType type)
-{
-    switch (type)
+    httpd_ws_type_t toPlatformWsType(WsFrameType type)
     {
-        case WsFrameType::TEXT:
-            return HTTPD_WS_TYPE_TEXT;
-        case WsFrameType::BINARY:
-            return HTTPD_WS_TYPE_BINARY;
-        case WsFrameType::CLOSE:
-            return HTTPD_WS_TYPE_CLOSE;
-        case WsFrameType::PING:
-            return HTTPD_WS_TYPE_PING;
-        case WsFrameType::PONG:
-            return HTTPD_WS_TYPE_PONG;
-        default:
-            return HTTPD_WS_TYPE_TEXT; // Default to text if unknown
+        switch (type)
+        {
+            case WsFrameType::TEXT:
+                return HTTPD_WS_TYPE_TEXT;
+            case WsFrameType::BINARY:
+                return HTTPD_WS_TYPE_BINARY;
+            case WsFrameType::CLOSE:
+                return HTTPD_WS_TYPE_CLOSE;
+            case WsFrameType::PING:
+                return HTTPD_WS_TYPE_PING;
+            case WsFrameType::PONG:
+                return HTTPD_WS_TYPE_PONG;
+            default:
+                return HTTPD_WS_TYPE_TEXT; // Default to text if unknown
+        }
     }
-}
 } // namespace
 
 HttpsServer::HttpsServer(const HttpServerStartOptions_t& options)

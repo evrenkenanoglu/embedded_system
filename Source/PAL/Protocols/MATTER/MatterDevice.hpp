@@ -56,8 +56,7 @@ public:
     void setOnRemoteUpdateCallback(MatterTypes::OnRemoteUpdate_t callback, void* params = nullptr)
     {
         _onRemoteUpdateCallback = callback;
-        _params                     = params;
-
+        _params                 = params;
     }
 
     /**

@@ -17,85 +17,85 @@
 
 namespace
 {
-uint8_t convertDirection(hal_gpio_direction_t direction)
-{
-    switch (direction)
+    uint8_t convertDirection(hal_gpio_direction_t direction)
     {
-        case hal_gpio_direction_t::INPUT:
-            return INPUT_MODE;
-        case hal_gpio_direction_t::OUTPUT:
-            return OUTPUT_MODE;
-        default:
-            return OUTPUT_MODE; // Default to output
+        switch (direction)
+        {
+            case hal_gpio_direction_t::INPUT:
+                return INPUT_MODE;
+            case hal_gpio_direction_t::OUTPUT:
+                return OUTPUT_MODE;
+            default:
+                return OUTPUT_MODE; // Default to output
+        }
     }
-}
 
-hal_gpio_direction_t convertDirection(uint8_t direction)
-{
-    switch (direction)
+    hal_gpio_direction_t convertDirection(uint8_t direction)
     {
-        case INPUT_MODE:
-            return hal_gpio_direction_t::INPUT;
-        case OUTPUT_MODE:
-            return hal_gpio_direction_t::OUTPUT;
-        default:
-            return hal_gpio_direction_t::OUTPUT; // Default to output
+        switch (direction)
+        {
+            case INPUT_MODE:
+                return hal_gpio_direction_t::INPUT;
+            case OUTPUT_MODE:
+                return hal_gpio_direction_t::OUTPUT;
+            default:
+                return hal_gpio_direction_t::OUTPUT; // Default to output
+        }
     }
-}
 
-uint8_t convertPull(hal_gpio_pull_t pull)
-{
-    switch (pull)
+    uint8_t convertPull(hal_gpio_pull_t pull)
     {
-        case hal_gpio_pull_t::NONE:
-            return PULL_UP_RESISTOR_DISABLED;
-        case hal_gpio_pull_t::PULL_UP:
-            return PULL_UP_RESISTOR_ENABLED;
-        case hal_gpio_pull_t::PULL_DOWN:
-            return PULL_UP_RESISTOR_DISABLED;
-        default:
-            return PULL_UP_RESISTOR_DISABLED; // Default to no pull
+        switch (pull)
+        {
+            case hal_gpio_pull_t::NONE:
+                return PULL_UP_RESISTOR_DISABLED;
+            case hal_gpio_pull_t::PULL_UP:
+                return PULL_UP_RESISTOR_ENABLED;
+            case hal_gpio_pull_t::PULL_DOWN:
+                return PULL_UP_RESISTOR_DISABLED;
+            default:
+                return PULL_UP_RESISTOR_DISABLED; // Default to no pull
+        }
     }
-}
 
-hal_gpio_pull_t convertPull(uint8_t pull)
-{
-    switch (pull)
+    hal_gpio_pull_t convertPull(uint8_t pull)
     {
-        case PULL_UP_RESISTOR_DISABLED:
-            return hal_gpio_pull_t::NONE;
-        case PULL_UP_RESISTOR_ENABLED:
-            return hal_gpio_pull_t::PULL_UP;
-        default:
-            return hal_gpio_pull_t::NONE; // Default to no pull
+        switch (pull)
+        {
+            case PULL_UP_RESISTOR_DISABLED:
+                return hal_gpio_pull_t::NONE;
+            case PULL_UP_RESISTOR_ENABLED:
+                return hal_gpio_pull_t::PULL_UP;
+            default:
+                return hal_gpio_pull_t::NONE; // Default to no pull
+        }
     }
-}
 
-uint8_t convertLevel(hal_gpio_level_t level)
-{
-    switch (level)
+    uint8_t convertLevel(hal_gpio_level_t level)
     {
-        case hal_gpio_level_t::LOW:
-            return LOGIC_LOW;
-        case hal_gpio_level_t::HIGH:
-            return LOGIC_HIGH;
-        default:
-            return LOGIC_LOW; // Default to low
+        switch (level)
+        {
+            case hal_gpio_level_t::LOW:
+                return LOGIC_LOW;
+            case hal_gpio_level_t::HIGH:
+                return LOGIC_HIGH;
+            default:
+                return LOGIC_LOW; // Default to low
+        }
     }
-}
 
-hal_gpio_level_t convertLevel(uint8_t level)
-{
-    switch (level)
+    hal_gpio_level_t convertLevel(uint8_t level)
     {
-        case LOGIC_LOW:
-            return hal_gpio_level_t::LOW;
-        case LOGIC_HIGH:
-            return hal_gpio_level_t::HIGH;
-        default:
-            return hal_gpio_level_t::LOW; // Default to low
+        switch (level)
+        {
+            case LOGIC_LOW:
+                return hal_gpio_level_t::LOW;
+            case LOGIC_HIGH:
+                return hal_gpio_level_t::HIGH;
+            default:
+                return hal_gpio_level_t::LOW; // Default to low
+        }
     }
-}
 
 } // namespace
 

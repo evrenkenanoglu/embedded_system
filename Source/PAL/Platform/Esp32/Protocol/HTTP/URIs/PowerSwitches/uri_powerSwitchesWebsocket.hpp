@@ -5,19 +5,19 @@
 
 namespace PowerSwitchesWs
 {
-enum class EventType : uint8_t
-{
-    CLIENT_CONNECTED,
-    CLIENT_DISCONNECTED,
-};
+    enum class EventType : uint8_t
+    {
+        CLIENT_CONNECTED,
+        CLIENT_DISCONNECTED,
+    };
 
-typedef struct
-{
-    EventType eventType;
-    int       clientId;
-} EventData_t;
+    typedef struct
+    {
+        EventType eventType;
+        int       clientId;
+    } EventData_t;
 
-constexpr uint8_t EVENT_QUEUE_SIZE = 5;
+    constexpr uint8_t EVENT_QUEUE_SIZE = 5;
 
 }; // namespace PowerSwitchesWs
 
