@@ -66,7 +66,6 @@ public:
     sys_error_t markAppValid() override;
     sys_error_t markAppInvalid() override;
 
-
     /**
      * @brief Injects an optional system watchdog hardware driver to prevent task timeouts.
      *
@@ -117,7 +116,7 @@ private:
     std::atomic<OtaState> _state;
     sys_error_t           _lastError;
     OtaProgressCb_t       _progressCb;
-    IHal_Sys_Wdt* _watchdog{nullptr};
+    IHal_Sys_Wdt*         _watchdog{nullptr};
 
     size_t _bytesWritten;
     size_t _totalSize;

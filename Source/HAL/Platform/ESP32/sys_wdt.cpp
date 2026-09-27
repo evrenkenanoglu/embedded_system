@@ -46,11 +46,7 @@ sys_error_t sys_wdt::registerCurrentTask()
         return ERROR_SUCCESS;
     }
 
-    RETURN_IF_ERROR(
-        (err != ESP_OK),
-        TRANSLATE_ERROR(err),
-        SYS_LOG_W("esp_task_wdt_add failed: %s (0x%x)", ERROR_MESSAGE(err), err)
-    );
+    RETURN_IF_ERROR((err != ESP_OK), TRANSLATE_ERROR(err), SYS_LOG_W("esp_task_wdt_add failed: %s (0x%x)", ERROR_MESSAGE(err), err));
 
     return ERROR_SUCCESS;
 }
@@ -63,11 +59,7 @@ sys_error_t sys_wdt::feed()
         return ERROR_SUCCESS;
     }
 
-    RETURN_IF_ERROR(
-        (err != ESP_OK),
-        TRANSLATE_ERROR(err),
-        SYS_LOG_W("esp_task_wdt_reset failed: %s (0x%x)", ERROR_MESSAGE(err), err)
-    );
+    RETURN_IF_ERROR((err != ESP_OK), TRANSLATE_ERROR(err), SYS_LOG_W("esp_task_wdt_reset failed: %s (0x%x)", ERROR_MESSAGE(err), err));
 
     return ERROR_SUCCESS;
 }
@@ -80,11 +72,7 @@ sys_error_t sys_wdt::unregisterCurrentTask()
         return ERROR_SUCCESS;
     }
 
-    RETURN_IF_ERROR(
-        (err != ESP_OK),
-        TRANSLATE_ERROR(err),
-        SYS_LOG_W("esp_task_wdt_delete failed: %s (0x%x)", ERROR_MESSAGE(err), err)
-    );
+    RETURN_IF_ERROR((err != ESP_OK), TRANSLATE_ERROR(err), SYS_LOG_W("esp_task_wdt_delete failed: %s (0x%x)", ERROR_MESSAGE(err), err));
 
     return ERROR_SUCCESS;
 }

@@ -12,14 +12,13 @@
 
 #include "App/Protocols/OTA/IOtaManager.hpp"
 #include "HAL/IHAL/IHal.h"
+#include "Library/Common/Crc.hpp"
 #include "PAL/Protocols/HTTP/IHttpClient.hpp"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
 #include "PAL/Protocols/OTA/OtaCheckpointManager.hpp"
-#include "Library/Common/Crc.hpp"
 #include <mutex>
 #include <string>
 #include <vector>
-
 
 /**
  * @class OtaManager
@@ -87,7 +86,7 @@ private:
     OtaPlatformHooks_t    _platformHooks;
     bool                  _isInitialized;
     OtaCheckpointManager* _checkpointMgr{nullptr};
-    IHAL_MEM* _diagStorage{nullptr};
+    IHAL_MEM*             _diagStorage{nullptr};
 
     // Transient target context
     bool        _updatePending;

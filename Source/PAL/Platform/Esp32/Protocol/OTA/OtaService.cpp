@@ -519,7 +519,6 @@ sys_error_t OtaService::_hexStringToBytes(const std::string& hex, uint8_t* outBy
     return ERROR_SUCCESS;
 }
 
-
 void OtaService::setWatchdog(IHal_Sys_Wdt* watchdog)
 {
     _watchdog = watchdog;

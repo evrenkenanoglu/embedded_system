@@ -29,11 +29,11 @@ using OtaSelfTestHook_t = std::function<sys_error_t()>;
  */
 struct OtaRollbackDiagnostic_t
 {
-    char     failedVersion[32];   ///< Version tag that failed validation
-    uint32_t failureReasonCode;   ///< Specific sys_error_t or subsystem error code
-    char     failedTestName[32];  ///< Name of the self-test hook that failed
-    uint64_t timestampUtc;        ///< Approximate epoch timestamp
-    uint32_t crc32;               ///< CRC32 integrity check of diagnostic payload
+    char     failedVersion[32];  ///< Version tag that failed validation
+    uint32_t failureReasonCode;  ///< Specific sys_error_t or subsystem error code
+    char     failedTestName[32]; ///< Name of the self-test hook that failed
+    uint64_t timestampUtc;       ///< Approximate epoch timestamp
+    uint32_t crc32;              ///< CRC32 integrity check of diagnostic payload
 };
 
 /**

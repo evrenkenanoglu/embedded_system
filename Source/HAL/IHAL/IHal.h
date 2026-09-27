@@ -263,7 +263,6 @@ public:
     virtual ~IHAL_CPX() {}
 };
 
-
 /**
  * @class IHAL_SYS
  * @brief Interface for Hardware Abstraction Layer (HAL) system supervision operations (WDT, Power, Reset).
