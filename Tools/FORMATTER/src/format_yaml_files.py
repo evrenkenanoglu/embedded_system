@@ -63,20 +63,34 @@ def format_yaml_check(
 
 def format_yaml_apply(
     config_path: Path,
-    style_config: Optional[Path] = None,
+    style_config_override: Optional[Path] = None,
     files: Optional[List[Path]] = None,
 ) -> bool:
-    """Formats YAML files in-place."""
+    """In-place format: modifies target YAML files in a single process."""
     targets = _filter_yaml_files(files, config_path)
-    if files is not None and not targets:
+    if not targets:
+        root_dir = (
+            get_root_dir(load_config(config_path), config_path)
+            if config_path.exists()
+            else config_path.parent
+        )
+        print(f"[YAML] No matching files to format under {root_dir}")
         return True
 
-    cmd = ["yamlfix"] + targets
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    print(f"[YAML] Formatting {len(targets)} file(s)...")
+    cmd = ["yamlfix"] + [str(t) for t in targets]
 
-    if res.returncode != 0:
-        print(f"[ERROR] YAML formatting failed:\n{res.stderr}", file=sys.stderr)
-        return False
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if res.returncode != 0:
+            print(f"❌ Error formatting YAML files:\n{res.stderr}", file=sys.stderr)
+            return False
+    except FileNotFoundError:
+        print(
+            "Error: 'yamlfix' is not installed or not in PATH.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
-    print(f"✅ YAML files formatted in-place ({len(targets)} targets).")
+    print(f"✅ YAML files formatted in-place ({len(targets)} file(s)).")
     return True

@@ -1,5 +1,6 @@
 import subprocess
 import sys
+from typing import List, Optional
 from pathlib import Path
 from src.utils import find_files, get_root_dir, load_config, resolve_path
 
@@ -71,17 +72,31 @@ def format_c_check(
 
 def format_c_apply(
     config_path: Path,
-    style_config_override: Path | None = None,
-    files: list[Path] | None = None,
+    style_config_override: Optional[Path] = None,
+    files: Optional[List[Path]] = None,
 ) -> bool:
     """In-place format: modifies target C/C++ files in a single process."""
     root_dir, target_files, extra_flags = _get_c_files_and_flags(
         config_path, style_config_override, files_override=files
     )
     if not target_files:
+        print(f"[C/C++] No matching files to format under {root_dir}")
         return True
 
     print(f"[C/C++] Formatting {len(target_files)} file(s)...")
     cmd = ["clang-format", "-i"] + extra_flags + [str(f) for f in target_files]
-    res = subprocess.run(cmd, check=False)
-    return res.returncode == 0
+
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if res.returncode != 0:
+            print(f"❌ Error formatting C/C++ files:\n{res.stderr}", file=sys.stderr)
+            return False
+    except FileNotFoundError:
+        print(
+            "Error: 'clang-format' is not installed or not in PATH.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"✅ C/C++ files formatted in-place ({len(target_files)} file(s)).")
+    return True

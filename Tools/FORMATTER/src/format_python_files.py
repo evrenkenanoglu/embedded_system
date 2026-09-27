@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Optional
 from src.utils import find_files, get_root_dir, load_config, resolve_path
 
 
@@ -64,20 +65,34 @@ def format_python_check(
 
 def format_python_apply(
     config_path: Path,
-    style_config_override: Path | None = None,
-    files: list[Path] | None = None,
+    style_config_override: Optional[Path] = None,
+    files: Optional[List[Path]] = None,
 ) -> bool:
     """In-place format: modifies target Python files in a single process."""
     root_dir, target_files, extra_flags = _get_python_files_and_flags(
         config_path, style_config_override, files_override=files
     )
     if not target_files:
+        print(f"[Python] No matching files to format under {root_dir}")
         return True
 
-    print(f"[Python] Formatting {len(target_files)} file(s)...")
     config = load_config(config_path)
     tool = config.get("python", {}).get("tool", "black")
 
+    print(f"[Python] Formatting {len(target_files)} file(s)...")
     cmd = [tool, "--quiet"] + extra_flags + [str(f) for f in target_files]
-    res = subprocess.run(cmd, check=False)
-    return res.returncode == 0
+
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if res.returncode != 0:
+            print(f"❌ Error formatting Python files:\n{res.stderr}", file=sys.stderr)
+            return False
+    except FileNotFoundError:
+        print(
+            f"Error: '{tool}' is not installed or not in PATH.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"✅ Python files formatted in-place ({len(target_files)} file(s)).")
+    return True

@@ -147,7 +147,7 @@ def format_cmake_apply(
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode != 0:
-            print(f"Error formatting CMake files:\n{res.stderr}", file=sys.stderr)
+            print(f"❌ Error formatting CMake files:\n{res.stderr}", file=sys.stderr)
             return False
     except FileNotFoundError:
         print(
