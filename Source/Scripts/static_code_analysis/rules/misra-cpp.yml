@@ -1,18 +1,17 @@
+---
 rules:
   # MISRA C++ 2008 Critical Rules for Embedded/IoT Systems
-
   - id: misra-cpp-2-10-6-unsafe-sprintf
     patterns:
       - pattern-either:
           - pattern: sprintf($BUF, $FMT, ...)
           - pattern: std::sprintf($BUF, $FMT, ...)
-    message: "MISRA C++ 2-10-6: sprintf can cause buffer overflow - use snprintf"
+    message: 'MISRA C++ 2-10-6: sprintf can cause buffer overflow - use snprintf'
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: security
       technology: [embedded, iot]
-
   - id: misra-cpp-5-0-3-casts-explicit
     patterns:
       - pattern: ($TYPE) $EXPR
@@ -20,12 +19,11 @@ rules:
       - pattern-not: const_cast<$TYPE>($EXPR)
       - pattern-not: dynamic_cast<$TYPE>($EXPR)
       - pattern-not: reinterpret_cast<$TYPE>($EXPR)
-    message: "MISRA C++ 5-0-3: Use explicit C++ casts instead of C-style casts"
+    message: 'MISRA C++ 5-0-3: Use explicit C++ casts instead of C-style casts'
     languages: [cpp]
     severity: WARNING
     metadata:
       category: best-practice
-
   - id: misra-cpp-5-0-4-implicit-conversion
     patterns:
       - pattern-either:
@@ -33,12 +31,11 @@ rules:
           - pattern: unsigned int $VAR = $SIGNED_EXPR
           - pattern: short $VAR = $INT_EXPR
           - pattern: char $VAR = $INT_EXPR
-    message: "MISRA C++ 5-0-4: Avoid implicit conversions that may lose information"
+    message: 'MISRA C++ 5-0-4: Avoid implicit conversions that may lose information'
     languages: [cpp]
     severity: WARNING
     metadata:
       category: reliability
-
   - id: misra-cpp-6-4-2-switch-default
     patterns:
       - pattern: |
@@ -51,33 +48,30 @@ rules:
             default:
             $...STMTS
           }
-    message: "MISRA C++ 6-4-2: All switch statements should have a default clause"
+    message: 'MISRA C++ 6-4-2: All switch statements should have a default clause'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: reliability
-
   - id: misra-cpp-6-6-1-goto-statement
     patterns:
       - pattern: goto $LABEL;
-    message: "MISRA C++ 6-6-1: goto statements should not be used"
+    message: 'MISRA C++ 6-6-1: goto statements should not be used'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: control-flow
-
   - id: misra-cpp-8-4-4-single-definition
     patterns:
       - pattern: |
           $TYPE $FUNC($...PARAMS) {
             return $RET;
           }
-    message: "MISRA C++ 8-4-4: Review for multiple function definitions"
+    message: 'MISRA C++ 8-4-4: Review for multiple function definitions'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: correctness
-
   - id: misra-cpp-15-1-2-exception-safety
     patterns:
       - pattern-either:
@@ -97,21 +91,19 @@ rules:
           - pattern: |
               malloc($SIZE);
               throw $EXCEPTION;
-    message: "MISRA C++ 15-1-2: Potential memory leak before exception"
+    message: 'MISRA C++ 15-1-2: Potential memory leak before exception'
     languages: [cpp]
     severity: ERROR
     metadata:
       category: memory-safety
-
   - id: misra-cpp-15-3-4-no-exception-spec
     patterns:
       - pattern: throw($...SPECS)
-    message: "MISRA C++ 15-3-4: Exception specifications are deprecated"
+    message: 'MISRA C++ 15-3-4: Exception specifications are deprecated'
     languages: [cpp]
     severity: WARNING
     metadata:
       category: best-practice
-
   - id: misra-cpp-18-4-1-malloc-free-pairing
     patterns:
       - pattern: malloc($SIZE)
@@ -119,34 +111,31 @@ rules:
           $PTR = malloc($SIZE);
           $...STMTS
           free($PTR);
-    message: "MISRA C++ 18-4-1: malloc/free must be properly paired"
+    message: 'MISRA C++ 18-4-1: malloc/free must be properly paired'
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: memory-safety
-
   - id: misra-cpp-macro-multiple-statements
     patterns:
       - pattern: |
-          #define $MACRO $STMT1; $STMT2;
-    message: "MISRA C++ Best Practice: Multi-statement macros should use do-while(0)"
+          # define $MACRO $STMT1; $STMT2;
+    message: 'MISRA C++ Best Practice: Multi-statement macros should use do-while(0)'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: best-practice
-
   - id: misra-cpp-variable-initialization
     patterns:
       - pattern: |
           $TYPE $VAR;
       - pattern-not: |
           $TYPE $VAR = $INIT;
-    message: "MISRA C++ Best Practice: Variables should be initialized at declaration"
+    message: 'MISRA C++ Best Practice: Variables should be initialized at declaration'
     languages: [c, cpp]
     severity: INFO
     metadata:
       category: initialization
-
   - id: misra-cpp-magic-numbers
     patterns:
       - pattern-either:
@@ -157,13 +146,12 @@ rules:
           metavariable: $NUM
           regex: ^[1-9][0-9]+$
       - pattern-not-inside: |
-          #define $CONST $NUM
-    message: "MISRA C++ Best Practice: Avoid magic numbers, use named constants"
+          # define $CONST $NUM
+    message: 'MISRA C++ Best Practice: Avoid magic numbers, use named constants'
     languages: [c, cpp]
     severity: INFO
     metadata:
       category: readability
-
   - id: misra-cpp-embedded-stack-size
     patterns:
       - pattern: |
@@ -171,12 +159,11 @@ rules:
       - metavariable-comparison:
           metavariable: $SIZE
           comparison: $SIZE > 1024
-    message: "Embedded Best Practice: Large stack arrays may cause stack overflow"
+    message: 'Embedded Best Practice: Large stack arrays may cause stack overflow'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: embedded
-
   - id: misra-cpp-embedded-volatile-register
     patterns:
       - pattern: |
@@ -186,7 +173,7 @@ rules:
           regex: 0x[0-9A-Fa-f]+
       - pattern-not: |
           $VAR = *(volatile $TYPE*)$ADDR;
-    message: "Embedded: Use volatile keyword for hardware register access"
+    message: 'Embedded: Use volatile keyword for hardware register access'
     languages: [c, cpp]
     severity: INFO
     metadata:

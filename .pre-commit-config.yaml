@@ -21,7 +21,9 @@ repos:
     hooks:
       - id: format-staged
         name: In-Repo Formatter (C++, Python, YAML, CMake)
-        entry: python3 -c "import subprocess, sys; sys.exit(subprocess.run([sys.executable, '-m', 'invoke', 'es.util.format-apply', '--lang=all', '--scope=changed'], cwd='..').returncode)"
+        entry: python3 -c "import subprocess, sys; sys.exit(subprocess.run([sys.executable,
+          '-m', 'invoke', 'es.util.format-apply', '--lang=all', '--scope=changed'],
+          cwd='..').returncode)"
         language: system
         pass_filenames: false
         always_run: true

@@ -1,18 +1,17 @@
+---
 rules:
   - id: simple-test-function-call
     pattern: $FUNC(...)
-    message: "Found any function call"
+    message: Found any function call
     languages: [c, cpp]
     severity: INFO
-    
   - id: simple-test-include
-    pattern: "#include $HEADER"
-    message: "Found include statement"
+    pattern: '#include $HEADER'
+    message: Found include statement
     languages: [c, cpp]
     severity: INFO
-    
   - id: simple-test-return
-    pattern: "return $VALUE;"
-    message: "Found return statement"
+    pattern: return $VALUE;
+    message: Found return statement
     languages: [c, cpp]
     severity: INFO

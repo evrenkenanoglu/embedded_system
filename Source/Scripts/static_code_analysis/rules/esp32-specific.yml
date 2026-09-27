@@ -1,19 +1,18 @@
+---
 rules:
   # ESP32 Specific Code Analysis Rules
-  
   - id: esp32-task-stack-overflow
     patterns:
       - pattern: |
           xTaskCreate($FUNC, $NAME, $STACK_SIZE, $PARAMS, $PRIORITY, $HANDLE);
       - metavariable-comparison:
           comparison: $STACK_SIZE < 2048
-    message: "ESP32: Task stack size too small - minimum 2048 bytes recommended"
+    message: 'ESP32: Task stack size too small - minimum 2048 bytes recommended'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: esp32-specific
       technology: [freertos, esp32]
-
   - id: esp32-wifi-config-insecure
     patterns:
       - pattern: |
@@ -26,12 +25,11 @@ rules:
             },
             $...FIELDS2
           };
-    message: "ESP32: Open WiFi authentication mode is insecure"
+    message: 'ESP32: Open WiFi authentication mode is insecure'
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: esp32-security
-
   - id: esp32-gpio-interrupt-iram
     patterns:
       - pattern: |
@@ -44,12 +42,11 @@ rules:
           }
       - pattern-inside: |
           gpio_isr_handler_add($PIN, $FUNC, $ARG);
-    message: "ESP32: GPIO ISR handlers should be in IRAM (use IRAM_ATTR)"
+    message: 'ESP32: GPIO ISR handlers should be in IRAM (use IRAM_ATTR)'
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: esp32-specific
-
   - id: esp32-nvs-handle-not-closed
     patterns:
       - pattern: |
@@ -64,12 +61,11 @@ rules:
           nvs_close($HANDLE);
           $...STMTS
           return $RET;
-    message: "ESP32: NVS handle not closed - memory leak"
+    message: 'ESP32: NVS handle not closed - memory leak'
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: esp32-memory
-
   - id: esp32-deep-sleep-gpio-config
     patterns:
       - pattern: |
@@ -78,12 +74,11 @@ rules:
           esp_sleep_enable_ext1_wakeup($MASK, $MODE);
           $...STMTS
           esp_deep_sleep_start();
-    message: "ESP32: Deep sleep without wakeup source may cause permanent sleep"
+    message: 'ESP32: Deep sleep without wakeup source may cause permanent sleep'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: esp32-power
-
   - id: esp32-freertos-delay-in-isr
     patterns:
       - pattern-either:
@@ -99,12 +94,11 @@ rules:
                 delay($MS);
                 $...STMTS
               }
-    message: "ESP32: Do not use blocking delays in ISR - use FreeRTOS notifications"
+    message: 'ESP32: Do not use blocking delays in ISR - use FreeRTOS notifications'
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: esp32-freertos
-
   - id: esp32-heap-allocation-failure
     patterns:
       - pattern: |
@@ -114,12 +108,11 @@ rules:
           if ($PTR == NULL) {
             $...ERROR_HANDLING
           }
-    message: "ESP32: Check heap allocation success - ESP32 has limited heap"
+    message: 'ESP32: Check heap allocation success - ESP32 has limited heap'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: esp32-memory
-
   - id: esp32-partition-table-hardcoded
     patterns:
       - pattern-either:
@@ -130,12 +123,11 @@ rules:
       - metavariable-regex:
           metavariable: $LABEL
           regex: ^[a-zA-Z0-9_]+$
-    message: "ESP32: Hardcoded partition label - use configuration or constants"
+    message: 'ESP32: Hardcoded partition label - use configuration or constants'
     languages: [c, cpp]
     severity: INFO
     metadata:
       category: esp32-config
-
   - id: esp32-spiffs-not-unmounted
     patterns:
       - pattern: |
@@ -150,24 +142,22 @@ rules:
           esp_vfs_spiffs_unregister($CONF.partition_label);
           $...STMTS
           return $RET;
-    message: "ESP32: SPIFFS not unmounted - can cause file system corruption"
+    message: 'ESP32: SPIFFS not unmounted - can cause file system corruption'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: esp32-filesystem
-
   - id: esp32-bluetooth-pairing-insecure
     patterns:
       - pattern: |
           esp_ble_gap_set_security_param($PARAM_TYPE, &$VALUE, sizeof($TYPE));
       - pattern-inside: |
           $TYPE $VALUE = ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH_DISABLE;
-    message: "ESP32: Insecure Bluetooth pairing configuration"
+    message: 'ESP32: Insecure Bluetooth pairing configuration'
     languages: [c, cpp]
     severity: ERROR
     metadata:
       category: esp32-security
-
   - id: esp32-timer-callback-iram
     patterns:
       - pattern: |
@@ -184,12 +174,11 @@ rules:
             .callback = &$CALLBACK,
             $...FIELDS2
           };
-    message: "ESP32: Timer callbacks should be in IRAM for performance"
+    message: 'ESP32: Timer callbacks should be in IRAM for performance'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: esp32-performance
-
   - id: esp32-adc-calibration-missing
     patterns:
       - pattern: |
@@ -199,29 +188,27 @@ rules:
           esp_adc_cal_characterize($UNIT, $ATTEN, $WIDTH, $VREF, &$CHARS);
           $...STMTS
           $READING = adc1_get_raw($CHANNEL);
-    message: "ESP32: ADC reading without calibration - values may be inaccurate"
+    message: 'ESP32: ADC reading without calibration - values may be inaccurate'
     languages: [c, cpp]
     severity: INFO
     metadata:
       category: esp32-adc
-
   - id: esp32-memory-caps-mismatch
     patterns:
       - pattern: |
           $PTR = heap_caps_malloc($SIZE, MALLOC_CAP_DMA);
           $...STMTS
           memcpy($PTR, $SRC, $SIZE);
-    message: "ESP32: DMA memory should be allocated with proper alignment"
+    message: 'ESP32: DMA memory should be allocated with proper alignment'
     languages: [c, cpp]
     severity: WARNING
     metadata:
       category: esp32-dma
-
   - id: esp32-task-priority-zero
     patterns:
       - pattern: |
           xTaskCreate($FUNC, $NAME, $STACK, $PARAMS, 0, $HANDLE);
-    message: "ESP32: Task priority 0 may cause starvation - use priority > 0"
+    message: 'ESP32: Task priority 0 may cause starvation - use priority > 0'
     languages: [c, cpp]
     severity: WARNING
     metadata:

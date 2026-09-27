@@ -1,9 +1,9 @@
+---
 # ==============================================================================
 # CMake Formatting Configuration (.cmake-format.yaml)
 # Project: Embedded_IoT_BT_WIFI_Base_Project
 # Tool: cmake-format (cmakelang)
 # ==============================================================================
-
 format:
   # Line length limit for reflowing commands
   line_width: 100
@@ -17,8 +17,8 @@ format:
   separate_fn_name_with_space: false   # 'set(VAR val)', 'target_sources(target ...)'
 
   # Parenthesis wrapping behavior
-  dangle_parens: true                 # Closing ')' on its own line when wrapped
-  dangle_align: "prefix"
+  dangle_parens: true  # Closing ')' on its own line when wrapped
+  dangle_align: prefix
   min_prefix_chars: 4
   max_prefix_chars: 10
   max_lines_hwrap: 2
@@ -28,11 +28,10 @@ format:
   max_subgroups_hwrap: 2
 
   # Case conventions
-  command_case: "lower"               # 'set()', 'add_library()', 'target_link_libraries()'
-  keyword_case: "upper"               # 'PRIVATE', 'PUBLIC', 'INTERFACE', 'FILES'
-
+  command_case: lower                 # 'set()', 'add_library()', 'target_link_libraries()'
+  keyword_case: upper                 # 'PRIVATE', 'PUBLIC', 'INTERFACE', 'FILES'
 markup:
   # Comment preservation and reflow
   enable_markup: true
-  first_comment_is_literal: true      # Preserves top-of-file copyright headers verbatim
-  literal_comment_pattern: "^(#|/\\*).*$"
+  first_comment_is_literal: true  # Preserves top-of-file copyright headers verbatim
+  literal_comment_pattern: ^(#|/\*).*$
