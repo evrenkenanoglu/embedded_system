@@ -97,8 +97,8 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
     );
 
     _progressCb   = progressCb;
-    _bytesWritten = 0;
-    _totalSize    = options.chunkSize;
+    _bytesWritten = (options.startOffset > 0 && !options.isDelta) ? options.startOffset : 0;
+    _totalSize    = (options.targetSize > 0) ? options.targetSize : options.chunkSize;
 
     /// 1. Prior to downloading, verify the dynamic code signing key trust validation chain [2].
     if (!options.signingCert.empty() && !options.serverCert.empty())
@@ -106,7 +106,7 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
         _state.store(OtaState::Verifying);
         if (_progressCb)
         {
-            _progressCb(_state.load(), 0, _totalSize);
+            _progressCb(_state.load(), _bytesWritten, _totalSize);
         }
 
         /// Delegate X.509 chain verification directly to the CryptoEngine with backup Root CA fallback [1, 2].
@@ -125,11 +125,20 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
     _state.store(OtaState::Downloading);
     if (_progressCb)
     {
-        _progressCb(_state.load(), 0, _totalSize);
+        _progressCb(_state.load(), _bytesWritten, _totalSize);
     }
 
+    /// Configure Transport resume byte offset for HTTP Range requests
+    sys_error_t err = _transport.setResumeOffset(options.startOffset);
+    RETURN_IF_ERROR(
+        (err != ERROR_SUCCESS),                              // Expression
+        err,                                                 // Error code
+        SYS_LOG_E("Failed to set transport resume offset!"), // Error message
+        _state.store(OtaState::Failed)                       // Cleanup
+    );
+
     /// Establish Transport Connection using stateless dynamic endpoint connection string.
-    sys_error_t err = _transport.connect(options.endpoint);
+    err = _transport.connect(options.endpoint);
 
     RETURN_IF_ERROR(
         (err != ERROR_SUCCESS),                                   // Expression
@@ -156,7 +165,17 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
     /// Dynamically route write target logic based on the identified download payload type
     _memOta.setDeltaMode(options.isDelta);
 
-    err = _memOta.begin(_totalSize);
+    /// Begin fresh write session or resume at verified sector offset
+    if (options.startOffset > 0 && !options.isDelta)
+    {
+        SYS_LOG_I("Initiating flash partition resumption at offset %zu/%zu", options.startOffset, _totalSize);
+        err = _memOta.resume(_totalSize, options.startOffset);
+    }
+    else
+    {
+        err = _memOta.begin(_totalSize);
+    }
+
     if (err != ERROR_SUCCESS)
     {
         _memOta.deInit();
@@ -305,6 +324,22 @@ sys_error_t OtaService::abortUpdate()
     return ERROR_SUCCESS;
 }
 
+sys_error_t OtaService::abortUpdate()
+{
+    RETURN_IF_ERROR(
+        (_state.load() != OtaState::Downloading),             // Expression
+        ERROR_INVALID_STATE,                                  // Error code
+        SYS_LOG_D("Aborting requested when not downloading.") // Error message
+    );
+
+    _state.store(OtaState::Failed);
+    _memOta.abort();
+    _memOta.deInit();
+    _transport.stopStream();
+    _transport.disconnect();
+    return ERROR_SUCCESS;
+}
+
 OtaState OtaService::getState() const
 {
     return _state.load();
@@ -313,6 +348,39 @@ OtaState OtaService::getState() const
 sys_error_t OtaService::getLastError() const
 {
     return _lastError;
+}
+
+sys_error_t OtaService::getRunningImageState(OtaImageState& outState)
+{
+    RETURN_IF_ERROR(
+        (!_isInitialized),                                           // Expression
+        ERROR_NOT_INITIALIZED,                                       // Error code
+        SYS_LOG_E("Cannot query state: OTA Service not initialized") // Error message
+    );
+
+    return _memOta.getRunningImageState(outState);
+}
+
+sys_error_t OtaService::markAppValid()
+{
+    RETURN_IF_ERROR(
+        (!_isInitialized),                                              // Expression
+        ERROR_NOT_INITIALIZED,                                          // Error code
+        SYS_LOG_E("Cannot mark app valid: OTA Service not initialized") // Error message
+    );
+
+    return _memOta.markAppValid();
+}
+
+sys_error_t OtaService::markAppInvalid()
+{
+    RETURN_IF_ERROR(
+        (!_isInitialized),                                                // Expression
+        ERROR_NOT_INITIALIZED,                                            // Error code
+        SYS_LOG_E("Cannot mark app invalid: OTA Service not initialized") // Error message
+    );
+
+    return _memOta.markAppInvalid();
 }
 
 sys_error_t OtaService::_handleTransportChunk(const uint8_t* data, size_t length, bool isLastChunk)

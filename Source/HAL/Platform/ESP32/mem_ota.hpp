@@ -35,6 +35,9 @@ private:
     bool                   _isDelta;                ///< Flag indicating whether the OTA update is a delta update
     uint8_t                _headerAccumulator[320]; ///< Temp buffer to hold headers during micro-sized delta writes (min required: 288)
     size_t                 _accumulatorCount;       ///< Number of bytes currently held inside the accumulator
+    size_t                 _writeOffset;            ///< Active partition write pointer
+    size_t                 _erasedUpTo;             ///< Offset up to which flash sectors have been erased
+    bool                   _isResumed;              ///< Flag indicating if session is in resumption mode
 
 private:
     /**
@@ -94,6 +97,7 @@ public:
     sys_error_t read(size_t offset, uint8_t* buffer, size_t length) override;
     size_t      getPartitionSize() const override;
     sys_error_t getRunningImageState(OtaImageState& outState) override;
+    sys_error_t resume(size_t imageSize, size_t startOffset) override;
 
 public:
     /**

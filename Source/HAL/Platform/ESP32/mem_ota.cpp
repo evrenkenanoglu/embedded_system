@@ -59,6 +59,9 @@ mem_ota::mem_ota()
     , _headerValidated(false)
     , _isDelta(false)
     , _accumulatorCount(0)
+    , _writeOffset(0)
+    , _erasedUpTo(0)
+    , _isResumed(false)
 {
 }
 
@@ -441,11 +444,34 @@ sys_error_t mem_ota::_beginDelta()
 
 sys_error_t mem_ota::_writeFull(const uint8_t* data, size_t length)
 {
+    if (_isResumed)
+    {
+        /// Ensure upcoming sectors are erased before writing without touching previous sectors
+        while (_writeOffset + length > _erasedUpTo)
+        {
+            const esp_err_t eraseErr = esp_partition_erase_range(_updatePartition, _erasedUpTo, 4096);
+            RETURN_IF_ERROR(
+                (eraseErr != ESP_OK),                                                  // Expression
+                TRANSLATE_ERROR(eraseErr),                                             // Error code
+                SYS_LOG_E("Failed to erase flash sector at offset 0x%zx", _erasedUpTo) // Error message
+            );
+            _erasedUpTo += 4096;
+        }
+
+        const esp_err_t writeErr = esp_partition_write(_updatePartition, _writeOffset, data, length);
+        RETURN_IF_ERROR(
+            (writeErr != ESP_OK),                                                 // Expression
+            TRANSLATE_ERROR(writeErr),                                            // Error code
+            SYS_LOG_E("Resumed flash write failed at offset 0x%zx", _writeOffset) // Error message
+        );
+
+        _writeOffset += length;
+        return ERROR_SUCCESS;
+    }
+
     if (!_headerValidated)
     {
-        RETURN_ON_ERROR(_validateIncomingImageHeader(data, length), // Expression
-                        abort();                                    // Cleanup
-                        SYS_LOG_E("Incoming image header validation failed, aborting update"));
+        RETURN_ON_ERROR(_validateIncomingImageHeader(data, length), abort(); SYS_LOG_E("Incoming image header validation failed, aborting update"));
         _headerValidated = true;
     }
 
@@ -476,7 +502,13 @@ sys_error_t mem_ota::_writeDelta(const uint8_t* data, size_t length)
 
 sys_error_t mem_ota::_endFull()
 {
-    /// Finalize the standard OTA process using the ESP-IDF OTA API
+    if (_isResumed)
+    {
+        _isOngoing = false;
+        SYS_LOG_I("Resumed partition flash write completed successfully.");
+        return ERROR_SUCCESS;
+    }
+
     const esp_err_t err = esp_ota_end(_updateHandle);
 
     RETURN_IF_ERROR(
@@ -671,5 +703,43 @@ sys_error_t mem_ota::getRunningImageState(OtaImageState& outState)
     }
 
     SYS_LOG_D("Running partition state resolved: %d", static_cast<int>(outState));
+    return ERROR_SUCCESS;
+}
+
+sys_error_t mem_ota::resume(size_t imageSize, size_t startOffset)
+{
+    RETURN_IF_ERROR(
+        (!_isInitialized),                                     // Expression
+        ERROR_NOT_INITIALIZED,                                 // Error code
+        SYS_LOG_E("Cannot resume OTA: HAL is not initialized") // Error message
+    );
+
+    RETURN_IF_ERROR(
+        (_isOngoing),                                // Expression
+        ERROR_INVALID_STATE,                         // Error code
+        SYS_LOG_E("OTA session already in progress") // Error message
+    );
+
+    /// Physical flash sector constraint: Start offset must align with 4 KB erase sector boundary
+    RETURN_IF_ERROR(
+        (startOffset % 4096 != 0 || startOffset >= imageSize),                                                // Expression
+        ERROR_INVALID_ARG,                                                                                    // Error code
+        SYS_LOG_E("Invalid resume offset: %zu (not 4KB aligned or >= imageSize %zu)", startOffset, imageSize) // Error message
+    );
+
+    _updatePartition = esp_ota_get_next_update_partition(nullptr);
+    RETURN_IF_ERROR(
+        (_updatePartition == nullptr),                        // Expression
+        ERROR_FAIL,                                           // Error code
+        SYS_LOG_E("Failed to find next OTA update partition") // Error message
+    );
+
+    _writeOffset     = startOffset;
+    _erasedUpTo      = startOffset;
+    _isResumed       = true;
+    _isOngoing       = true;
+    _headerValidated = true; // Headers were already validated in the initial 0-4KB sector
+
+    SYS_LOG_I("Resuming OTA write session on '%s' at offset %zu/%zu", _updatePartition->label, _writeOffset, imageSize);
     return ERROR_SUCCESS;
 }

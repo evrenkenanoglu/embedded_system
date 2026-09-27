@@ -136,6 +136,15 @@ public:
      * @return sys_error_t ERROR_SUCCESS on successful query, otherwise an error status code.
      */
     virtual sys_error_t getRunningImageState(OtaImageState& outState) = 0;
+
+    /**
+     * @brief Resumes a flash write session at an existing 4 KB sector-aligned offset.
+     *
+     * @param[in] imageSize   Expected total application binary size in bytes.
+     * @param[in] startOffset Byte offset from which to resume (must be multiple of 4096).
+     * @return sys_error_t    ERROR_SUCCESS on success, ERROR_INVALID_ARG if unaligned.
+     */
+    virtual sys_error_t resume(size_t imageSize, size_t startOffset) = 0;
 };
 
 #endif // FILE_IHAL_MEM_OTA_H

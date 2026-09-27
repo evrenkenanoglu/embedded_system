@@ -56,6 +56,7 @@ public:
     sys_error_t startStream(OtaStreamCb_t callback) override;
     sys_error_t stopStream() override;
     size_t      getExpectedSize() const override;
+    sys_error_t setResumeOffset(size_t offset) override;
 
     /**
      * @brief Configure custom verification headers to be sent with the stream download request.
@@ -88,6 +89,7 @@ private:
     int         _port;
 
     size_t                  _expectedSize;
+    size_t                  _resumeOffset;
     bool                    _isConnected;
     bool                    _isStreaming;
     OtaStreamCb_t           _streamCb;

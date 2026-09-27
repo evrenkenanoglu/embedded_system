@@ -61,6 +61,9 @@ public:
     sys_error_t abortUpdate() override;
     OtaState    getState() const override;
     sys_error_t getLastError() const override;
+    sys_error_t getRunningImageState(OtaImageState& outState) override;
+    sys_error_t markAppValid() override;
+    sys_error_t markAppInvalid() override;
 
 private:
     /**

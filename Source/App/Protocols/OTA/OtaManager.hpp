@@ -14,8 +14,10 @@
 #include "HAL/IHAL/IHal.h"
 #include "PAL/Protocols/HTTP/IHttpClient.hpp"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
+#include "PAL/Protocols/OTA/OtaCheckpointManager.hpp"
 #include <mutex>
 #include <string>
+#include <vector>
 
 /**
  * @class OtaManager
@@ -45,6 +47,7 @@ public:
     sys_error_t validateCurrentFirmware() override;
     sys_error_t loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem) override;
     void        rebootSystem() override;
+    sys_error_t registerSelfTest(const std::string& name, OtaSelfTestHook_t testHook) override;
 
     /**
      * @brief Computes next periodic trigger interval applying standard randomization.
@@ -53,6 +56,13 @@ public:
      */
     uint32_t calculateNextCheckInterval() const;
 
+    /**
+     * @brief Injects an optional checkpoint manager to enable download resumption across power cuts.
+     *
+     * @param[in] checkpointMgr Pointer to an instantiated OtaCheckpointManager.
+     */
+    void setCheckpointManager(OtaCheckpointManager* checkpointMgr);
+
 private:
     bool        _isTwoStageConditionMet();
     sys_error_t _parseCheckResponse(const std::string& jsonStr, OtaCheckResult& outResult);
@@ -60,12 +70,13 @@ private:
     sys_error_t _sendTelemetryReport(const std::string& statusStr, sys_error_t errorCode);
 
 private:
-    mutable std::mutex  _mutex;
-    IOtaService&        _otaService;
-    IHttpClient&        _httpClient;
-    OtaManagerOptions_t _options;
-    OtaPlatformHooks_t  _platformHooks;
-    bool                _isInitialized;
+    mutable std::mutex    _mutex;
+    IOtaService&          _otaService;
+    IHttpClient&          _httpClient;
+    OtaManagerOptions_t   _options;
+    OtaPlatformHooks_t    _platformHooks;
+    bool                  _isInitialized;
+    OtaCheckpointManager* _checkpointMgr{nullptr};
 
     // Transient target context
     bool        _updatePending;
@@ -76,4 +87,12 @@ private:
     std::string _pendingSignature;
     std::string _pendingTargetSignature;
     std::string _pendingSigningCert;
+
+    // Self-test diagnostic pipeline
+    struct SelfTestEntry
+    {
+        std::string       name;
+        OtaSelfTestHook_t hook;
+    };
+    std::vector<SelfTestEntry> _selfTests;
 };

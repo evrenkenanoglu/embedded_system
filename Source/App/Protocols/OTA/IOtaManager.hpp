@@ -18,6 +18,12 @@
 class IHAL_MEM;
 
 /**
+ * @brief Diagnostic self-test callback signature executed during provisional boot validation.
+ *        Returns ERROR_SUCCESS if the diagnostic check passes.
+ */
+using OtaSelfTestHook_t = std::function<sys_error_t()>;
+
+/**
  * @brief Verification results generated during updates scanning cycles.
  */
 enum class OtaCheckResult : uint8_t
@@ -127,4 +133,13 @@ public:
      * @brief Restarts the local micro-controller unit into the updated partition.
      */
     virtual void rebootSystem() = 0;
+
+    /**
+     * @brief Registers an application self-test callback to execute during provisional verification.
+     *
+     * @param[in] name     Descriptive diagnostic name for logging and telemetry.
+     * @param[in] testHook Callback returning ERROR_SUCCESS if self-check passes.
+     * @return sys_error_t ERROR_SUCCESS on registration, or ERROR_INVALID_ARG if hook is null.
+     */
+    virtual sys_error_t registerSelfTest(const std::string& name, OtaSelfTestHook_t testHook) = 0;
 };

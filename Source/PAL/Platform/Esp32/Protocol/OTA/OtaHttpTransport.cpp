@@ -45,6 +45,7 @@ OtaHttpTransport::OtaHttpTransport(IHttpClient& httpClient, const std::string& s
     , _path("")
     , _port(0)
     , _expectedSize(0)
+    , _resumeOffset(0)
     , _isConnected(false)
     , _isStreaming(false)
     , _streamCb(nullptr)
@@ -137,6 +138,13 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
         headers.push_back({"x-ESP32-hardware", "ESP32-S3-WROOM"});
     }
 
+    /// Append HTTP Range header when resuming an interrupted session
+    if (_resumeOffset > 0)
+    {
+        headers.push_back({"Range", "bytes=" + std::to_string(_resumeOffset) + "-"});
+        SYS_LOG_I("Appended HTTP Range header: Range: bytes=%zu-", _resumeOffset);
+    }
+
     /// Inline Wrapper Pipeline
     auto intermediateCb = [this](const uint8_t* chunk, size_t chunkLen, bool isLastChunk) -> sys_error_t
     {
@@ -145,14 +153,14 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
             return ERROR_FAIL;
         }
 
-        /// Content Length Calculation
+        /// Content Length Calculation (reconstructs total binary length on 206 Partial Content)
         if (_expectedSize == 0 && _httpClient.nativeHandle() != nullptr)
         {
             esp_http_client_handle_t espClient = reinterpret_cast<esp_http_client_handle_t>(_httpClient.nativeHandle());
             int64_t                  len       = esp_http_client_get_content_length(espClient);
             if (len > 0)
             {
-                _expectedSize = static_cast<size_t>(len);
+                _expectedSize = _resumeOffset + static_cast<size_t>(len);
             }
         }
 
@@ -168,8 +176,9 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
 
     _isStreaming = false;
 
+    /// Accept both 200 OK (fresh download) and 206 Partial Content (resumed download)
     RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS || statusCode != 200),                             // Expression
+        (err != ERROR_SUCCESS || (statusCode != 200 && statusCode != 206)),      // Expression
         (err != ERROR_SUCCESS) ? err : ERROR_FAIL,                               // Error code
         SYS_LOG_E("HTTP request rejected by OTA Server! Status: %d", statusCode) // Error message
     );
@@ -258,5 +267,12 @@ sys_error_t OtaHttpTransport::_parseUrl(const std::string& url, std::string& out
         outPort = static_cast<int>(portVal);
     }
 
+    return ERROR_SUCCESS;
+}
+
+sys_error_t OtaHttpTransport::setResumeOffset(size_t offset)
+{
+    _resumeOffset = offset;
+    SYS_LOG_I("Configured transport resume offset: %zu bytes", _resumeOffset);
     return ERROR_SUCCESS;
 }

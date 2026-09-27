@@ -11,6 +11,7 @@
 #pragma once
 
 // 1. Local Project / Protocol / HAL Headers
+#include "HAL/IHAL/IHal_Mem_Ota.h"
 #include "System/errorTranslateHandler.h"
 
 // 2. C++ Standard Library Headers
@@ -50,6 +51,7 @@ struct OtaOptions_t
 
     bool   isDelta{false}; ///< Flag indicating if the update payload is a delta patch
     size_t targetSize{0};  ///< The exact size of the final reassembled application binary in bytes
+    size_t startOffset{0}; ///< Byte offset to resume from (0 for fresh start)
 };
 
 /**
@@ -120,4 +122,26 @@ public:
      * @return sys_error_t Status error code mapping back to system errors.
      */
     virtual sys_error_t getLastError() const = 0;
+
+    /**
+     * @brief Queries the operational/verification state of the currently executing image slot.
+     *
+     * @param[out] outState Populated with the active partition state (e.g. PendingVerify, Valid).
+     * @return sys_error_t ERROR_SUCCESS on successful query, otherwise an error status code.
+     */
+    virtual sys_error_t getRunningImageState(OtaImageState& outState) = 0;
+
+    /**
+     * @brief Marks the current running application as valid and cancels automatic rollback.
+     *
+     * @return sys_error_t ERROR_SUCCESS if successful, otherwise an error status code.
+     */
+    virtual sys_error_t markAppValid() = 0;
+
+    /**
+     * @brief Marks the current running application as invalid and triggers rollback and reboot.
+     *
+     * @return sys_error_t ERROR_SUCCESS if successful, otherwise an error status code.
+     */
+    virtual sys_error_t markAppInvalid() = 0;
 };

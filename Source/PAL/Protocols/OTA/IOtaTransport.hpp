@@ -81,4 +81,12 @@ public:
      * @return size_t Length of the binary in bytes, or 0 if unknown.
      */
     virtual size_t getExpectedSize() const = 0;
+
+    /**
+     * @brief Configures a starting byte offset for resumable HTTP Range requests.
+     *
+     * @param[in] offset Byte offset to resume from (0 for fresh downloads).
+     * @return sys_error_t ERROR_SUCCESS on success.
+     */
+    virtual sys_error_t setResumeOffset(size_t offset) = 0;
 };

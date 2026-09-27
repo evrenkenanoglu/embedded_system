@@ -305,6 +305,27 @@ sys_error_t OtaManager::executeUpdate()
 
     SYS_LOG_I("Preconditions verified. Starting Stage 2 Stream Download: Type [%s]", _pendingType.c_str());
 
+    size_t resumeOffset = 0;
+
+    /// 1. Inspect non-volatile storage for an existing valid checkpoint
+    if (_checkpointMgr != nullptr && _pendingType != "delta")
+    {
+        OtaCheckpoint_t cp{};
+        if (_checkpointMgr->load(cp) == ERROR_SUCCESS)
+        {
+            if (_checkpointMgr->isResumeValid(cp, _pendingVersion, _pendingTargetSignature, _pendingSize))
+            {
+                resumeOffset = cp.bytesWritten;
+                SYS_LOG_W("Resuming download from stored checkpoint: %zu/%zu bytes (v%s)", resumeOffset, _pendingSize, _pendingVersion.c_str());
+            }
+            else
+            {
+                SYS_LOG_W("Stored checkpoint mismatched or invalid. Discarding stale checkpoint...");
+                _checkpointMgr->clear();
+            }
+        }
+    }
+
     OtaOptions_t serviceOptions{};
     serviceOptions.endpoint         = _pendingUrl;
     serviceOptions.serverCert       = _options.serverCert;
@@ -316,13 +337,25 @@ sys_error_t OtaManager::executeUpdate()
     serviceOptions.signingCert      = _pendingSigningCert;
     serviceOptions.isDelta          = (_pendingType == "delta");
     serviceOptions.targetSize       = _pendingSize;
+    serviceOptions.startOffset      = resumeOffset;
 
-    auto progressCallback = [](OtaState state, size_t received, size_t total)
+    auto progressCallback = [this](OtaState state, size_t received, size_t total)
     {
         if (total > 0)
         {
             float percent = (static_cast<float>(received) / static_cast<float>(total)) * 100.0f;
             SYS_LOG_D("Progress: %zu/%zu bytes (%.2f%%)", received, total, percent);
+
+            /// Persist checkpoint periodically at 4 KB flash sector erase boundaries
+            if (_checkpointMgr != nullptr && received > 0 && received < total && (received % 4096 == 0))
+            {
+                OtaCheckpoint_t cp{};
+                std::strncpy(cp.targetVersion, _pendingVersion.c_str(), sizeof(cp.targetVersion) - 1);
+                std::strncpy(cp.targetHash, _pendingTargetSignature.c_str(), sizeof(cp.targetHash) - 1);
+                cp.targetSize   = total;
+                cp.bytesWritten = received;
+                _checkpointMgr->save(cp);
+            }
         }
     };
 
@@ -333,6 +366,12 @@ sys_error_t OtaManager::executeUpdate()
         SYS_LOG_E("Download Stream execution transaction failed!");
         _sendTelemetryReport("failure", err);
         return err;
+    }
+
+    /// 2. Purge checkpoint once download and cryptographic validation succeed
+    if (_checkpointMgr != nullptr)
+    {
+        _checkpointMgr->clear();
     }
 
     _sendTelemetryReport("success", ERROR_SUCCESS);
@@ -413,12 +452,6 @@ sys_error_t OtaManager::_sendTelemetryReport(const std::string& statusStr, sys_e
     );
 
     SYS_LOG_I("Telemetry state reported successfully: %s", statusStr.c_str());
-    return ERROR_SUCCESS;
-}
-
-sys_error_t OtaManager::validateCurrentFirmware()
-{
-    std::lock_guard<std::mutex> lock(_mutex);
     return ERROR_SUCCESS;
 }
 
@@ -542,4 +575,83 @@ sys_error_t OtaManager::_parseUrl(const std::string& url, std::string& outHost, 
     }
 
     return ERROR_SUCCESS;
+}
+
+sys_error_t OtaManager::registerSelfTest(const std::string& name, OtaSelfTestHook_t testHook)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    RETURN_IF_ERROR(
+        (testHook == nullptr),                                               // Expression
+        ERROR_INVALID_ARG,                                                   // Error code
+        SYS_LOG_E("Cannot register null self-test hook: '%s'", name.c_str()) // Error message
+    );
+
+    _selfTests.push_back({name, std::move(testHook)});
+    SYS_LOG_I("Registered OTA self-test hook: '%s' (total registered: %zu)", name.c_str(), _selfTests.size());
+    return ERROR_SUCCESS;
+}
+
+sys_error_t OtaManager::validateCurrentFirmware()
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    RETURN_IF_ERROR(
+        (!_isInitialized),                                                 // Expression
+        ERROR_NOT_INITIALIZED,                                             // Error code
+        SYS_LOG_E("Cannot validate firmware: OTA Manager not initialized") // Error message
+    );
+
+    OtaImageState state    = OtaImageState::Unknown;
+    sys_error_t   stateErr = _otaService.getRunningImageState(state);
+
+    RETURN_IF_ERROR(
+        (stateErr != ERROR_SUCCESS),                        // Expression
+        stateErr,                                           // Error code
+        SYS_LOG_E("Failed to retrieve running image state") // Error message
+    );
+
+    /// If image is already confirmed valid or not in provisional state, bypass verification
+    if (state != OtaImageState::PendingVerify)
+    {
+        SYS_LOG_I("Active partition does not require verification (state: %d)", static_cast<int>(state));
+        return ERROR_SUCCESS;
+    }
+
+    SYS_LOG_W("Provisional boot detected (PendingVerify). Executing self-test diagnostic suite...");
+
+    for (const auto& test : _selfTests)
+    {
+        SYS_LOG_I("[SELF-TEST] Running check: '%s'...", test.name.c_str());
+        sys_error_t testErr = test.hook();
+
+        if (testErr != ERROR_SUCCESS)
+        {
+            SYS_LOG_E("[SELF-TEST FAILED] '%s' returned error 0x%x. Initiating automatic rollback!", test.name.c_str(), testErr);
+            _sendTelemetryReport("rollback", testErr);
+            _otaService.markAppInvalid(); /// Triggers immediate reboot and bootloader rollback
+            return testErr;
+        }
+
+        SYS_LOG_I("[SELF-TEST PASSED] '%s'", test.name.c_str());
+    }
+
+    SYS_LOG_I("All provisional self-tests passed successfully. Committing partition (cancelling rollback)...");
+    sys_error_t commitErr = _otaService.markAppValid();
+
+    RETURN_IF_ERROR(
+        (commitErr != ERROR_SUCCESS),                                // Expression
+        commitErr,                                                   // Error code
+        SYS_LOG_E("Failed to cancel rollback and commit partition!") // Error message
+    );
+
+    SYS_LOG_I("Partition successfully committed as permanently valid.");
+    return ERROR_SUCCESS;
+}
+
+void OtaManager::setCheckpointManager(OtaCheckpointManager* checkpointMgr)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+    _checkpointMgr = checkpointMgr;
+    SYS_LOG_I("OtaCheckpointManager injected into OTA Manager.");
 }
