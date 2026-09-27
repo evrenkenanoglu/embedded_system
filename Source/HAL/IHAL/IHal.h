@@ -263,6 +263,42 @@ public:
     virtual ~IHAL_CPX() {}
 };
 
+
+/**
+ * @class IHAL_SYS
+ * @brief Interface for Hardware Abstraction Layer (HAL) system supervision operations (WDT, Power, Reset).
+ */
+class IHAL_SYS
+{
+public:
+    /**
+     * @brief Initialize the system supervision hardware.
+     *
+     * @param params Pointer to initialization parameters if any.
+     * @return sys_error_t Error code indicating success or failure.
+     */
+    virtual sys_error_t init(void* params = nullptr) = 0;
+
+    /**
+     * @brief Reset or feed the supervisor to indicate healthy execution.
+     *
+     * @return sys_error_t ERROR_SUCCESS if execution succeeds.
+     */
+    virtual sys_error_t feed() = 0;
+
+    /**
+     * @brief Deinitialize the system supervision hardware.
+     *
+     * @return sys_error_t Error code indicating success or failure.
+     */
+    virtual sys_error_t deInit() = 0;
+
+    /**
+     * @brief Destructor for IHAL_SYS.
+     */
+    virtual ~IHAL_SYS() {}
+};
+
 /** MACROS ********************************************************************/
 
 /** VARIABLES *****************************************************************/

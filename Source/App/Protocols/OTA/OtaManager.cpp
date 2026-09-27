@@ -172,6 +172,9 @@ sys_error_t OtaManager::checkForUpdates(OtaCheckResult& outResult)
 
     _updatePending = false;
 
+    /// Flush any pending post-rollback diagnostic logs before checking for new versions
+    processPendingRollbackTelemetry();
+
     std::string host;
     std::string path;
     int         port    = DEFAULT_HTTP_PORT;
@@ -627,7 +630,24 @@ sys_error_t OtaManager::validateCurrentFirmware()
 
         if (testErr != ERROR_SUCCESS)
         {
-            SYS_LOG_E("[SELF-TEST FAILED] '%s' returned error 0x%x. Initiating automatic rollback!", test.name.c_str(), testErr);
+            SYS_LOG_E("[SELF-TEST FAILED] '%s' returned error 0x%x. Recording diagnostic and initiating rollback!", test.name.c_str(), testErr);
+
+            /// Persist diagnostic failure metadata to non-volatile storage before triggering reboot/rollback
+            if (_diagStorage != nullptr)
+            {
+                OtaRollbackDiagnostic_t diag{};
+                std::strncpy(diag.failedVersion, _options.currentVersion.c_str(), sizeof(diag.failedVersion) - 1);
+                diag.failureReasonCode = testErr;
+                std::strncpy(diag.failedTestName, test.name.c_str(), sizeof(diag.failedTestName) - 1);
+                diag.timestampUtc      = 0;
+
+                const auto*  diagBytes = reinterpret_cast<const uint8_t*>(&diag);
+                const size_t diagLen   = offsetof(OtaRollbackDiagnostic_t, crc32);
+                diag.crc32             = Crc32::calculate(diagBytes, diagLen);
+
+                _diagStorage->writeData("ota_rollback", reinterpret_cast<const uint8_t*>(&diag), sizeof(diag));
+            }
+
             _sendTelemetryReport("rollback", testErr);
             _otaService.markAppInvalid(); /// Triggers immediate reboot and bootloader rollback
             return testErr;
@@ -654,4 +674,138 @@ void OtaManager::setCheckpointManager(OtaCheckpointManager* checkpointMgr)
     std::lock_guard<std::mutex> lock(_mutex);
     _checkpointMgr = checkpointMgr;
     SYS_LOG_I("OtaCheckpointManager injected into OTA Manager.");
+}
+
+
+void OtaManager::setDiagnosticStorage(IHAL_MEM* diagMem)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+    _diagStorage = diagMem;
+    SYS_LOG_I("Diagnostic storage device injected into OTA Manager.");
+}
+
+
+sys_error_t OtaManager::processPendingRollbackTelemetry()
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    RETURN_IF_ERROR(
+        (!_isInitialized),                                                         // Expression
+        ERROR_NOT_INITIALIZED,                                                     // Error code
+        SYS_LOG_E("Cannot process telemetry: OTA Manager not initialized")         // Error message
+    );
+
+    if (_diagStorage == nullptr)
+    {
+        return ERROR_SUCCESS;
+    }
+
+    OtaRollbackDiagnostic_t diag{};
+    const sys_error_t readErr = _diagStorage->readData(
+        "ota_rollback",
+        reinterpret_cast<uint8_t*>(&diag),
+        sizeof(OtaRollbackDiagnostic_t)
+    );
+
+    // No pending rollback log found; clean exit
+    if (readErr != ERROR_SUCCESS)
+    {
+        return ERROR_SUCCESS;
+    }
+
+    /// Validate CRC32 integrity check
+    const auto*  diagBytes   = reinterpret_cast<const uint8_t*>(&diag);
+    const size_t diagLen     = offsetof(OtaRollbackDiagnostic_t, crc32);
+    const uint32_t expectedCrc = Crc32::calculate(diagBytes, diagLen);
+
+    if (diag.crc32 != expectedCrc)
+    {
+        SYS_LOG_W("Corrupted rollback diagnostic CRC (expected 0x%08X, saw 0x%08X). Purging...", expectedCrc, diag.crc32);
+        _diagStorage->erase("ota_rollback");
+        return ERROR_FAIL;
+    }
+
+    SYS_LOG_W("Detected post-rollback state! Reporting failed version 'v%s' (check: '%s', error: 0x%x) to fleet gateway...",
+              diag.failedVersion, diag.failedTestName, diag.failureReasonCode);
+
+    /// Construct and transmit failure report
+    std::string host;
+    std::string path;
+    int         port    = DEFAULT_HTTP_PORT;
+    bool        isHttps = false;
+
+    sys_error_t parseErr = _parseUrl(_options.gatewayUrl, host, path, port, isHttps);
+    RETURN_IF_ERROR(
+        (parseErr != ERROR_SUCCESS),                                               // Expression
+        parseErr,                                                                  // Error code
+        SYS_LOG_E("Failed to parse gateway URL for rollback telemetry!")           // Error message
+    );
+
+    HttpClientOptions_t telemetryOptions{};
+    telemetryOptions.host            = host;
+    telemetryOptions.port            = port;
+    telemetryOptions.use_tls         = isHttps;
+    telemetryOptions.server_cert_pem = _options.serverCert.empty() ? nullptr : _options.serverCert.c_str();
+    telemetryOptions.server_cert_len = 0;
+    telemetryOptions.timeout_ms      = DEFAULT_TELEMETRY_TIMEOUT_MS;
+
+    sys_error_t err = _httpClient.connect(telemetryOptions);
+    RETURN_IF_ERROR(
+        (err != ERROR_SUCCESS),                                                   // Expression
+        err,                                                                      // Error code
+        SYS_LOG_E("Failed to connect telemetry client to gateway server!")        // Error message
+    );
+
+    std::vector<HttpHeader> headers;
+    headers.push_back({"X-Device-API-Key", _options.apiKey});
+    headers.push_back({"Content-Type", "application/json"});
+
+    cJSON* report = cJSON_CreateObject();
+    if (report == nullptr)
+    {
+        _httpClient.disconnect();
+        return ERROR_FAIL;
+    }
+
+    cJSON_AddStringToObject(report, "device_id", _options.deviceId.c_str());
+    cJSON_AddStringToObject(report, "previous_version", _options.currentVersion.c_str());
+    cJSON_AddStringToObject(report, "target_version", diag.failedVersion);
+    cJSON_AddStringToObject(report, "status", "failure");
+    cJSON_AddNumberToObject(report, "error_code", static_cast<double>(diag.failureReasonCode));
+
+    char* jsonString = cJSON_PrintUnformatted(report);
+    cJSON_Delete(report);
+
+    if (jsonString == nullptr)
+    {
+        _httpClient.disconnect();
+        return ERROR_FAIL;
+    }
+
+    int                  statusCode = 0;
+    std::vector<uint8_t> response;
+
+    err = _httpClient.sendRequest(
+        IHttpUri::HttpMethod::POST,
+        "/api/v1/ota/status",
+        headers,
+        reinterpret_cast<const uint8_t*>(jsonString),
+        std::strlen(jsonString),
+        statusCode,
+        response
+    );
+
+    std::free(jsonString);
+    _httpClient.disconnect();
+
+    RETURN_IF_ERROR(
+        (err != ERROR_SUCCESS || statusCode != 200),                               // Expression
+        ERROR_FAIL,                                                                // Error code
+        SYS_LOG_E("Failed to report rollback telemetry. HTTP: %d", statusCode)     // Error message
+    );
+
+    /// Clear persisted diagnostic record once server confirms ingestion
+    _diagStorage->erase("ota_rollback");
+    SYS_LOG_I("Rollback diagnostic telemetry confirmed and purged from storage.");
+    return ERROR_SUCCESS;
 }

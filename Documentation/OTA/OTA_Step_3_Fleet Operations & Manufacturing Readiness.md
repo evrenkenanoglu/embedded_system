@@ -1,116 +1,127 @@
 ### AI Implementation Prompt
 
 ```text
-You are an expert Embedded Systems Architect, Cloud Infrastructure Engineer, and Manufacturing Automation Specialist. Your objective is to implement the "Fleet Operations & Manufacturing Readiness" domain for the ESP32-S3 OTA framework and its accompanying server control plane.
+You are an expert Embedded Systems Architect, Cloud Infrastructure Engineer, and Manufacturing Automation Specialist. Your objective is to implement the "Fleet Operations & Manufacturing Readiness" domain (Phase 3) for the firmware update framework and its server control plane.
 
 ### SYSTEM CONTEXT & ARCHITECTURE
-- Architecture: 3-Tier Client Firmware (HAL -> PAL -> App) paired with a high-throughput, asynchronous Server Control Plane (FastAPI, Python 3.11+, PostgreSQL/SQLite, Redis).
-- Hardware Target: ESP32-S3 with external Octal PSRAM (SPIRAM), eFuse security blocks, and hardware cryptographic accelerators.
-- Client Constraints: C++17/C++20, -fno-exceptions, strict RAII, deterministic FreeRTOS memory isolation (internal SRAM vs. external PSRAM).
+- Architecture: 3-Tier Layered Client Firmware (HAL -> PAL -> App) paired with a high-throughput, asynchronous Server Control Plane (FastAPI, Python 3.11+, PyYAML, Jinja2, Requests).
+- Hardware Target: ESP32-S3 with or without external PSRAM (SPIRAM), silicon eFuse blocks, transparent hardware Flash Encryption, and Secure Boot V2.
+- Core Invariants: Single Source of Truth (SSoT via configs/config_project.yaml), zero duplicate scripts (extend existing provision_hardware.py and hsm_sign_digest.py), strict backward compatibility with existing Invoke tasks (es.crypto.*, es.ota.*).
+- Client Constraints: C++17/C++20, -fno-exceptions, strict RAII, deterministic FreeRTOS memory isolation (internal SRAM vs. external PSRAM fallback).
 - Server Constraints: Asynchronous I/O, atomic file operations, deterministic modulo-based canary distribution, authenticated telemetry ingestion.
 
 ### CORE OBJECTIVES
-1. Multi-Tier Production PKI & HSM Code-Signing Infrastructure:
-   - Establish a 3-tier PKI model: Offline/Air-Gapped Root CA -> Intermediate Issuing CA (Cloud KMS / HSM) -> Short-Lived Developer Signing Certificates.
-   - Implement automated signing tools that interface with PKCS#11 / AWS KMS / GCP KMS / Vault to generate ECDSA SECP256R1 signatures for firmware builds.
-   - Implement certificate revocation checks (CRL / OCSP stapling) during Phase 1 check queries.
-2. PSRAM Memory Allocation for Differential Updates:
-   - Configure ESP-IDF external PSRAM (SPIRAM) in 8-line (Octal) mode with custom heap capabilities.
-   - Modify mem_ota and esp_delta_ota integration to enforce that all delta decompression scratch buffers, patch stream buffers, and sliding dictionary tables allocate strictly from external PSRAM (MALLOC_CAP_SPIRAM) to keep internal SRAM clear for Wi-Fi/Bluetooth stacks.
+1. Multi-Tier Production PKI & Remote KMS/HSM Detached Signing:
+   - Establish a 3-tier PKI model: Offline Root CA -> Intermediate Issuing CA (Cloud KMS / HSM) -> Short-Lived Developer Signing Certificates.
+   - Extend Source/Scripts/provisioning/signing/hsm_sign_digest.py to interface with Cloud KMS (AWS KMS / HashiCorp Vault) and PKCS#11 APIs using the existing detached signing architecture (--stage digest, --stage assemble).
+   - Enforce Certificate Revocation List (CRL) and serial number blocklist checks on the server control plane during /api/v1/ota/check queries.
+2. Dynamic Memory Capability Allocation (Delta Decompression):
+   - Modify mem_ota.cpp and delta decompressor scratchpad allocations to dynamically query heap capabilities: allocate from external PSRAM (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) if fitted, and automatically fall back to internal heap (MALLOC_CAP_INTERNAL) if PSRAM is absent or disabled.
 3. Fleet Rollout Engine & Channel Orchestration:
-   - Implement multi-channel segregation (production, beta, canary, development) on the server control plane.
-   - Implement deterministic, stateless canary rollout expansion (e.g., 1% -> 5% -> 25% -> 100%) calculated via MD5 hash buckets: MD5(device_id + ":" + version) % 100 < canary_percentage.
-   - Support dynamic maintenance windows and regional jitter scheduling to avoid synchronized backend traffic spikes.
-4. Factory Provisioning Automation Tooling:
-   - Develop an automated factory-line provisioning suite (Python CLI / GUI) interfacing with espefuse.py, espsecure.py, and nvs_partition_gen.py.
-   - Automate burning of hardware Secure Boot V2 digests, Flash Encryption keys, monotonic eFuse HSVN minimums, and unique per-device mTLS certificates into encrypted NVS.
-   - Generate cryptographically signed factory audit manifests mapping Device Serial, MAC Address, Hardware Revision, and Silicon Unique ID.
-5. Fleet Observability & Automated Closed-Loop Rollbacks:
-   - Enhance /api/v1/ota/status to ingest structured JSON telemetry (success/failure, error codes, download duration, RSSI, battery voltage).
-   - Implement sliding-window failure rate aggregators on the server. If a release version breaches configured failure thresholds (e.g., >= 5% failures over minimum 20 reports), automatically mark the release as soft-rolled-back, atomically update manifest.json, revert channel pointers, and trigger alert webhooks.
+   - Implement multi-channel segregation (stable, beta, testing, development) across client request headers and server manifest streams.
+   - Enhance the stateless canary rollout algorithm (MD5(device_id:version) % 100 < canary_percentage) with incremental stage transitions (1% -> 5% -> 25% -> 100%).
+   - Enforce traffic jitter windows and server-side rate limiting to avoid backend traffic spikes.
+4. Mass Manufacturing Factory Fixture Automation:
+   - Enhance Source/Scripts/provisioning/factory/provision_hardware.py with an automated assembly-line continuous mode (--continuous): auto-detect serial connection, query MAC, burn Flash Encryption key (BLOCK_KEY0) and Secure Boot V2 digest (BLOCK_KEY1), apply silicon read/write locks, burn monotonic anti-rollback minimums (SECURE_VERSION), and flash encrypted partitions.
+   - Extend Source/Scripts/provisioning/factory/audit_logger.py to aggregate manufacturing audit records into a consolidated CSV ledger (build/audit_logs/manufacturing_summary.csv).
+5. Fleet Observability & Closed-Loop Rollbacks:
+   - Upgrade /api/v1/ota/status to ingest structured JSON telemetry (status, error_code, target_version, previous_version, device_id).
+   - Implement a sliding-window failure rate aggregator on the server (evaluating only events within trailing 3600s). If failures exceed configured thresholds (e.g., >= 10% over >= 5 reports), atomically transition the version to soft-rolled-back in manifest.json, revert active channel pointers, and dispatch alert webhooks (Slack/Teams/PagerDuty).
 
 ### DELIVERABLES REQUIRED
-- C++ PSRAM memory mapping configurations and driver patches for mem_ota.
-- Complete Python manufacturing provisioning suite (factory_provisioner.py) with full command-line arguments and logging.
-- Production PKI generation, signing, and KMS integration scripts (sign_release.py).
-- Enhanced FastAPI server control plane endpoints (/api/v1/ota/check, /api/v1/ota/status) with atomic manifest locking and rollback evaluation.
-- Integration tests verifying memory allocation boundaries, KMS signature validity, canary bucket partitioning, and automatic soft-rollback triggers.
+- Driver updates in mem_ota.cpp implementing dynamic PSRAM/internal SRAM heap capability fallbacks.
+- Enhanced provision_hardware.py supporting continuous fixture batch programming (--continuous) and audit log consolidation.
+- Cloud KMS / Vault detached signing integration in hsm_sign_digest.py.
+- Enhanced FastAPI server control plane endpoints (/api/v1/ota/check, /api/v1/ota/status) with sliding-window telemetry aggregation, CRL validation, and incident webhook dispatching.
+- Automated fleet integration test suite (CI_CD/tests/hil/test_fleet_operations.py).
 ```
 
 ---
 
 ### Fleet Operations & Manufacturing Readiness: Implementation Checklist
 
-#### 1. Multi-Tier Production PKI & HSM Key Management
-- [ ] **PKI Hierarchy Architecture:**
-  - [ ] Generate Offline Root CA (4096-bit RSA or ECC SECP384R1) stored in an air-gapped environment or Hardware Security Module (HSM).
-  - [ ] Provision Intermediate Issuing CA managed by a secure Key Management Service (AWS KMS, Google Cloud KMS, or HashiCorp Vault).
-  - [ ] Implement short-lived Developer Signing Certificates (`signing.crt`) with maximum 30–90 day validity periods.
-- [ ] **Automated Code-Signing Pipeline:**
-  - [ ] Create `sign_release.py` to hash compiled binaries and invoke remote KMS/HSM signing APIs via PKCS#11.
-  - [ ] Implement manifest packager bundling metadata: `target_size`, `target_signature`, `signing_cert`, `isDelta`, `target_hsvn`, and `min_hardware_rev`.
-- [ ] **Certificate Revocation & Expiration Engine:**
-  - [ ] Implement Certificate Revocation List (CRL) or serial blocklist generation on the server.
-  - [ ] Validate certificate expiration (`notBefore` / `notAfter`) and serial revocation on the server prior to returning manifest data in `/api/v1/ota/check`.
+#### 1. Multi-Tier Production PKI & Remote KMS/HSM Integration
+- [ ] **PKI Hierarchy Configuration:**
+  - [ ] Support Offline/Air-Gapped Root CA (`certs/ca.crt`) and Cloud KMS / Vault Intermediate CA structures.
+  - [ ] Implement short-lived Developer Signing Certificates (`certs/signing.crt`) with configurable validity boundaries.
+- [ ] **Remote KMS Detached Signing Adapter (`hsm_sign_digest.py`):**
+  - [ ] Add `--kms-provider [none|aws-kms|vault]` parameter to `hsm_sign_digest.py`.
+  - [ ] When `--kms-provider aws-kms`: Sign the exported 32-byte SHA-256 digest via AWS KMS `Sign` API and convert resulting DER signature to raw 64-byte IEEE P1363 ($R \parallel S$).
+  - [ ] When `--kms-provider vault`: Dispatch digest to HashiCorp Vault transit secrets engine.
+  - [ ] Retain local private key signing (`--stage all`) for development and local testing.
+- [ ] **Certificate Revocation List (CRL) Engine (`ota-server/src/core/security.py`):**
+  - [ ] Add CRL file (`certs/revoked.crl`) and serial blocklist support in `configs/config_ota_server.yaml`.
+  - [ ] During `GET /api/v1/ota/check`, extract developer certificate serial number:
+    - [ ] Reject update with `HTTP 403 Forbidden` if certificate serial exists in CRL/blocklist.
+    - [ ] Reject update if current time exceeds certificate `notBefore` / `notAfter` boundaries.
 
 ---
 
-#### 2. Memory Isolation & External PSRAM (SPIRAM) Hardening
-- [ ] **Octal PSRAM Configuration (`sdkconfig`):**
-  - [ ] Enable `CONFIG_SPIRAM=y`.
-  - [ ] Configure `CONFIG_SPIRAM_MODE_OCT=y` and `CONFIG_SPIRAM_SPEED_80M=y` for ESP32-S3.
-  - [ ] Set `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096` to reserve small allocations for internal SRAM.
-  - [ ] Enable `CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y` for non-ISR task stacks.
-- [ ] **Delta Decompressor PSRAM Allocation (`mem_ota.cpp`):**
-  - [ ] Wrap `esp_delta_ota` allocations to strictly use `heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)`.
-  - [ ] Implement dynamic fallback: if PSRAM is unavailable, abort delta decompression and trigger full binary update fallback.
-  - [ ] Audit internal SRAM high-water mark during active decompression to verify zero impact on network buffers.
+#### 2. Memory Isolation & External PSRAM Fallback Hardening
+- [ ] **Dynamic Heap Capability Selection (`mem_ota.cpp`):**
+  - [ ] Inspect available heap capabilities using `esp_heap_caps_get_free_size(MALLOC_CAP_SPIRAM)`.
+  - [ ] If PSRAM is detected and configured: Allocate delta decompression scratch buffers and dictionary tables with `MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT` to preserve internal SRAM.
+  - [ ] If PSRAM is absent: Fall back dynamically to `MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`.
+  - [ ] If total free heap is insufficient for delta patch dictionary (< 64 KB), abort delta mode with `ERROR_OUT_OF_MEMORY` to trigger full binary download fallback.
 
 ---
 
 #### 3. Fleet Orchestration & Channel Management
-- [ ] **Channel Segregation:**
-  - [ ] Configure isolated channel tracks on the control plane (`production`, `beta`, `testing`, `canary`, `development`).
-  - [ ] Validate client-reported `x-ESP32-channel` headers against manifest database release streams.
-- [ ] **Stateless Canary Rollout Algorithm:**
-  - [ ] Implement deterministic device cohort bucketing:
+- [ ] **Multi-Channel Management:**
+  - [ ] Enforce isolated deployment channels (`stable`, `beta`, `testing`, `development`) in `config_ota_server.yaml`.
+  - [ ] Validate client `x-ESP32-channel` headers against manifest database release streams.
+- [ ] **Stateless Canary Cohort Evaluation (`ota-server/src/api/ota.py`):**
+  - [ ] Verify deterministic device allocation:
     ```python
     device_bucket = int(hashlib.md5(f"{device_id}:{target_version}".encode()).hexdigest(), 16) % 100
-    is_included = device_bucket < canary_percentage
+    is_eligible = device_bucket < canary_percentage
     ```
-  - [ ] Build deployment pipeline commands to adjust `canary_percentage` incrementally (e.g., 1% $\rightarrow$ 5% $\rightarrow$ 25% $\rightarrow$ 100%).
-- [ ] **Traffic Jitter & Scheduling Control:**
-  - [ ] Define backend configuration parameters for `baseCheckIntervalSec` and `jitterRangeSec`.
-  - [ ] Implement server-side rate-limiting on `/api/v1/ota/check` and binary download routes to prevent CDN overload.
+  - [ ] Build administrative endpoint / dashboard controls to step canary rollouts (e.g., 1% $\rightarrow$ 5% $\rightarrow$ 25% $\rightarrow$ 100%).
+- [ ] **Traffic Jitter & Scheduling Constraints:**
+  - [ ] Configure `baseCheckIntervalSec` and `jitterRangeSec` in Master SSoT (`config_project.yaml`).
+  - [ ] Enforce rate-limiting on `/api/v1/ota/check` and firmware binary download routes to prevent traffic spikes.
 
 ---
 
 #### 4. Mass Production & Factory Provisioning Automation
-- [ ] **Factory Provisioning CLI Tool (`factory_provision.py`):**
-  - [ ] **Step 1:** Generate unique per-device identity (Device ID, UUID, random mTLS client key).
-  - [ ] **Step 2:** Generate and burn Flash Encryption key into eFuse `BLOCK_KEY0` / `BLOCK_KEY1`.
-  - [ ] **Step 3:** Generate Secure Boot V2 key digest and burn into eFuse `BLOCK_KEY2` / `BLOCK_KEY3`.
-  - [ ] **Step 4:** Burn Initial Monotonic Anti-Rollback Version (`SECURE_VERSION = 1`).
-  - [ ] **Step 5:** Burn hardware security lock bits (`DIS_PAD_JTAG`, `DIS_DOWNLOAD_MODE`, `WR_DIS`).
-  - [ ] **Step 6:** Generate and flash encrypted NVS binary (`nvs_encrypted.bin`) containing the Root CA certificate, device credentials, and calibration values.
-  - [ ] **Step 7:** Flash initial production bootloader, partition table, and factory firmware image.
-- [ ] **Manufacturing Audit Logging:**
-  - [ ] Log serial number, factory station ID, MAC address, eFuse SHA-256 digests, and timestamp to a secure manufacturing database.
-  - [ ] Execute post-flash verification test validating that Secure Boot and Flash Encryption successfully enable on initial boot.
+- [ ] **Continuous Fixture Mode (`provision_hardware.py`):**
+  - [ ] Add `--continuous` flag to `provision_hardware.py`:
+    - [ ] Poll serial ports to detect device connection.
+    - [ ] Query target MAC address via `esptool.py`.
+    - [ ] Assert silicon is unprovisioned before executing write operations.
+    - [ ] Burn Flash Encryption key into eFuse `BLOCK_KEY0` with permanent read/write protection.
+    - [ ] Burn Secure Boot V2 digest into eFuse `BLOCK_KEY1` with permanent write protection.
+    - [ ] Burn monotonic anti-rollback version (`SECURE_VERSION = 1`).
+    - [ ] Burn silicon security lock bits (`DIS_PAD_JTAG`, `DIS_USB_JTAG`, `DIS_DIRECT_BOOT`, `DIS_DOWNLOAD_ICACHE`, `DIS_DOWNLOAD_DCACHE`).
+    - [ ] Flash pre-encrypted NVS binary (`fctry`) containing Root CA trust anchors and device identity.
+    - [ ] Flash bootloader (`0x0`), partition table (`0x10000`), `nvs_keys` (`0x34000`), and factory app (`0x50000`).
+    - [ ] Display visual PASS/FAIL status and wait for board disconnection before priming next cycle.
+- [ ] **Manufacturing Summary Ledger (`audit_logger.py`):**
+  - [ ] Append every provisioned unit record to `build/audit_logs/manufacturing_summary.csv`.
+  - [ ] Record timestamp, station ID, MAC address, device ID, burned key hashes, and final status.
 
 ---
 
-#### 5. Telemetry Ingestion, Fleet Observability & Automated Rollback
-- [ ] **Telemetry Ingestion Endpoint (`POST /api/v1/ota/status`):**
-  - [ ] Ingest structured payload: `device_id`, `previous_version`, `target_version`, `status`, `error_code`, `download_time_ms`, `rssi`, `battery_pct`.
-  - [ ] Sanitize input strings to prevent directory traversal and SQL/NoSQL injection.
-  - [ ] Persist telemetry events into a timeseries or relational data store with indexing on `target_version` and `status`.
-- [ ] **Automated Closed-Loop Rollback Engine:**
-  - [ ] Implement real-time metric evaluator checking versions against configured limits:
-    - Minimum sample threshold: `MIN_REPORTS_FOR_EVALUATION` (e.g., $\ge 20$ devices).
-    - Maximum failure threshold: `MAX_FAILURE_RATE_PERCENT` (e.g., $\ge 5.0\%$).
-  - [ ] On failure threshold breach:
-    - [ ] Mark target version status as `soft-rolled-back` in `manifest.json`.
-    - [ ] Atomically point active channel `latest_version` to the last known stable release using atomic rename (`manifest.json.tmp` $\rightarrow$ `manifest.json`).
-    - [ ] Invalidate active presigned download tokens for the failed version.
-    - [ ] Dispatch critical alert webhooks to monitoring platforms (Slack, PagerDuty, Datadog).
+#### 5. Telemetry Ingestion & Closed-Loop Emergency Rollback
+- [ ] **Structured Telemetry Ingestion (`ota-server/src/api/ota.py`):**
+  - [ ] Ingest client reports on `POST /api/v1/ota/status`: `device_id`, `previous_version`, `target_version`, `status` (`success`, `failure`, `rollback`), and `error_code`.
+  - [ ] Store telemetry payloads in persistent JSON logs with sanitized file paths (`device_<MAC>.json`).
+- [ ] **Sliding-Window Failure Aggregator:**
+  - [ ] Implement sliding-window filter in `evaluate_auto_rollback()` (trailing 3600 seconds).
+  - [ ] Prevent historical errors from older firmware builds skewing failure rates of newly deployed releases.
+- [ ] **Automated Emergency Rollback Execution:**
+  - [ ] When failure rate $\ge 10.0\%$ over $\ge 5$ device reports within the active window:
+    - [ ] Transition target release status to `soft-rolled-back` in `manifest.json`.
+    - [ ] Atomically revert active channel `latest_version` pointer to the last known stable release using atomic rename (`manifest.json.tmp` $\rightarrow$ `manifest.json`).
+    - [ ] Invalidate active presigned HMAC download tokens for the compromised release.
+- [ ] **Incident Webhook Dispatcher (`ota-server/src/core/notifications.py`):**
+  - [ ] Post structured JSON alert notifications to configured webhook URLs (Slack, Teams, PagerDuty) detailing failed version, failure percentage, and sample counts.
+
+---
+
+#### 6. End-to-End Fleet Integration & Verification Suite
+- [ ] **Automated Test Suite (`CI_CD/tests/hil/test_fleet_operations.py`):**
+  - [ ] **Test 1:** Verify canary bucket distribution across 1000 synthetic device IDs at 10%, 25%, and 50% rollout thresholds.
+  - [ ] **Test 2:** Simulate client rollback telemetry and assert that the server triggers atomic manifest soft-rollback.
+  - [ ] **Test 3:** Verify that revoked certificate serial numbers return `HTTP 403 Forbidden` on `/api/v1/ota/check`.
+  - [ ] **Test 4:** Assert that continuous fixture mode correctly generates consolidated audit CSV entries.

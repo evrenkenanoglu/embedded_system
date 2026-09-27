@@ -15,9 +15,11 @@
 #include "PAL/Protocols/HTTP/IHttpClient.hpp"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
 #include "PAL/Protocols/OTA/OtaCheckpointManager.hpp"
+#include "Library/Common/Crc.hpp"
 #include <mutex>
 #include <string>
 #include <vector>
+
 
 /**
  * @class OtaManager
@@ -48,6 +50,7 @@ public:
     sys_error_t loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem) override;
     void        rebootSystem() override;
     sys_error_t registerSelfTest(const std::string& name, OtaSelfTestHook_t testHook) override;
+    sys_error_t processPendingRollbackTelemetry() override;
 
     /**
      * @brief Computes next periodic trigger interval applying standard randomization.
@@ -63,6 +66,13 @@ public:
      */
     void setCheckpointManager(OtaCheckpointManager* checkpointMgr);
 
+    /**
+     * @brief Injects an NVS storage device for recording and inspecting rollback diagnostics.
+     *
+     * @param[in] diagMem Pointer to an initialized IHAL_MEM instance.
+     */
+    void setDiagnosticStorage(IHAL_MEM* diagMem);
+
 private:
     bool        _isTwoStageConditionMet();
     sys_error_t _parseCheckResponse(const std::string& jsonStr, OtaCheckResult& outResult);
@@ -77,6 +87,7 @@ private:
     OtaPlatformHooks_t    _platformHooks;
     bool                  _isInitialized;
     OtaCheckpointManager* _checkpointMgr{nullptr};
+    IHAL_MEM* _diagStorage{nullptr};
 
     // Transient target context
     bool        _updatePending;

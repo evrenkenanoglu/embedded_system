@@ -24,6 +24,19 @@ class IHAL_MEM;
 using OtaSelfTestHook_t = std::function<sys_error_t()>;
 
 /**
+ * @struct OtaRollbackDiagnostic_t
+ * @brief Persistent diagnostic metadata recorded prior to initiating automatic rollback.
+ */
+struct OtaRollbackDiagnostic_t
+{
+    char     failedVersion[32];   ///< Version tag that failed validation
+    uint32_t failureReasonCode;   ///< Specific sys_error_t or subsystem error code
+    char     failedTestName[32];  ///< Name of the self-test hook that failed
+    uint64_t timestampUtc;        ///< Approximate epoch timestamp
+    uint32_t crc32;               ///< CRC32 integrity check of diagnostic payload
+};
+
+/**
  * @brief Verification results generated during updates scanning cycles.
  */
 enum class OtaCheckResult : uint8_t
@@ -142,4 +155,11 @@ public:
      * @return sys_error_t ERROR_SUCCESS on registration, or ERROR_INVALID_ARG if hook is null.
      */
     virtual sys_error_t registerSelfTest(const std::string& name, OtaSelfTestHook_t testHook) = 0;
+
+    /**
+     * @brief Inspects persistent storage for pending rollback diagnostic logs and dispatches them to the server.
+     *
+     * @return sys_error_t ERROR_SUCCESS on successful report or if no log is pending.
+     */
+    virtual sys_error_t processPendingRollbackTelemetry() = 0;
 };

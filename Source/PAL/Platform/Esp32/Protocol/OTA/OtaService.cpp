@@ -324,22 +324,6 @@ sys_error_t OtaService::abortUpdate()
     return ERROR_SUCCESS;
 }
 
-sys_error_t OtaService::abortUpdate()
-{
-    RETURN_IF_ERROR(
-        (_state.load() != OtaState::Downloading),             // Expression
-        ERROR_INVALID_STATE,                                  // Error code
-        SYS_LOG_D("Aborting requested when not downloading.") // Error message
-    );
-
-    _state.store(OtaState::Failed);
-    _memOta.abort();
-    _memOta.deInit();
-    _transport.stopStream();
-    _transport.disconnect();
-    return ERROR_SUCCESS;
-}
-
 OtaState OtaService::getState() const
 {
     return _state.load();
@@ -410,6 +394,12 @@ sys_error_t OtaService::_handleTransportChunk(const uint8_t* data, size_t length
 
         _bytesWritten += length;
 
+        /// Feed watchdog during high-throughput network stream processing
+        if (_watchdog != nullptr)
+        {
+            _watchdog->feed();
+        }
+
         if (_progressCb)
         {
             _progressCb(OtaState::Downloading, _bytesWritten, _totalSize);
@@ -479,6 +469,13 @@ sys_error_t OtaService::_calculatePartitionHash(size_t targetSize, uint8_t* outH
 
         offset += readSize;
         sizeLeft -= readSize;
+
+        /// Cooperative yield & watchdog feed via generic HAL to prevent CPU starvation
+        if (_watchdog != nullptr)
+        {
+            _watchdog->feed();
+            _watchdog->yield(1);
+        }
     }
 
     return _cryptoEngine.hashFinish(outHash);
@@ -520,4 +517,11 @@ sys_error_t OtaService::_hexStringToBytes(const std::string& hex, uint8_t* outBy
     }
 
     return ERROR_SUCCESS;
+}
+
+
+void OtaService::setWatchdog(IHal_Sys_Wdt* watchdog)
+{
+    _watchdog = watchdog;
+    SYS_LOG_I("Watchdog driver injected into OtaService.");
 }
