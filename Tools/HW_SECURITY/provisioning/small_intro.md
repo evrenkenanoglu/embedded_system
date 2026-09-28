@@ -1,6 +1,6 @@
 ### The System in Plain Language
 
-The goal of this system is to **remotely update the software on an ESP32 smart plug safely over the internet**. 
+The goal of this system is to **remotely update the software on an ESP32 smart plug safely over the internet**.
 
 It prevents two major risks:
 1. **Hackers:** An attacker cannot install fake or modified code on the device.

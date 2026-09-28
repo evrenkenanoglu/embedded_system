@@ -32,7 +32,7 @@ Update `sdkconfig.defaults` and `configs/config_project.yaml` to switch from dev
 
 ### 3. Provisioning Tooling & eFuse Enforcement
 
-Update `embedded_system/Source/Scripts/provisioning/factory/provision_hardware.py` and `nvs_ota_template.csv`.
+Update `embedded_system/Tools/HW_SECURITY/provisioning/factory/provision_hardware.py` and `nvs_ota_template.csv`.
 
 #### A. NVS Template Extension (`nvs_ota_template.csv`)
 Add rotation slot to the template schema:

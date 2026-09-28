@@ -13,7 +13,7 @@ You are an expert Embedded Systems Architect, Cloud Infrastructure Engineer, and
 ### CORE OBJECTIVES
 1. Multi-Tier Production PKI & Remote KMS/HSM Detached Signing:
    - Establish a 3-tier PKI model: Offline Root CA -> Intermediate Issuing CA (Cloud KMS / HSM) -> Short-Lived Developer Signing Certificates.
-   - Extend Source/Scripts/provisioning/signing/hsm_sign_digest.py to interface with Cloud KMS (AWS KMS / HashiCorp Vault) and PKCS#11 APIs using the existing detached signing architecture (--stage digest, --stage assemble).
+   - Extend Tools/HW_SECURITY/provisioning/signing/hsm_sign_digest.py to interface with Cloud KMS (AWS KMS / HashiCorp Vault) and PKCS#11 APIs using the existing detached signing architecture (--stage digest, --stage assemble).
    - Enforce Certificate Revocation List (CRL) and serial number blocklist checks on the server control plane during /api/v1/ota/check queries.
 2. Dynamic Memory Capability Allocation (Delta Decompression):
    - Modify mem_ota.cpp and delta decompressor scratchpad allocations to dynamically query heap capabilities: allocate from external PSRAM (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) if fitted, and automatically fall back to internal heap (MALLOC_CAP_INTERNAL) if PSRAM is absent or disabled.
@@ -22,8 +22,8 @@ You are an expert Embedded Systems Architect, Cloud Infrastructure Engineer, and
    - Enhance the stateless canary rollout algorithm (MD5(device_id:version) % 100 < canary_percentage) with incremental stage transitions (1% -> 5% -> 25% -> 100%).
    - Enforce traffic jitter windows and server-side rate limiting to avoid backend traffic spikes.
 4. Mass Manufacturing Factory Fixture Automation:
-   - Enhance Source/Scripts/provisioning/factory/provision_hardware.py with an automated assembly-line continuous mode (--continuous): auto-detect serial connection, query MAC, burn Flash Encryption key (BLOCK_KEY0) and Secure Boot V2 digest (BLOCK_KEY1), apply silicon read/write locks, burn monotonic anti-rollback minimums (SECURE_VERSION), and flash encrypted partitions.
-   - Extend Source/Scripts/provisioning/factory/audit_logger.py to aggregate manufacturing audit records into a consolidated CSV ledger (build/audit_logs/manufacturing_summary.csv).
+   - Enhance Tools/HW_SECURITY/provisioning/factory/provision_hardware.py with an automated assembly-line continuous mode (--continuous): auto-detect serial connection, query MAC, burn Flash Encryption key (BLOCK_KEY0) and Secure Boot V2 digest (BLOCK_KEY1), apply silicon read/write locks, burn monotonic anti-rollback minimums (SECURE_VERSION), and flash encrypted partitions.
+   - Extend Tools/HW_SECURITY/provisioning/factory/audit_logger.py to aggregate manufacturing audit records into a consolidated CSV ledger (build/audit_logs/manufacturing_summary.csv).
 5. Fleet Observability & Closed-Loop Rollbacks:
    - Upgrade /api/v1/ota/status to ingest structured JSON telemetry (status, error_code, target_version, previous_version, device_id).
    - Implement a sliding-window failure rate aggregator on the server (evaluating only events within trailing 3600s). If failures exceed configured thresholds (e.g., >= 10% over >= 5 reports), atomically transition the version to soft-rolled-back in manifest.json, revert active channel pointers, and dispatch alert webhooks (Slack/Teams/PagerDuty).

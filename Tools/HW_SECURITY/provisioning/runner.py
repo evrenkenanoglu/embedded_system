@@ -6,15 +6,15 @@
 
 USAGE EXAMPLES:
     1. Zero-argument Interactive Menu (Auto-detects configs/config_provisioning.yaml):
-        python embedded_system/Source/Scripts/provisioning/runner.py
+        python embedded_system/Tools/HW_SECURITY/provisioning/runner.py
 
     2. Explicit Config File:
-        python embedded_system/Source/Scripts/provisioning/runner.py --config configs/config_provisioning.yaml --all --dry-run
+        python embedded_system/Tools/HW_SECURITY/provisioning/runner.py --config configs/config_provisioning.yaml --all --dry-run
 
     3. Shorthand Steps:
-        python embedded_system/Source/Scripts/provisioning/runner.py --nvs
-        python embedded_system/Source/Scripts/provisioning/runner.py --sign
-        python embedded_system/Source/Scripts/provisioning/runner.py --provision --dry-run
+        python embedded_system/Tools/HW_SECURITY/provisioning/runner.py --nvs
+        python embedded_system/Tools/HW_SECURITY/provisioning/runner.py --sign
+        python embedded_system/Tools/HW_SECURITY/provisioning/runner.py --provision --dry-run
 """
 
 import argparse

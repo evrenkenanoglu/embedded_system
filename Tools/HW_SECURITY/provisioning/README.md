@@ -7,7 +7,7 @@ A generic, data-driven toolchain for ESP-IDF projects to automate encrypted NVS 
 ## Directory Structure
 
 ```text
-Source/Scripts/provisioning/
+Tools/HW_SECURITY/provisioning/
 ├── config.yaml                    # Project configuration & environment paths (Single Source of Truth)
 ├── main.py                        # Unified CLI orchestrator
 ├── requirements.txt               # Python package dependencies
@@ -37,7 +37,7 @@ Source/Scripts/provisioning/
 ### Installation
 
 ```bash
-pip install -r Source/Scripts/provisioning/requirements.txt
+pip install -r Tools/HW_SECURITY/provisioning/requirements.txt
 ```
 
 ---
@@ -65,7 +65,7 @@ paths:
 # 1. Generic NVS Partition Generation
 nvs_generation:
   target_partition: "fctry"
-  template_csv: "{embedded_system_dir}/Source/Scripts/provisioning/nvs/templates/nvs_ota_template.csv"
+  template_csv: "{embedded_system_dir}/Tools/HW_SECURITY/provisioning/nvs/templates/nvs_ota_template.csv"
   output_key_bin: "{embedded_system_dir}/build/provisioning/nvs_keys.bin"
   output_encrypted_bin: "{embedded_system_dir}/build/provisioning/nvs_encrypted.bin"
   template_variables:
@@ -142,16 +142,16 @@ Commands below are executed from the top-level workspace root (`SW/`).
 
 ```bash
 # Dry-run validation (does not burn silicon eFuses)
-python embedded_system/Source/Scripts/provisioning/main.py \
-    --config embedded_system/Source/Scripts/provisioning/config.yaml \
+python embedded_system/Tools/HW_SECURITY/provisioning/main.py \
+    --config embedded_system/Tools/HW_SECURITY/provisioning/config.yaml \
     --step all \
     --dry-run
 ```
 
 ```bash
 # Physical silicon execution (requires 'hardware.force_burn: true' in config.yaml)
-python embedded_system/Source/Scripts/provisioning/main.py \
-    --config embedded_system/Source/Scripts/provisioning/config.yaml \
+python embedded_system/Tools/HW_SECURITY/provisioning/main.py \
+    --config embedded_system/Tools/HW_SECURITY/provisioning/config.yaml \
     --step all
 ```
 
@@ -163,8 +163,8 @@ python embedded_system/Source/Scripts/provisioning/main.py \
 Resolves the target partition size dynamically from `partitions.csv`, renders variables into `nvs_ota_template.csv`, generates a 64-byte AES-XTS key (`nvs_keys.bin`), and outputs the encrypted binary (`nvs_encrypted.bin`).
 
 ```bash
-python embedded_system/Source/Scripts/provisioning/main.py \
-    --config embedded_system/Source/Scripts/provisioning/config.yaml \
+python embedded_system/Tools/HW_SECURITY/provisioning/main.py \
+    --config embedded_system/Tools/HW_SECURITY/provisioning/config.yaml \
     --step nvs
 ```
 
@@ -172,8 +172,8 @@ python embedded_system/Source/Scripts/provisioning/main.py \
 Computes the SHA-256 digest of `firmware.bin`, signs it using the configured private key (`signing.key`), outputs `target_signature.sig`, and inserts release metadata into `server/manifest.json`.
 
 ```bash
-python embedded_system/Source/Scripts/provisioning/main.py \
-    --config embedded_system/Source/Scripts/provisioning/config.yaml \
+python embedded_system/Tools/HW_SECURITY/provisioning/main.py \
+    --config embedded_system/Tools/HW_SECURITY/provisioning/config.yaml \
     --step sign
 ```
 
@@ -181,8 +181,8 @@ python embedded_system/Source/Scripts/provisioning/main.py \
 Reads target MAC address, burns configured eFuse keys and lock registers, resolves flashing offsets dynamically from `partitions.csv`, flashes all binaries, and writes an audit log to `build/audit_logs/audit_<MAC>.json`.
 
 ```bash
-python embedded_system/Source/Scripts/provisioning/main.py \
-    --config embedded_system/Source/Scripts/provisioning/config.yaml \
+python embedded_system/Tools/HW_SECURITY/provisioning/main.py \
+    --config embedded_system/Tools/HW_SECURITY/provisioning/config.yaml \
     --step provision \
     --dry-run
 ```
@@ -195,8 +195,8 @@ Each tool can be invoked independently from CI/CD pipelines or test jigs:
 
 #### Standalone NVS Generation:
 ```bash
-python embedded_system/Source/Scripts/provisioning/nvs/partition_nvs_generator.py \
-    --template embedded_system/Source/Scripts/provisioning/nvs/templates/nvs_ota_template.csv \
+python embedded_system/Tools/HW_SECURITY/provisioning/nvs/partition_nvs_generator.py \
+    --template embedded_system/Tools/HW_SECURITY/provisioning/nvs/templates/nvs_ota_template.csv \
     --out-csv embedded_system/build/provisioning/nvs_rendered.csv \
     --out-bin embedded_system/build/provisioning/nvs_encrypted.bin \
     --out-key embedded_system/build/provisioning/nvs_keys.bin \
@@ -206,7 +206,7 @@ python embedded_system/Source/Scripts/provisioning/nvs/partition_nvs_generator.p
 
 #### Standalone Release Signing:
 ```bash
-python embedded_system/Source/Scripts/provisioning/signing/hsm_sign_digest.py \
+python embedded_system/Tools/HW_SECURITY/provisioning/signing/hsm_sign_digest.py \
     --binary embedded_system/build/firmware.bin \
     --key embedded_system/keys/signing.key \
     --cert embedded_system/certs/signing.crt \
@@ -217,7 +217,7 @@ python embedded_system/Source/Scripts/provisioning/signing/hsm_sign_digest.py \
 
 #### Standalone Partition Manifest Packager:
 ```bash
-python embedded_system/Source/Scripts/provisioning/signing/ota_manifest_packager.py \
+python embedded_system/Tools/HW_SECURITY/provisioning/signing/ota_manifest_packager.py \
     --manifest server/manifest.json \
     --version 1.0.0 \
     --binary embedded_system/build/firmware.bin \

@@ -33,8 +33,8 @@ from nvs.partition_nvs_generator import (
 )
 from signing.hsm_sign_digest import (
     compute_sha256,
-    sign_digest_ec_secp256r1,
-    sign_digest_rsa_2048,
+    sign_digest_ec_secp256r1_local as sign_digest_ec_secp256r1,
+    sign_digest_rsa_2048_local as sign_digest_rsa_2048,
 )
 from signing.ota_manifest_packager import main as package_manifest_entry
 
@@ -42,7 +42,7 @@ from signing.ota_manifest_packager import main as package_manifest_entry
 def auto_detect_roots() -> Tuple[Path, Path]:
     """
     Auto-detects (project_root, embedded_system_root) by traversing upward from SCRIPT_DIR.
-    Structure: <project_root>/embedded_system/Source/Scripts/provisioning
+    Structure: <project_root>/embedded_system/Tools/HW_SECURITY/provisioning
     """
     curr = SCRIPT_DIR
     embedded_system_root = None
@@ -355,7 +355,7 @@ def main() -> int:
         "--config",
         "-c",
         type=Path,
-        default=Path("Source/Scripts/provisioning/config.yaml"),
+        default=Path("Tools/HW_SECURITY/provisioning/config.yaml"),
         help="Path to config.yaml",
     )
     parser.add_argument(

@@ -18,10 +18,10 @@ This document defines the architectural context, operational invariants, and com
 
 ### Cryptographic Invariants
 * **NVS Encryption:** Uses AES-XTS with a 64-byte key binary (32 bytes AES encryption key + 32 bytes XTS tweak key).
-* **Firmware Signing:** 
+* **Firmware Signing:**
   * ECDSA SECP256R1 signatures are generated over raw 32-byte SHA-256 digests.
   * Signature format is IEEE P1363 (raw $R \parallel S$, 64 bytes total), hex-encoded for server manifests.
-* **Silicon Locks:** 
+* **Silicon Locks:**
   * Burning eFuses is irreversible (One-Time Programmable).
   * Always verify `--dry-run` or configuration safety checks before executing on real silicon.
 

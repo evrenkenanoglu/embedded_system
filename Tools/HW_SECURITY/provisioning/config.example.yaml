@@ -19,7 +19,7 @@ paths:
 # 1. Generic NVS Partition Generation
 nvs_generation:
   target_partition: fctry
-  template_csv: '{embedded_system_dir}/Source/Scripts/provisioning/nvs/templates/nvs_ota_template.csv'
+  template_csv: '{embedded_system_dir}/Tools/HW_SECURITY/provisioning/nvs/templates/nvs_ota_template.csv'
   output_key_bin: '{output_dir}/nvs_keys.bin'
   output_encrypted_bin: '{output_dir}/nvs_encrypted.bin'
   template_variables:

@@ -64,6 +64,11 @@ def sign_digest_rsa_2048_local(digest: bytes, private_key_pem: bytes) -> bytes:
     )
 
 
+# Backward-compatible aliases for main.py and external consumers
+sign_digest_ec_secp256r1 = sign_digest_ec_secp256r1_local
+sign_digest_rsa_2048 = sign_digest_rsa_2048_local
+
+
 def sign_digest_aws_kms(digest: bytes, key_id: str) -> bytes:
     """Remotely signs 32-byte digest via AWS KMS and converts DER response to IEEE P1363."""
     try:

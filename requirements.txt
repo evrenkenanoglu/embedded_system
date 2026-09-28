@@ -25,17 +25,17 @@ cmake==4.4.3              # via -r requirements.in
 cmake-format==0.6.13      # via -r Tools/FORMATTER/requirements.in
 cmakelang==0.6.13         # via cmake-format
 colorama==0.4.6           # via bandit, click, loguru, pytest, rich-click, semgrep, tqdm, -r Source/Scripts/static_code_analysis/requirements.txt
-cryptography==50.0.1      # via authlib, esp-idf-nvs-partition-gen, esptool, joserfc, pyjwt, -r Source/Scripts/provisioning/requirements.txt, -r Tools/OTA/ota-server/requirements.txt, -r Tools/PKI/requirements.txt
+cryptography==50.0.1      # via authlib, esp-idf-nvs-partition-gen, esptool, joserfc, pyjwt, -r Tools/HW_SECURITY/provisioning/requirements.txt, -r Tools/OTA/ota-server/requirements.txt, -r Tools/PKI/requirements.txt
 defusedxml==0.7.1         # via nltk
 delegator-py==0.1.1       # via gitmanager
 distlib==0.4.3            # via virtualenv
 distro==1.9.0             # via ruyaml
 dparse==0.6.4             # via safety, safety-schemas
 esp-bool-parser==0.2.3    # via pytest-embedded-idf
-esp-idf-nvs-partition-gen==0.3.0  # via -r Source/Scripts/provisioning/requirements.txt
+esp-idf-nvs-partition-gen==0.3.0  # via -r Tools/HW_SECURITY/provisioning/requirements.txt
 esp-idf-panic-decoder==1.5.0  # via pytest-embedded-idf
 esp-pylib==1.1.4          # via esp-idf-nvs-partition-gen, esptool
-esptool==5.4.0            # via pytest-embedded-serial-esp, -r Source/Scripts/provisioning/requirements.txt, -r Tools/PKI/requirements.txt
+esptool==5.4.0            # via pytest-embedded-serial-esp, -r Tools/HW_SECURITY/provisioning/requirements.txt, -r Tools/PKI/requirements.txt
 exceptiongroup==1.2.2     # via semgrep
 face==26.0.1              # via glom
 fastapi==0.141.1          # via -r Tools/OTA/ota-server/requirements.txt
@@ -112,7 +112,7 @@ python-dotenv==1.2.3      # via pydantic-settings, uvicorn
 python-multipart==0.0.32  # via mcp, -r Tools/OTA/ota-server/requirements.txt
 pytokens==0.4.1           # via black
 pywin32==311 ; sys_platform == 'win32'  # via mcp, semgrep, -r requirements.in
-pyyaml==6.0.3             # via bandit, esptool, pre-commit, uvicorn, -r Source/Scripts/provisioning/requirements.txt, -r Source/Scripts/static_code_analysis/requirements.txt, -r Tools/FORMATTER/requirements.in, -r Tools/OTA/ota-server/requirements.txt
+pyyaml==6.0.3             # via bandit, esptool, pre-commit, uvicorn, -r Tools/HW_SECURITY/provisioning/requirements.txt, -r Source/Scripts/static_code_analysis/requirements.txt, -r Tools/FORMATTER/requirements.in, -r Tools/OTA/ota-server/requirements.txt
 reedsolo==1.7.0           # via esptool
 referencing==0.37.0       # via jsonschema, jsonschema-specifications
 regex==2026.9.3           # via nltk
