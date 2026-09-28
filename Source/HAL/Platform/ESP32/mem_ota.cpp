@@ -19,6 +19,7 @@
 #include <esp_image_format.h>
 #include <esp_log.h>
 #include <esp_partition.h>
+#include <esp_heap_caps.h>
 
 #if CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
 #include <esp_efuse.h>
@@ -246,6 +247,9 @@ void mem_ota::resetInternalState(bool skipPartitionReset)
     _headerValidated  = false;
     _isDelta          = false;
     _accumulatorCount = 0;
+    _writeOffset      = 0;
+    _erasedUpTo       = 0;
+    _isResumed        = false;
 }
 
 sys_error_t mem_ota::setBootPartition()
@@ -417,6 +421,30 @@ sys_error_t mem_ota::_beginFull(size_t imageSize)
 
 sys_error_t mem_ota::_beginDelta()
 {
+    constexpr size_t MIN_DELTA_HEAP_REQUIRED = 65536; // 64 KB minimum required for sliding dictionary
+
+    const size_t freeSpiram   = esp_heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    const size_t freeInternal = esp_heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+
+    SYS_LOG_I("Delta heap audit: PSRAM free: %zu bytes, Internal SRAM free: %zu bytes", freeSpiram, freeInternal);
+
+    /// Fallback assertion: Ensure sufficient heap exists before engaging decompressor
+    const bool hasEnoughMemory = (freeSpiram >= MIN_DELTA_HEAP_REQUIRED) || (freeInternal >= MIN_DELTA_HEAP_REQUIRED);
+    RETURN_IF_ERROR(
+        (!hasEnoughMemory),                                                                               // Expression
+        ERROR_OUT_OF_MEMORY,                                                                              // Error code
+        SYS_LOG_W("Insufficient heap for delta decompression (< %zu bytes). Request full update fallback", MIN_DELTA_HEAP_REQUIRED) // Error message
+    );
+
+    if (freeSpiram >= MIN_DELTA_HEAP_REQUIRED)
+    {
+        SYS_LOG_I("Prioritizing external PSRAM for delta decompression scratch buffers.");
+    }
+    else
+    {
+        SYS_LOG_W("External PSRAM unavailable or exhausted; falling back to internal SRAM for delta update.");
+    }
+
     /// Begin standard underlying OTA sequence first (OTA_SIZE_UNKNOWN works for delta mode)
     esp_err_t err = esp_ota_begin(_updatePartition, OTA_SIZE_UNKNOWN, &_updateHandle);
 
@@ -433,11 +461,13 @@ sys_error_t mem_ota::_beginDelta()
 
     _deltaOtaHandle = esp_delta_ota_init(&cfg);
 
-    RETURN_IF_ERROR((_deltaOtaHandle == nullptr),                                 // Expression
-                    ERROR_FAIL,                                                   // Error code
-                    SYS_LOG_E("Failed to initialize esp_delta_ota decompressor"), // Error message
-                    esp_ota_abort(_updateHandle);                                 // Cleanup
-                    _updateHandle = 0);
+    RETURN_IF_ERROR(
+        (_deltaOtaHandle == nullptr),                                 // Expression
+        ERROR_FAIL,                                                   // Error code
+        SYS_LOG_E("Failed to initialize esp_delta_ota decompressor"), // Error message
+        esp_ota_abort(_updateHandle);                                 // Cleanup
+        _updateHandle = 0                                             // Cleanup
+    );
 
     return ERROR_SUCCESS;
 }
@@ -471,7 +501,11 @@ sys_error_t mem_ota::_writeFull(const uint8_t* data, size_t length)
 
     if (!_headerValidated)
     {
-        RETURN_ON_ERROR(_validateIncomingImageHeader(data, length), abort(); SYS_LOG_E("Incoming image header validation failed, aborting update"));
+        RETURN_ON_ERROR(
+            _validateIncomingImageHeader(data, length),                                  // Expression
+            abort();                                                                     // Cleanup
+            SYS_LOG_E("Incoming image header validation failed, aborting update")        // Error message
+        );
         _headerValidated = true;
     }
 
