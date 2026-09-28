@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from src.core.config import settings
-from src.core.security import get_signing_certificate_pem
+from src.core.security import get_signing_certificate_pem, verify_certificate_status
+from src.core.notifications import dispatch_rollback_alert
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -133,24 +134,36 @@ def log_telemetry(report: TelemetryReport):
     with open(log_file, "w") as f:
         json.dump(device_history, f, indent=2)
 
-
 def evaluate_auto_rollback(target_version: str):
-    """Inspects all telemetry events for a firmware version to trigger auto-rollback on failure."""
+    """
+    Inspects telemetry reports within a sliding time window (trailing SLIDING_WINDOW_SECONDS)
+    to calculate failure rates and trigger automatic emergency rollback if thresholds are breached.
+    """
     if not settings.TELEMETRY_LOG_DIR.exists():
         return
+
+    current_time = int(time.time())
+    window_cutoff = current_time - settings.SLIDING_WINDOW_SECONDS
 
     successes = 0
     failures = 0
 
+    # Traverse all client device telemetry history files
     for file_path in settings.TELEMETRY_LOG_DIR.glob("device_*.json"):
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 history = json.load(f)
                 for entry in history:
-                    if entry.get("target_version") == target_version:
-                        if entry.get("status") == "success":
+                    # Filter strictly by target version and sliding time window
+                    entry_timestamp = entry.get("timestamp", 0)
+                    if (
+                        entry.get("target_version") == target_version
+                        and entry_timestamp >= window_cutoff
+                    ):
+                        status_val = entry.get("status", "")
+                        if status_val == "success":
                             successes += 1
-                        elif entry.get("status") == "failure":
+                        elif status_val in ["failure", "rollback"]:
                             failures += 1
         except Exception:
             continue
@@ -159,21 +172,29 @@ def evaluate_auto_rollback(target_version: str):
     if total_reports < settings.MIN_STATUS_REPORTS_FOR_ROLLBACK:
         return
 
-    failure_rate = (failures / total_reports) * 100
+    failure_rate = (failures / total_reports) * 100.0
     if failure_rate >= settings.MAX_FAILURE_RATE_PERCENT:
         logger.critical(
-            f"Auto-Rollback Triggered! Version {target_version} has failed {failures}/{total_reports} "
-            f"attempts ({failure_rate:.1f}% failure rate, maximum allowed is {settings.MAX_FAILURE_RATE_PERCENT}%)."
+            f"[ROLLBACK TRIGGER] Version '{target_version}' exceeded failure threshold in trailing "
+            f"{settings.SLIDING_WINDOW_SECONDS}s: {failures}/{total_reports} attempts "
+            f"({failure_rate:.1f}% >= {settings.MAX_FAILURE_RATE_PERCENT}% allowed)."
         )
-        _soft_rollback_version_in_manifest(target_version)
+        _soft_rollback_version_in_manifest(
+            target_version, failure_rate, failures, total_reports
+        )
 
 
-def _soft_rollback_version_in_manifest(target_version: str):
-    """Soft rolls back the firmware version from active status in the database."""
+def _soft_rollback_version_in_manifest(
+    target_version: str,
+    failure_rate: float = 0.0,
+    failed_count: int = 0,
+    total_count: int = 0,
+):
+    """Deactivates a failed release version in manifest.json and dispatches an incident alert."""
     if not settings.MANIFEST_FILE.exists():
         return
 
-    with open(settings.MANIFEST_FILE, "r") as f:
+    with open(settings.MANIFEST_FILE, "r", encoding="utf-8") as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError:
@@ -184,12 +205,14 @@ def _soft_rollback_version_in_manifest(target_version: str):
         target_update["status"] = "soft-rolled-back"
         target_channel = target_update.get("channel", settings.DEFAULT_CHANNEL)
 
+        # Filter remaining active versions for this channel
         remaining_versions_in_channel = [
             v
             for v, info in data.get("updates", {}).items()
             if info.get("channel") == target_channel and info.get("status") == "active"
         ]
 
+        reverted_version = ""
         if remaining_versions_in_channel:
 
             def semver_key(v):
@@ -199,16 +222,30 @@ def _soft_rollback_version_in_manifest(target_version: str):
                     return [0]
 
             sorted_versions = sorted(remaining_versions_in_channel, key=semver_key)
-            data["channels"][target_channel]["latest_version"] = sorted_versions[-1]
+            reverted_version = sorted_versions[-1]
+            data["channels"][target_channel]["latest_version"] = reverted_version
         else:
             data["channels"][target_channel]["latest_version"] = ""
 
+        # Atomic manifest replacement
         temp_path = settings.MANIFEST_FILE.with_suffix(".tmp")
-        with open(temp_path, "w") as f:
+        with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         os.replace(temp_path, settings.MANIFEST_FILE)
+
         logger.warning(
-            f"Version {target_version} successfully deactivated in channel {target_channel}."
+            f"[ROLLBACK APPLIED] Version '{target_version}' deactivated in channel '{target_channel}'. "
+            f"Active version reverted to: '{reverted_version or 'NONE'}'."
+        )
+
+        # Dispatch outbound incident notification
+        dispatch_rollback_alert(
+            target_version=target_version,
+            channel=target_channel,
+            failure_rate=failure_rate,
+            failed_count=failed_count,
+            total_count=total_count,
+            reverted_to=reverted_version,
         )
 
 
@@ -324,6 +361,18 @@ async def ota_check(
         patches_map = update_info.get("patches", {})
         signing_cert_pem = get_signing_certificate_pem()
 
+        # Enforce server-side certificate revocation and expiration boundary check
+        is_cert_valid, cert_reason = verify_certificate_status(signing_cert_pem)
+        if not is_cert_valid:
+            logger.critical(
+                f"[SECURITY REVOCATION] Refusing update for version '{latest_channel_version}'. "
+                f"Signing certificate validation failed: {cert_reason}"
+            )
+            return {
+                "update_available": False,
+                "message": f"Update distribution halted: Developer certificate revoked or invalid ({cert_reason}).",
+            }
+
         if client_version in patches_map:
             logger.info(
                 f"Target delta patch matched: Client version {client_version} -> {latest_channel_version}"
@@ -381,7 +430,6 @@ async def ota_check(
         }
 
     return {"update_available": False, "message": "Firmware is already up-to-date."}
-
 
 @router.get("/download/{filename:path}")
 async def ota_download(

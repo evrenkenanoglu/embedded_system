@@ -23,6 +23,8 @@ from factory.provision_hardware import (
     protect_efuse_key,
     burn_efuse_register,
     flash_dynamic_layout,
+    wait_for_device_connection,
+    wait_for_device_disconnection,
 )
 from nvs.partition_nvs_generator import (
     generate_nvs_keys,
@@ -370,6 +372,11 @@ def main() -> int:
         default="all",
         help="Target step",
     )
+    parser.add_argument(
+        "--continuous",
+        action="store_true",
+        help="Assembly-line batch mode: continuously loops awaiting device insertion",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Force dry-run mode")
     args = parser.parse_args()
 
@@ -397,15 +404,40 @@ def main() -> int:
             bootloader_offset=boot_offset,
         )
 
+        # 1. Run NVS generation once per release/fixture session
         if args.step in ["all", "nvs"]:
             step_generate_nvs(config, pt_parser)
 
+        # 2. Run release code-signing once per release/fixture session
         if args.step in ["all", "sign"]:
             step_sign_release(config)
 
+        # 3. Silicon provisioning: single-shot or continuous assembly-line loop
         if args.step in ["all", "provision"]:
             override_dry_run = True if args.dry_run else None
-            step_provision_hardware(config, pt_parser, override_dry_run)
+
+            if args.continuous:
+                print("\n" + "=" * 60)
+                print(" STARTING CONTINUOUS FACTORY PROVISIONING FIXTURE")
+                print("=" * 60)
+                hw_cfg = config.get("hardware", {})
+                port = hw_cfg.get("port") or hw_cfg.get("default_port", "/dev/ttyUSB0")
+                baud = int(hw_cfg.get("baud") or hw_cfg.get("flash_baud", 460800))
+
+                while True:
+                    try:
+                        mac = wait_for_device_connection(port, baud)
+                        step_provision_hardware(config, pt_parser, override_dry_run)
+                        print(f"\n[PASS] Unit {mac} successfully provisioned and locked.")
+                        wait_for_device_disconnection(port)
+                    except KeyboardInterrupt:
+                        print("\n[STOPPED] Continuous provisioning terminated by operator.")
+                        break
+                    except Exception as exc:
+                        print(f"\n[FAIL] Provisioning failed on unit: {exc}")
+                        wait_for_device_disconnection(port)
+            else:
+                step_provision_hardware(config, pt_parser, override_dry_run)
 
         return 0
 

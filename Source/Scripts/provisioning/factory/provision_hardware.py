@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, Any, List
+import time
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -237,3 +238,50 @@ def flash_dynamic_layout(
     ] + flash_args
 
     run_command(cmd, "Flashing dynamic partition layout", dry_run)
+
+
+def wait_for_device_connection(port: str, baud: int, timeout_sec: float = 60.0) -> str:
+    """
+    Polls the target serial port until an ESP32-S3 responds to read_mac queries.
+
+    :param port: Serial port path.
+    :param baud: Flashing communication baud rate.
+    :param timeout_sec: Maximum wait duration in seconds before timing out.
+    :return: Formatted device MAC address.
+    """
+    print(f"\n[FIXTURE READY] Connect target device to '{port}'...")
+    start_time = time.time()
+
+    while time.time() - start_time < timeout_sec:
+        try:
+            cmd = [sys.executable, "-m", "esptool", "--port", port, "--baud", str(baud), "--connect-attempts", "1", "read_mac"]
+            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if res.returncode == 0:
+                for line in res.stdout.splitlines():
+                    if "MAC:" in line:
+                        mac = line.split("MAC:")[-1].strip().replace(":", "-").upper()
+                        print(f"[*] Detected target device! MAC: {mac}")
+                        return mac
+        except Exception:
+            pass
+
+        time.sleep(0.5)
+
+    raise TimeoutError(f"No device connected to {port} within {timeout_sec} seconds.")
+
+
+def wait_for_device_disconnection(port: str, check_interval_sec: float = 0.5) -> None:
+    """
+    Polls until the operator unplugs the current device from the fixture socket.
+    """
+    print(f"\n[DISCONNECT REQUIRED] Unplug device from '{port}' to proceed...")
+    while True:
+        try:
+            cmd = [sys.executable, "-m", "esptool", "--port", port, "--connect-attempts", "1", "chip_id"]
+            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if res.returncode != 0:
+                print("[*] Device disconnected. Ready for next unit.\n")
+                break
+        except Exception:
+            break
+        time.sleep(check_interval_sec)

@@ -2,13 +2,16 @@
 """
 @file       hsm_sign_digest.py
 @brief      Generates SHA-256 digests and ECDSA SECP256R1 / RSA signatures for firmware binaries.
-            Supports detached two-stage HSM/KMS workflows and direct local release signing.
+            Supports detached offline HSM workflows, remote Cloud KMS (AWS KMS, HashiCorp Vault),
+            and local release signing.
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
 import argparse
+import base64
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -34,19 +37,24 @@ def compute_sha256(file_path: Path) -> bytes:
     return sha256.digest()
 
 
-def sign_digest_ec_secp256r1(digest: bytes, private_key_pem: bytes) -> bytes:
-    """Signs a 32-byte digest using ECDSA SECP256R1 and returns raw IEEE P1363 (R || S) format (64 bytes)."""
+def der_to_ieee_p1363(der_sig: bytes) -> bytes:
+    """Decodes ASN.1 DER ECDSA signature and returns raw IEEE P1363 (R || S) format (64 bytes)."""
+    r, s = utils.decode_dss_signature(der_sig)
+    return r.to_bytes(32, byteorder="big") + s.to_bytes(32, byteorder="big")
+
+
+def sign_digest_ec_secp256r1_local(digest: bytes, private_key_pem: bytes) -> bytes:
+    """Signs a 32-byte digest using a local ECDSA SECP256R1 private key."""
     private_key = serialization.load_pem_private_key(private_key_pem, password=None)
     if not isinstance(private_key, ec.EllipticCurvePrivateKey):
         raise ValueError("Provided key is not an Elliptic Curve private key.")
 
     der_signature = private_key.sign(digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))
-    r, s = utils.decode_dss_signature(der_signature)
-    return r.to_bytes(32, byteorder="big") + s.to_bytes(32, byteorder="big")
+    return der_to_ieee_p1363(der_signature)
 
 
-def sign_digest_rsa_2048(digest: bytes, private_key_pem: bytes) -> bytes:
-    """Signs a 32-byte digest using RSA PKCS#1 v1.5 with SHA-256."""
+def sign_digest_rsa_2048_local(digest: bytes, private_key_pem: bytes) -> bytes:
+    """Signs a 32-byte digest using a local RSA private key."""
     private_key = serialization.load_pem_private_key(private_key_pem, password=None)
     if not isinstance(private_key, rsa.RSAPrivateKey):
         raise ValueError("Provided key is not an RSA private key.")
@@ -54,6 +62,54 @@ def sign_digest_rsa_2048(digest: bytes, private_key_pem: bytes) -> bytes:
     return private_key.sign(
         digest, padding.PKCS1v15(), utils.Prehashed(hashes.SHA256())
     )
+
+
+def sign_digest_aws_kms(digest: bytes, key_id: str) -> bytes:
+    """Remotely signs 32-byte digest via AWS KMS and converts DER response to IEEE P1363."""
+    try:
+        import boto3
+    except ImportError:
+        print(
+            "[ERROR] 'boto3' is required for AWS KMS signing. Run: pip install boto3",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    kms_client = boto3.client("kms")
+    response = kms_client.sign(
+        KeyId=key_id,
+        Message=digest,
+        MessageType="DIGEST",
+        SigningAlgorithm="ECDSA_SHA_256",
+    )
+
+    der_sig = response["Signature"]
+    return der_to_ieee_p1363(der_sig)
+
+
+def sign_digest_vault(digest: bytes, vault_url: str, token: str, key_name: str) -> bytes:
+    """Remotely signs 32-byte digest via HashiCorp Vault Transit Secrets Engine."""
+    try:
+        import requests
+    except ImportError:
+        print(
+            "[ERROR] 'requests' is required for Vault signing. Run: pip install requests",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    endpoint = f"{vault_url.rstrip('/')}/v1/transit/sign/{key_name}/sha2-256"
+    headers = {"X-Vault-Token": token}
+    payload = {"input": base64.b64encode(digest).decode("utf-8")}
+
+    res = requests.post(endpoint, json=payload, headers=headers, timeout=10.0)
+    if res.status_code != 200:
+        raise RuntimeError(f"Vault signing failed: HTTP {res.status_code} - {res.text}")
+
+    vault_signature_str = res.json()["data"]["signature"]
+    raw_b64 = vault_signature_str.split(":")[-1]
+    der_sig = base64.b64decode(raw_b64)
+    return der_to_ieee_p1363(der_sig)
 
 
 def extract_cert_pem(cert_path: Path) -> str:
@@ -66,13 +122,13 @@ def extract_cert_pem(cert_path: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Two-stage HSM & local code-signing orchestrator for ESP32 OTA framework."
+        description="Two-stage HSM, Cloud KMS, and local code-signing orchestrator for ESP32 OTA framework."
     )
     parser.add_argument(
         "--stage",
         choices=["all", "digest", "assemble"],
         default="all",
-        help="Signing pipeline stage: 'digest' (export hash for HSM), 'assemble' (inject detached signature), 'all' (local sign)",
+        help="Signing pipeline stage: 'digest' (export hash for HSM), 'assemble' (inject detached signature), 'all' (sign now)",
     )
     parser.add_argument(
         "--binary",
@@ -86,7 +142,7 @@ def main() -> int:
         "-k",
         type=Path,
         required=False,
-        help="Path to signing private key PEM file (required for 'all')",
+        help="Path to local signing private key PEM file (required for local 'all' signing)",
     )
     parser.add_argument(
         "--cert",
@@ -101,6 +157,34 @@ def main() -> int:
         default="ec-secp256r1",
         help="Cryptographic key algorithm",
     )
+
+    # Cloud KMS / Vault Integration
+    parser.add_argument(
+        "--kms-provider",
+        choices=["none", "aws-kms", "vault"],
+        default="none",
+        help="Remote hardware signing provider",
+    )
+    parser.add_argument(
+        "--kms-key-id",
+        type=str,
+        default="",
+        help="AWS KMS Key ID / ARN / Alias or Vault Transit Key Name",
+    )
+    parser.add_argument(
+        "--vault-url",
+        type=str,
+        default=os.environ.get("VAULT_ADDR", "http://127.0.0.1:8200"),
+        help="HashiCorp Vault URL",
+    )
+    parser.add_argument(
+        "--vault-token",
+        type=str,
+        default=os.environ.get("VAULT_TOKEN", ""),
+        help="HashiCorp Vault Access Token",
+    )
+
+    # Output paths
     parser.add_argument(
         "--out-digest",
         type=Path,
@@ -136,7 +220,7 @@ def main() -> int:
     digest_hex = digest.hex()
 
     # --------------------------------------------------------------------------
-    # STAGE 1: Export SHA-256 Digest for Detached Offline HSM Signing
+    # STAGE 1: Export SHA-256 Digest for Air-Gapped Offline Signing
     # --------------------------------------------------------------------------
     if args.stage == "digest":
         target_out_digest = args.out_digest or args.binary.with_suffix(".digest.bin")
@@ -153,7 +237,7 @@ def main() -> int:
         print(f"Digest Binary  : {target_out_digest}")
         print("==================================================")
         print(
-            f"[OK] Digest binary exported. Forward '{target_out_digest}' to HSM for signing."
+            f"[OK] Digest binary exported. Forward '{target_out_digest}' to HSM/KMS for signing."
         )
         return 0
 
@@ -179,24 +263,49 @@ def main() -> int:
             return 1
 
     # --------------------------------------------------------------------------
-    # STAGE 3: Local Private Key Signing (Standard Development / CI)
+    # STAGE 3: Execute Signing (Remote KMS or Local Key)
     # --------------------------------------------------------------------------
     elif args.stage == "all":
-        if not args.key or not args.key.exists():
-            print(
-                f"[ERROR] Signing private key file (--key) required for local signing.",
-                file=sys.stderr,
-            )
-            return 1
-
-        with open(args.key, "rb") as f:
-            key_bytes = f.read()
-
         try:
-            if args.key_type == "ec-secp256r1":
-                raw_sig = sign_digest_ec_secp256r1(digest, key_bytes)
+            if args.kms_provider == "aws-kms":
+                if not args.kms_key_id:
+                    print(
+                        "[ERROR] --kms-key-id required when using --kms-provider aws-kms",
+                        file=sys.stderr,
+                    )
+                    return 1
+                print(f"[*] Dispatching digest to AWS KMS key: {args.kms_key_id}")
+                raw_sig = sign_digest_aws_kms(digest, args.kms_key_id)
+
+            elif args.kms_provider == "vault":
+                if not args.kms_key_id or not args.vault_token:
+                    print(
+                        "[ERROR] --kms-key-id and VAULT_TOKEN required when using --kms-provider vault",
+                        file=sys.stderr,
+                    )
+                    return 1
+                print(f"[*] Dispatching digest to HashiCorp Vault key: {args.kms_key_id}")
+                raw_sig = sign_digest_vault(
+                    digest, args.vault_url, args.vault_token, args.kms_key_id
+                )
+
             else:
-                raw_sig = sign_digest_rsa_2048(digest, key_bytes)
+                # Local private key signing fallback
+                if not args.key or not args.key.exists():
+                    print(
+                        "[ERROR] Local signing private key file (--key) required.",
+                        file=sys.stderr,
+                    )
+                    return 1
+
+                with open(args.key, "rb") as f:
+                    key_bytes = f.read()
+
+                if args.key_type == "ec-secp256r1":
+                    raw_sig = sign_digest_ec_secp256r1_local(digest, key_bytes)
+                else:
+                    raw_sig = sign_digest_rsa_2048_local(digest, key_bytes)
+
         except Exception as e:
             print(f"[ERROR] Signature generation failed: {e}", file=sys.stderr)
             return 1
@@ -209,6 +318,7 @@ def main() -> int:
     print(f"Target Binary    : {args.binary}")
     print(f"File Size        : {file_size} bytes")
     print(f"Algorithm        : {args.key_type.upper()}")
+    print(f"Provider         : {args.kms_provider.upper() if args.stage == 'all' else 'DETACHED'}")
     print(f"SHA-256 Digest   : {digest_hex}")
     print(f"Target Signature : {sig_hex}")
     print("==================================================")

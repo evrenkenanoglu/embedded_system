@@ -129,6 +129,11 @@ class Settings:
     _srv_cfg = _certs.get("server", {})
     _sign_cfg = _certs.get("signing", {})
 
+    CRL_FILE: Path = (CERT_DIR / _certs.get("crl_file", "revoked.crl")).resolve()
+    REVOKED_SERIALS: List[str] = [
+        str(s).strip().upper() for s in _certs.get("revoked_serials", [])
+    ]
+
     CA_COMMON_NAME: str = _ca_cfg.get("common_name", "MasterRootCA")
     CA_KEY_TYPE: str = _ca_cfg.get("key_type", "ec-secp256r1")
     CA_KEY_SIZE: int = int(_ca_cfg.get("key_size", 256))
@@ -185,6 +190,11 @@ class Settings:
     MIN_STATUS_REPORTS_FOR_ROLLBACK: int = int(
         _rollback.get("min_reports_for_rollback", 5)
     )
+    SLIDING_WINDOW_SECONDS: int = int(_rollback.get("sliding_window_seconds", 3600))
+    WEBHOOK_URL: str = str(_rollback.get("webhook_url", ""))
+
+
+
 
 
 settings = Settings()
