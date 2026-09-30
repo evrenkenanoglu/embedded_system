@@ -423,8 +423,8 @@ sys_error_t mem_ota::_beginDelta()
 {
     constexpr size_t MIN_DELTA_HEAP_REQUIRED = 65536; // 64 KB minimum required for sliding dictionary
 
-    const size_t freeSpiram   = esp_heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-    const size_t freeInternal = esp_heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    const size_t freeSpiram   = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    const size_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
     SYS_LOG_I("Delta heap audit: PSRAM free: %zu bytes, Internal SRAM free: %zu bytes", freeSpiram, freeInternal);
 
@@ -694,12 +694,6 @@ esp_err_t mem_ota::_handleWriteTarget(const uint8_t* buf_p, size_t size)
 
 sys_error_t mem_ota::getRunningImageState(OtaImageState& outState)
 {
-    RETURN_IF_ERROR(
-        (!_isInitialized),                                       // Expression
-        ERROR_NOT_INITIALIZED,                                   // Error code
-        SYS_LOG_E("Cannot query state: OTA HAL not initialized") // Error message
-    );
-
     const esp_partition_t* running = esp_ota_get_running_partition();
     RETURN_IF_ERROR(
         (running == nullptr),                                   // Expression

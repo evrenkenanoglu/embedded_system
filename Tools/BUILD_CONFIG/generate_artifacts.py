@@ -56,7 +56,7 @@ def generate_partitions_csv(cfg: Dict[str, Any], out_path: Path) -> Path:
 
 
 def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
-    """Generates Kconfig hardware overlay from SSoT hardware definitions."""
+    """Generates Kconfig hardware overlay from SSoT hardware and security definitions."""
     hw = cfg.get("hardware", {})
     sec = cfg.get("security", {})
     layout = cfg.get("flash_layout", {})
@@ -74,6 +74,9 @@ def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
 
     hsvn = sec.get("hsvn", cfg.get("project", {}).get("version_number", 1))
 
+    # Dynamically resolve Secure Boot V2 signature scheme from SSoT
+    sb_scheme = str(sec.get("secure_boot_scheme", "rsa3072")).lower()
+
     lines = [
         "# ESP32 Hardware & Security Overlay (Auto-generated from configs/config_project.yaml)",
         f"CONFIG_ESPTOOLPY_FLASHSIZE_{flash_size}=y",
@@ -90,9 +93,19 @@ def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
         f"CONFIG_PARTITION_TABLE_OFFSET={pt_offset}",
         "",
         "# Security Hardware Keys & Anti-Rollback (Resolved from SSoT)",
+    ]
+
+    if "ecdsa" in sb_scheme:
+        lines.append("CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME=y")
+        lines.append("# CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME is not set")
+    else:
+        lines.append("CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y")
+        lines.append("# CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME is not set")
+
+    lines.extend([
         f'CONFIG_SECURE_BOOT_SIGNING_KEY="{signing_key}"',
         f"CONFIG_BOOTLOADER_APP_SECURE_VERSION={hsvn}",
-    ]
+    ])
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

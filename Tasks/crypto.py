@@ -1,9 +1,35 @@
+"""
+@file       crypto.py
+@brief      Invoke tasks for PKI key generation, firmware code-signing, and silicon provisioning.
+@copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+"""
+
+import os
 from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 from core.config_resolver import resolve_to_file
 
 VALID_PROVISION_STEPS = ("all", "nvs", "sign", "provision")
+
+
+def _get_execution_env() -> dict:
+    """Constructs environment dictionary with workspace, task-runner, and embedded_system on PYTHONPATH."""
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
+    task_runner_dir = workspace_root / "Tools" / "task-runner"
+    embedded_sys_dir = Path(CONFIG.paths.embedded_system_dir).resolve()
+
+    execution_env = dict(CONFIG.env or {})
+    env_paths = [str(workspace_root), str(task_runner_dir), str(embedded_sys_dir)]
+
+    existing_pythonpath = execution_env.get("PYTHONPATH") or os.environ.get(
+        "PYTHONPATH", ""
+    )
+    if existing_pythonpath:
+        env_paths.append(existing_pythonpath)
+
+    execution_env["PYTHONPATH"] = os.pathsep.join(env_paths)
+    return execution_env
 
 
 @task(
@@ -33,7 +59,7 @@ def generate_pki(
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+        env=_get_execution_env(),
     )
 
     cmd = f'python "{script_path}" --config "{resolved_config_file}"'
@@ -44,7 +70,8 @@ def generate_pki(
 @task(
     help={
         "step": f"Target provisioning step to execute: {', '.join(VALID_PROVISION_STEPS)} (default: 'all')",
-        "simulate": "Pass --dry-run to main.py",
+        "simulate": "Pass --dry-run to main.py (simulates execution without burning silicon)",
+        "continuous": "Run in automated continuous fixture loop awaiting device insertion",
         "dry_run": "Print command line without executing",
         "config": "Path to custom provisioning config file",
         "opts": "Forward additional arbitrary arguments",
@@ -54,6 +81,7 @@ def provision_hardware(
     c: Context,
     step: str = "all",
     simulate: bool = False,
+    continuous: bool = False,
     dry_run: bool = False,
     config: str = "",
     opts: str = "",
@@ -78,12 +106,14 @@ def provision_hardware(
 
     serializer = CommandSerializer(
         prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+        env=_get_execution_env(),
     )
 
     cmd = f'python "{script_path}" --step {step} --config "{resolved_config_file}"'
     if simulate:
         cmd += " --dry-run"
+    if continuous:
+        cmd += " --continuous"
 
     serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
@@ -120,6 +150,7 @@ def provision_sign(
 @task(
     help={
         "simulate": "Simulate flashing without burning eFuses or writing flash",
+        "continuous": "Run in automated continuous fixture loop awaiting device insertion",
         "dry_run": "Print command line without executing",
         "config": "Config override",
         "opts": "Additional options",
@@ -128,6 +159,7 @@ def provision_sign(
 def provision_flash(
     c: Context,
     simulate: bool = False,
+    continuous: bool = False,
     dry_run: bool = False,
     config: str = "",
     opts: str = "",
@@ -137,6 +169,7 @@ def provision_flash(
         c,
         step="provision",
         simulate=simulate,
+        continuous=continuous,
         dry_run=dry_run,
         config=config,
         opts=opts,
