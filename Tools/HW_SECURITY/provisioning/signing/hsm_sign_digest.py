@@ -92,7 +92,9 @@ def sign_digest_aws_kms(digest: bytes, key_id: str) -> bytes:
     return der_to_ieee_p1363(der_sig)
 
 
-def sign_digest_vault(digest: bytes, vault_url: str, token: str, key_name: str) -> bytes:
+def sign_digest_vault(
+    digest: bytes, vault_url: str, token: str, key_name: str
+) -> bytes:
     """Remotely signs 32-byte digest via HashiCorp Vault Transit Secrets Engine."""
     try:
         import requests
@@ -289,7 +291,9 @@ def main() -> int:
                         file=sys.stderr,
                     )
                     return 1
-                print(f"[*] Dispatching digest to HashiCorp Vault key: {args.kms_key_id}")
+                print(
+                    f"[*] Dispatching digest to HashiCorp Vault key: {args.kms_key_id}"
+                )
                 raw_sig = sign_digest_vault(
                     digest, args.vault_url, args.vault_token, args.kms_key_id
                 )
@@ -323,7 +327,9 @@ def main() -> int:
     print(f"Target Binary    : {args.binary}")
     print(f"File Size        : {file_size} bytes")
     print(f"Algorithm        : {args.key_type.upper()}")
-    print(f"Provider         : {args.kms_provider.upper() if args.stage == 'all' else 'DETACHED'}")
+    print(
+        f"Provider         : {args.kms_provider.upper() if args.stage == 'all' else 'DETACHED'}"
+    )
     print(f"SHA-256 Digest   : {digest_hex}")
     print(f"Target Signature : {sig_hex}")
     print("==================================================")

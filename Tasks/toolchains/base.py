@@ -268,6 +268,7 @@ class BaseToolchain(IToolchain):
 
     def is_virtual_mode(self) -> bool:
         return self._virtual_mode
+
     # --- ABSTRACT HOOKS ---
 
     @abstractmethod

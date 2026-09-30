@@ -99,15 +99,34 @@ def interactive_menu(config_path: Path, project_root: Optional[Path] = None) -> 
         choice = input("\nSelect option [0-7]: ").strip()
 
         if choice == "1":
-            run_main(config_path, "all", target_mode="virtual", dry_run=True, project_root=project_root)
+            run_main(
+                config_path,
+                "all",
+                target_mode="virtual",
+                dry_run=True,
+                project_root=project_root,
+            )
             break
         elif choice == "2":
             pwd = input("Enter burn password for hardware flash: ").strip()
-            run_main(config_path, "all", target_mode="hardware", burn_password=pwd, project_root=project_root)
+            run_main(
+                config_path,
+                "all",
+                target_mode="hardware",
+                burn_password=pwd,
+                project_root=project_root,
+            )
             break
         elif choice == "3":
             pwd = input("Enter burn password for hardware flash: ").strip()
-            run_main(config_path, "all", target_mode="hardware", burn_password=pwd, continuous=True, project_root=project_root)
+            run_main(
+                config_path,
+                "all",
+                target_mode="hardware",
+                burn_password=pwd,
+                continuous=True,
+                project_root=project_root,
+            )
             break
         elif choice == "4":
             run_main(config_path, "nvs", project_root=project_root)
@@ -116,11 +135,23 @@ def interactive_menu(config_path: Path, project_root: Optional[Path] = None) -> 
             run_main(config_path, "sign", project_root=project_root)
             break
         elif choice == "6":
-            run_main(config_path, "provision", target_mode="virtual", dry_run=True, project_root=project_root)
+            run_main(
+                config_path,
+                "provision",
+                target_mode="virtual",
+                dry_run=True,
+                project_root=project_root,
+            )
             break
         elif choice == "7":
             pwd = input("Enter burn password for hardware flash: ").strip()
-            run_main(config_path, "provision", target_mode="hardware", burn_password=pwd, project_root=project_root)
+            run_main(
+                config_path,
+                "provision",
+                target_mode="hardware",
+                burn_password=pwd,
+                project_root=project_root,
+            )
             break
         elif choice == "0":
             print("\nExiting.")

@@ -17,15 +17,24 @@ def get_toolchain(config: Any = None) -> BaseToolchain:
     if cfg is None:
         try:
             from core import CONFIG
+
             cfg = CONFIG
         except ImportError:
-            raise ValueError("No configuration provided and 'core.CONFIG' could not be resolved.")
+            raise ValueError(
+                "No configuration provided and 'core.CONFIG' could not be resolved."
+            )
 
     # Support dictionary-based or object-based config schemas
     if isinstance(cfg, dict):
-        toolchain_type = cfg.get("toolchain") or cfg.get("target_platform") or cfg.get("target", {}).get("chip", "esp-idf")
+        toolchain_type = (
+            cfg.get("toolchain")
+            or cfg.get("target_platform")
+            or cfg.get("target", {}).get("chip", "esp-idf")
+        )
     else:
-        toolchain_type = getattr(cfg, "toolchain", None) or getattr(cfg, "target_platform", "esp-idf")
+        toolchain_type = getattr(cfg, "toolchain", None) or getattr(
+            cfg, "target_platform", "esp-idf"
+        )
 
     toolchain_type = str(toolchain_type).lower()
 

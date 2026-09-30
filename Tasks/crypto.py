@@ -115,8 +115,8 @@ def provision_hardware(
 
     cmd = (
         f'python "{script_path}" '
-        f'--step {step} '
-        f'--target-mode {target_mode} '
+        f"--step {step} "
+        f"--target-mode {target_mode} "
         f'--config "{resolved_config_file}"'
     )
     if simulate:

@@ -241,7 +241,16 @@ class EspIdfToolchain(BaseToolchain):
 
     def _read_device_id(self, c: Optional[Context], port: str, baud: int) -> str:
         baud_rate = baud or int(self._cfg("flash_baudrate", 460800))
-        cmd = [sys.executable, "-m", "esptool", "--port", port, "--baud", str(baud_rate), "read_mac"]
+        cmd = [
+            sys.executable,
+            "-m",
+            "esptool",
+            "--port",
+            port,
+            "--baud",
+            str(baud_rate),
+            "read_mac",
+        ]
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode == 0:
             for line in res.stdout.splitlines():
@@ -251,7 +260,9 @@ class EspIdfToolchain(BaseToolchain):
         # Handle Secure Download Mode gracefully (ROM blocks read_mac)
         combined_output = (res.stderr or "") + (res.stdout or "")
         if "Secure Download Mode" in combined_output:
-            print("[*] Device is in Secure Download Mode (eFuses/MAC read-protected by silicon ROM).")
+            print(
+                "[*] Device is in Secure Download Mode (eFuses/MAC read-protected by silicon ROM)."
+            )
             return "SECURE_LOCKED_DEVICE"
 
         return "UNKNOWN_DEVICE"
@@ -259,11 +270,15 @@ class EspIdfToolchain(BaseToolchain):
     def _get_virt_flags(self) -> str:
         """Returns virtual eFuse CLI flags when running in software simulation mode."""
         chip = getattr(self, "chip", "esp32s3")
-        if getattr(self, "_virtual_mode", False) and getattr(self, "_virtual_state_file", None):
+        if getattr(self, "_virtual_mode", False) and getattr(
+            self, "_virtual_state_file", None
+        ):
             return f'--chip {chip} --virt --path-efuse-file "{self._virtual_state_file.resolve()}"'
-        return f'--chip {chip}'
+        return f"--chip {chip}"
 
-    def _is_secure_download_mode(self, c: Optional[Context], port: str, baud: int) -> bool:
+    def _is_secure_download_mode(
+        self, c: Optional[Context], port: str, baud: int
+    ) -> bool:
         """Checks if target chip is locked in Secure Download Mode."""
         if getattr(self, "_virtual_mode", False):
             return False
@@ -312,7 +327,9 @@ class EspIdfToolchain(BaseToolchain):
         # Idempotency and hardware lock checks
         if not dry_run and not is_virt:
             if self._is_secure_download_mode(c, port, baud):
-                print(f"[*] Secure Download Mode active (silicon eFuses permanently locked). Skipping {slot} burn.")
+                print(
+                    f"[*] Secure Download Mode active (silicon eFuses permanently locked). Skipping {slot} burn."
+                )
                 return
 
             summary = self._get_efuse_summary(c, port, baud)
@@ -320,13 +337,25 @@ class EspIdfToolchain(BaseToolchain):
             purpose_key = f"KEY_PURPOSE_{slot_index}"
 
             for line in summary.splitlines():
-                if slot in line or (f"BLOCK{int(slot_index) + 4}" in line if slot_index.isdigit() else False):
-                    if "??" in line or "read-protected" in line.lower() or "read-disabled" in line.lower():
-                        print(f"[*] eFuse {slot} is already programmed and read-protected. Skipping burn.")
+                if slot in line or (
+                    f"BLOCK{int(slot_index) + 4}" in line
+                    if slot_index.isdigit()
+                    else False
+                ):
+                    if (
+                        "??" in line
+                        or "read-protected" in line.lower()
+                        or "read-disabled" in line.lower()
+                    ):
+                        print(
+                            f"[*] eFuse {slot} is already programmed and read-protected. Skipping burn."
+                        )
                         return
 
                 if purpose_key in line and purpose in line:
-                    print(f"[*] eFuse {slot} purpose already set to {purpose}. Skipping burn.")
+                    print(
+                        f"[*] eFuse {slot} purpose already set to {purpose}. Skipping burn."
+                    )
                     return
 
         serializer = self._get_serializer()
@@ -350,21 +379,38 @@ class EspIdfToolchain(BaseToolchain):
         # Idempotency and hardware lock checks
         if not dry_run and not is_virt:
             if self._is_secure_download_mode(c, port, baud):
-                print(f"[*] Secure Download Mode active. Skipping {slot} protection lock.")
+                print(
+                    f"[*] Secure Download Mode active. Skipping {slot} protection lock."
+                )
                 return
 
             summary = self._get_efuse_summary(c, port, baud)
             slot_index = slot.replace("BLOCK_KEY", "").replace("BLOCK", "").strip()
 
             for line in summary.splitlines():
-                if slot in line or (f"BLOCK{int(slot_index) + 4}" in line if slot_index.isdigit() else False):
-                    if "??" in line or "read-protected" in line.lower() or "read-disabled" in line.lower():
+                if slot in line or (
+                    f"BLOCK{int(slot_index) + 4}" in line
+                    if slot_index.isdigit()
+                    else False
+                ):
+                    if (
+                        "??" in line
+                        or "read-protected" in line.lower()
+                        or "read-disabled" in line.lower()
+                    ):
                         read_protect = False
-                    if "-/W" in line or "-/-" in line or "R/-" in line or "write-protected" in line.lower():
+                    if (
+                        "-/W" in line
+                        or "-/-" in line
+                        or "R/-" in line
+                        or "write-protected" in line.lower()
+                    ):
                         write_protect = False
 
             if not read_protect and not write_protect:
-                print(f"[*] eFuse block {slot} is already protected as requested. Skipping lock.")
+                print(
+                    f"[*] eFuse block {slot} is already protected as requested. Skipping lock."
+                )
                 return
 
         serializer = self._get_serializer()
@@ -393,7 +439,9 @@ class EspIdfToolchain(BaseToolchain):
 
         if not dry_run and not is_virt:
             if self._is_secure_download_mode(c, port, baud):
-                print(f"[*] Secure Download Mode active. Skipping {register_name} burn.")
+                print(
+                    f"[*] Secure Download Mode active. Skipping {register_name} burn."
+                )
                 return
 
         serializer = self._get_serializer()

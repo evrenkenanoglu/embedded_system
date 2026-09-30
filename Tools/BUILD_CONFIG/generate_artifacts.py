@@ -37,10 +37,14 @@ def generate_partitions_csv(cfg: Dict[str, Any], out_path: Path) -> Path:
         ptype = f"{hex(raw_type) if isinstance(raw_type, int) else raw_type},"
 
         raw_subtype = p.get("subtype", "")
-        subtype = f"{hex(raw_subtype) if isinstance(raw_subtype, int) else raw_subtype},"
+        subtype = (
+            f"{hex(raw_subtype) if isinstance(raw_subtype, int) else raw_subtype},"
+        )
 
         raw_offset = p.get("offset")
-        offset = f"{hex(raw_offset) if isinstance(raw_offset, int) else (raw_offset or '')},"
+        offset = (
+            f"{hex(raw_offset) if isinstance(raw_offset, int) else (raw_offset or '')},"
+        )
 
         raw_size = p.get("size", "")
         size = f"{hex(raw_size) if isinstance(raw_size, int) else raw_size},"
@@ -69,7 +73,9 @@ def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
     pt_offset = str(layout.get("partition_table_offset", "0x10000"))
 
     raw_keys_dir = cfg.get("paths", {}).get("keys_dir", "keys")
-    clean_keys_dir = raw_keys_dir.replace("{paths.workspace_dir}/", "").replace("{paths.workspace_dir}", ".")
+    clean_keys_dir = raw_keys_dir.replace("{paths.workspace_dir}/", "").replace(
+        "{paths.workspace_dir}", "."
+    )
     signing_key = f"{clean_keys_dir}/secure_boot_signing_key.pem".replace("./", "")
 
     hsvn = sec.get("hsvn", cfg.get("project", {}).get("version_number", 1))
@@ -119,10 +125,12 @@ def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
         lines.append("CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y")
         lines.append("# CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME is not set")
 
-    lines.extend([
-        f'CONFIG_SECURE_BOOT_SIGNING_KEY="{signing_key}"',
-        f"CONFIG_BOOTLOADER_APP_SECURE_VERSION={hsvn}",
-    ])
+    lines.extend(
+        [
+            f'CONFIG_SECURE_BOOT_SIGNING_KEY="{signing_key}"',
+            f"CONFIG_BOOTLOADER_APP_SECURE_VERSION={hsvn}",
+        ]
+    )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -226,9 +234,19 @@ def generate_ota_header(cfg: Dict[str, Any], out_path: Path) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Deterministic SSoT Build Artifacts Generator.")
-    parser.add_argument("--config", "-c", type=Path, required=True, help="Path to config_project.yaml")
-    parser.add_argument("--workspace", "-w", type=Path, default=Path("."), help="Workspace root directory")
+    parser = argparse.ArgumentParser(
+        description="Deterministic SSoT Build Artifacts Generator."
+    )
+    parser.add_argument(
+        "--config", "-c", type=Path, required=True, help="Path to config_project.yaml"
+    )
+    parser.add_argument(
+        "--workspace",
+        "-w",
+        type=Path,
+        default=Path("."),
+        help="Workspace root directory",
+    )
     parser.add_argument(
         "--target",
         "-t",
@@ -254,7 +272,9 @@ def main() -> int:
         print(f"✅ Generated: {p}")
 
     if args.target in ["all", "ota_header"]:
-        p = generate_ota_header(cfg, ws / "main" / "swConfig" / "ota_generated_config.h")
+        p = generate_ota_header(
+            cfg, ws / "main" / "swConfig" / "ota_generated_config.h"
+        )
         print(f"✅ Generated: {p}")
 
     return 0

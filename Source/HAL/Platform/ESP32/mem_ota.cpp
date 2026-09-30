@@ -16,10 +16,10 @@
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
 
+#include <esp_heap_caps.h>
 #include <esp_image_format.h>
 #include <esp_log.h>
 #include <esp_partition.h>
-#include <esp_heap_caps.h>
 
 #if CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
 #include <esp_efuse.h>
@@ -431,8 +431,8 @@ sys_error_t mem_ota::_beginDelta()
     /// Fallback assertion: Ensure sufficient heap exists before engaging decompressor
     const bool hasEnoughMemory = (freeSpiram >= MIN_DELTA_HEAP_REQUIRED) || (freeInternal >= MIN_DELTA_HEAP_REQUIRED);
     RETURN_IF_ERROR(
-        (!hasEnoughMemory),                                                                               // Expression
-        ERROR_OUT_OF_MEMORY,                                                                              // Error code
+        (!hasEnoughMemory),                                                                                                         // Expression
+        ERROR_OUT_OF_MEMORY,                                                                                                        // Error code
         SYS_LOG_W("Insufficient heap for delta decompression (< %zu bytes). Request full update fallback", MIN_DELTA_HEAP_REQUIRED) // Error message
     );
 
@@ -461,12 +461,11 @@ sys_error_t mem_ota::_beginDelta()
 
     _deltaOtaHandle = esp_delta_ota_init(&cfg);
 
-    RETURN_IF_ERROR(
-        (_deltaOtaHandle == nullptr),                                 // Expression
-        ERROR_FAIL,                                                   // Error code
-        SYS_LOG_E("Failed to initialize esp_delta_ota decompressor"), // Error message
-        esp_ota_abort(_updateHandle);                                 // Cleanup
-        _updateHandle = 0                                             // Cleanup
+    RETURN_IF_ERROR((_deltaOtaHandle == nullptr),                                 // Expression
+                    ERROR_FAIL,                                                   // Error code
+                    SYS_LOG_E("Failed to initialize esp_delta_ota decompressor"), // Error message
+                    esp_ota_abort(_updateHandle);                                 // Cleanup
+                    _updateHandle = 0                                             // Cleanup
     );
 
     return ERROR_SUCCESS;
@@ -501,10 +500,9 @@ sys_error_t mem_ota::_writeFull(const uint8_t* data, size_t length)
 
     if (!_headerValidated)
     {
-        RETURN_ON_ERROR(
-            _validateIncomingImageHeader(data, length),                                  // Expression
-            abort();                                                                     // Cleanup
-            SYS_LOG_E("Incoming image header validation failed, aborting update")        // Error message
+        RETURN_ON_ERROR(_validateIncomingImageHeader(data, length),                           // Expression
+                        abort();                                                              // Cleanup
+                        SYS_LOG_E("Incoming image header validation failed, aborting update") // Error message
         );
         _headerValidated = true;
     }

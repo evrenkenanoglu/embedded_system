@@ -57,7 +57,7 @@ def _run_generator(
         f'python "{script_path}" '
         f'--config "{resolved_config_file}" '
         f'--workspace "{workspace_root}" '
-        f'--target {target}'
+        f"--target {target}"
     )
     serializer.add(cmd)
     serializer.run(c, dry_run=dry_run)

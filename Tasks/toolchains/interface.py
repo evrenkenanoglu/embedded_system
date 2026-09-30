@@ -147,7 +147,6 @@ class IToolchain(ABC):
         """Waits until the device is disconnected from the fixture."""
         pass
 
-
     @abstractmethod
     def enable_virtual_mode(self, virtual_state_file: Path) -> None:
         """Enables platform-independent simulation of hardware eFuses and registers."""

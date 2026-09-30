@@ -134,6 +134,7 @@ def log_telemetry(report: TelemetryReport):
     with open(log_file, "w") as f:
         json.dump(device_history, f, indent=2)
 
+
 def evaluate_auto_rollback(target_version: str):
     """
     Inspects telemetry reports within a sliding time window (trailing SLIDING_WINDOW_SECONDS)
@@ -430,6 +431,7 @@ async def ota_check(
         }
 
     return {"update_available": False, "message": "Firmware is already up-to-date."}
+
 
 @router.get("/download/{filename:path}")
 async def ota_download(

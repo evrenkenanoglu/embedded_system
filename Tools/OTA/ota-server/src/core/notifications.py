@@ -20,7 +20,7 @@ def dispatch_rollback_alert(
     failure_rate: float,
     failed_count: int,
     total_count: int,
-    reverted_to: Optional[str] = None
+    reverted_to: Optional[str] = None,
 ) -> bool:
     """
     Dispatches a structured JSON incident alert to the configured webhook endpoint.
@@ -53,7 +53,7 @@ def dispatch_rollback_alert(
             "threshold_percent": settings.MAX_FAILURE_RATE_PERCENT,
             "failed_reports": failed_count,
             "total_reports_evaluated": total_count,
-            "window_seconds": settings.SLIDING_WINDOW_SECONDS
+            "window_seconds": settings.SLIDING_WINDOW_SECONDS,
         },
         "text": (
             f":rotating_light: *CRITICAL: Automatic OTA Rollback Triggered!*\n"
@@ -61,7 +61,7 @@ def dispatch_rollback_alert(
             f"*Revoked Version*: `{target_version}` (Channel: `{channel}`)\n"
             f"*Failure Rate*: *{failure_rate:.1f}%* ({failed_count}/{total_count} reports in trailing {settings.SLIDING_WINDOW_SECONDS // 60}m)\n"
             f"*Action Taken*: Version marked `soft-rolled-back`. Reverted to `{reverted_to or 'NONE'}`."
-        )
+        ),
     }
 
     try:
@@ -69,13 +69,15 @@ def dispatch_rollback_alert(
             webhook_url,
             json=payload,
             headers={"Content-Type": "application/json"},
-            timeout=5.0
+            timeout=5.0,
         )
         if response.status_code in [200, 204]:
             logger.info(f"[ALERT] Incident webhook delivered to {webhook_url}")
             return True
         else:
-            logger.error(f"[ALERT] Webhook delivery failed: HTTP {response.status_code} - {response.text}")
+            logger.error(
+                f"[ALERT] Webhook delivery failed: HTTP {response.status_code} - {response.text}"
+            )
             return False
     except Exception as exc:
         logger.error(f"[ALERT] Exception while dispatching webhook notification: {exc}")

@@ -25,16 +25,18 @@ class AuditLogger:
         if not self.summary_csv.exists():
             with open(self.summary_csv, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow([
-                    "Timestamp_UTC",
-                    "MAC_Address",
-                    "Device_ID",
-                    "HSVN",
-                    "Flash_Key_File",
-                    "SB_Key_File",
-                    "NVS_Key_File",
-                    "Status"
-                ])
+                writer.writerow(
+                    [
+                        "Timestamp_UTC",
+                        "MAC_Address",
+                        "Device_ID",
+                        "HSVN",
+                        "Flash_Key_File",
+                        "SB_Key_File",
+                        "NVS_Key_File",
+                        "Status",
+                    ]
+                )
 
     def record_provisioning_event(
         self,
@@ -45,7 +47,7 @@ class AuditLogger:
         sb_key_file: str,
         nvs_key_file: str,
         status: str,
-        extra_metadata: Optional[Dict[str, Any]] = None
+        extra_metadata: Optional[Dict[str, Any]] = None,
     ) -> Path:
         timestamp_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -58,7 +60,7 @@ class AuditLogger:
             "sb_key_file": sb_key_file,
             "nvs_key_file": nvs_key_file,
             "status": status,
-            "extra_metadata": extra_metadata or {}
+            "extra_metadata": extra_metadata or {},
         }
 
         # 1. Write individual unit JSON audit trail
@@ -69,15 +71,17 @@ class AuditLogger:
         # 2. Append to consolidated factory CSV summary ledger
         with open(self.summary_csv, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                timestamp_utc,
-                mac_address,
-                device_id,
-                hsvn,
-                Path(flash_key_file).name,
-                Path(sb_key_file).name,
-                Path(nvs_key_file).name,
-                status
-            ])
+            writer.writerow(
+                [
+                    timestamp_utc,
+                    mac_address,
+                    device_id,
+                    hsvn,
+                    Path(flash_key_file).name,
+                    Path(sb_key_file).name,
+                    Path(nvs_key_file).name,
+                    status,
+                ]
+            )
 
         return audit_file

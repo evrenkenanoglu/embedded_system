@@ -194,7 +194,4 @@ class Settings:
     WEBHOOK_URL: str = str(_rollback.get("webhook_url", ""))
 
 
-
-
-
 settings = Settings()
