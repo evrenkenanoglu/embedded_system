@@ -43,6 +43,13 @@ import subprocess
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
+import shutil
+import datetime
+
+# Mandatory safety passphrase required to burn physical silicon
+HARDWARE_BURN_SAFETY_PASSPHRASE = "CONFIRM_PERMANENT_SILICON_BURN"
+
+
 def auto_detect_roots() -> Tuple[Path, Path]:
     """
     Auto-detects (project_root, embedded_system_root) by traversing upward from SCRIPT_DIR.
@@ -132,10 +139,7 @@ def find_partitions_csv(configured_path_str: str, roots: Tuple[Path, Path]) -> P
 
 
 def pre_encrypt_partition_file(
-    input_bin: Path,
-    output_bin: Path,
-    flash_key_file: Path,
-    address: int
+    input_bin: Path, output_bin: Path, flash_key_file: Path, address: int
 ) -> None:
     """Pre-encrypts a binary file using AES-XTS matching the ESP32-S3 hardware engine."""
     if not flash_key_file.exists():
@@ -143,12 +147,17 @@ def pre_encrypt_partition_file(
 
     output_bin.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
-        sys.executable, "-m", "espsecure",
+        sys.executable,
+        "-m",
+        "espsecure",
         "encrypt-flash-data",
         "--aes-xts",  # Enforce AES-XTS for ESP32-S3
-        "--keyfile", str(flash_key_file.resolve()),
-        "--address", hex(address),
-        "-o", str(output_bin.resolve()),
+        "--keyfile",
+        str(flash_key_file.resolve()),
+        "--address",
+        hex(address),
+        "-o",
+        str(output_bin.resolve()),
         str(input_bin.resolve()),
     ]
     res = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -158,7 +167,10 @@ def pre_encrypt_partition_file(
         cmd[3] = "--aes_xts"
         subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-    print(f"    [OK] Pre-encrypted (AES-XTS) {input_bin.name} -> {output_bin.name} (Address {hex(address)})")
+    print(
+        f"    [OK] Pre-encrypted (AES-XTS) {input_bin.name} -> {output_bin.name} (Address {hex(address)})"
+    )
+
 
 def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path:
     print("\n" + "=" * 60)
@@ -181,7 +193,9 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
     nvs_bin_file = Path(nvs_cfg["output_encrypted_bin"]).resolve()
     project_root = Path(paths_cfg.get("workspace_dir", ".")).resolve()
 
-    print(f"[*] Target Partition : '{target_name}' (Size: {hex(partition_size)} / {partition_size} bytes)")
+    print(
+        f"[*] Target Partition : '{target_name}' (Size: {hex(partition_size)} / {partition_size} bytes)"
+    )
     print(f"[*] Template File    : {template_file}")
 
     # 1. Generate NVS AES-XTS encryption key if missing
@@ -190,16 +204,25 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
         generate_nvs_keys(nvs_key_file)
 
     # 2. Render CSV and compile encrypted NVS partition
-    render_template_csv(template_file, rendered_csv, nvs_cfg["template_variables"], project_root)
+    render_template_csv(
+        template_file, rendered_csv, nvs_cfg["template_variables"], project_root
+    )
     print(f"[OK] Rendered CSV written to: {rendered_csv}")
 
-    if not invoke_nvs_partition_gen(rendered_csv, nvs_bin_file, partition_size, nvs_key_file) or not nvs_bin_file.exists():
+    if (
+        not invoke_nvs_partition_gen(
+            rendered_csv, nvs_bin_file, partition_size, nvs_key_file
+        )
+        or not nvs_bin_file.exists()
+    ):
         raise RuntimeError("Failed to generate encrypted NVS binary.")
 
     print(f"[SUCCESS] Encrypted NVS partition binary created: {nvs_bin_file}")
 
     # 3. Resolve Flash Encryption key path from config
-    flash_key_file = Path(paths_cfg.get("keys_dir", "keys")) / "flash_encryption_key.bin"
+    flash_key_file = (
+        Path(paths_cfg.get("keys_dir", "keys")) / "flash_encryption_key.bin"
+    )
     for k in hw_cfg.get("efuse_keys", []):
         if k.get("purpose") in ["FLASH_ENCRYPTION", "XTS_AES_128_KEY"]:
             flash_key_file = Path(k.get("key_file")).resolve()
@@ -211,9 +234,25 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
 
     targets_to_encrypt = [
         ("__bootloader__", 0x0, "bootloader_encrypted.bin"),
-        ("__partition_table__", parser.partition_table_offset, "partition_table_encrypted.bin"),
-        ("nvs_keys", parser.get_offset("nvs_keys") if "nvs_keys" in parser.partitions else 0x34000, "nvs_keys_encrypted.bin"),
-        ("ota_0", parser.get_offset("ota_0") if "ota_0" in parser.partitions else 0x50000, "app_encrypted.bin"),
+        (
+            "__partition_table__",
+            parser.partition_table_offset,
+            "partition_table_encrypted.bin",
+        ),
+        (
+            "nvs_keys",
+            (
+                parser.get_offset("nvs_keys")
+                if "nvs_keys" in parser.partitions
+                else 0x34000
+            ),
+            "nvs_keys_encrypted.bin",
+        ),
+        (
+            "ota_0",
+            parser.get_offset("ota_0") if "ota_0" in parser.partitions else 0x50000,
+            "app_encrypted.bin",
+        ),
     ]
 
     for key, offset, out_filename in targets_to_encrypt:
@@ -222,7 +261,9 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
             src_path = Path(src_path_str).resolve()
             if src_path.exists():
                 enc_out_path = output_dir / out_filename
-                pre_encrypt_partition_file(src_path, enc_out_path, flash_key_file, offset)
+                pre_encrypt_partition_file(
+                    src_path, enc_out_path, flash_key_file, offset
+                )
                 # Remap target so step_provision_hardware flashes the AES-XTS pre-encrypted binary
                 flash_targets[key] = str(enc_out_path)
 
@@ -290,25 +331,79 @@ def step_sign_release(cfg: Dict[str, Any]) -> str:
     return sig_hex
 
 
+def backup_keys_to_archive(keys_dir: Path) -> Path:
+    """Creates a timestamped snapshot of all active keys before any operation."""
+    archive_dir = (
+        keys_dir / "archive" / datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    for p in keys_dir.glob("*.bin"):
+        shutil.copy(p, archive_dir / p.name)
+    for p in keys_dir.glob("*.pem"):
+        shutil.copy(p, archive_dir / p.name)
+
+    print(f"[*] [SAFETY ESCROW] Active keys backed up to: {archive_dir}")
+    return archive_dir
+
+
 def step_provision_hardware(
     cfg: Dict[str, Any],
     parser: PartitionTableParser,
+    target_mode: str = "virtual",
     override_dry_run: Optional[bool] = None,
+    burn_password: Optional[str] = None,
 ) -> None:
     print("\n" + "=" * 60)
     print(" STEP 3: SILICON FACTORY PROVISIONING & FLASHING")
     print("=" * 60)
 
-    # Enforce Pre-Flight Verification on binaries and keys before touching hardware
+    is_virtual = target_mode == "virtual"
+
+    # 1. Enforce Pre-Flight Verification on binaries and keys before touching hardware
     verify_secure_boot_preflight(cfg)
 
-    # Resolve platform toolchain directly from loaded configuration
+    # 2. Automated Key Escrow: Backup active keys before any operation
+    paths_cfg = cfg.get("paths", {})
+    keys_dir = Path(paths_cfg.get("keys_dir", "keys")).resolve()
+    backup_keys_to_archive(keys_dir)
+
+    # 3. Resolve platform toolchain directly from loaded configuration
     toolchain = get_toolchain(config=cfg)
 
-    paths_cfg = cfg.get("paths", {})
+    # 4. Handle Virtual Simulation vs Physical Silicon Safety Gate
+    if is_virtual:
+        build_dir = Path(paths_cfg.get("build_dir", "build")).resolve()
+        virt_file = build_dir / "virtual_silicon" / "efuse_mock.bin"
+        print(
+            f"[*] [VIRTUAL SIMULATION] Routing hardware calls to software model: {virt_file}"
+        )
+        toolchain.enable_virtual_mode(virt_file)
+        dry_run = False
+    else:
+        hw_cfg = cfg.get("hardware", {})
+        dry_run = (
+            hw_cfg.get("dry_run", True)
+            if override_dry_run is None
+            else override_dry_run
+        )
+
+        # Accidental Silicon Burning Prevention Gate
+        if not dry_run:
+            if not hw_cfg.get("force_burn", False):
+                raise RuntimeError(
+                    "Set 'hardware.force_burn: true' in config.yaml to execute on real silicon."
+                )
+            if burn_password != HARDWARE_BURN_SAFETY_PASSPHRASE:
+                raise PermissionError(
+                    f"\n[SILICON BURN LOCKED] Physical eFuse burning blocked by safety policy.\n"
+                    f"To authorize permanent silicon fuse programming, pass:\n"
+                    f"    --burn-password {HARDWARE_BURN_SAFETY_PASSPHRASE}"
+                )
+
     hw_cfg = cfg.get("hardware", {})
 
-    # 1. Resolve communication port and baud rate safely
+    # 5. Resolve communication port and baud rate safely
     port = hw_cfg.get("port") or hw_cfg.get("default_port", "/dev/ttyUSB0")
     if isinstance(port, str) and port.startswith("{"):
         port = "/dev/ttyUSB0"
@@ -329,65 +424,102 @@ def step_provision_hardware(
     if not flash_size or flash_size.startswith("{"):
         flash_size = "8MB"
 
-    dry_run = (
-        hw_cfg.get("dry_run", True) if override_dry_run is None else override_dry_run
-    )
-    if not dry_run and not hw_cfg.get("force_burn", False):
-        raise RuntimeError(
-            "Set 'hardware.force_burn: true' in config.yaml to execute on real silicon."
-        )
-
     binary_mapping: Dict[str, Path] = {}
     for target_name, path_str in hw_cfg.get("flash_targets", {}).items():
         binary_mapping[target_name] = Path(path_str).resolve()
 
-    mac_addr = read_chip_mac(port, baud, toolchain) if not dry_run else "AA-BB-CC-DD-EE-FF"
+    mac_addr = (
+        read_chip_mac(port, baud, toolchain)
+        if (not dry_run and not is_virtual)
+        else ("SIMULATED_MAC_001" if is_virtual else "AA-BB-CC-DD-EE-FF")
+    )
 
+    mode_label = (
+        "VIRTUAL SIMULATION"
+        if is_virtual
+        else ("DRY-RUN" if dry_run else "REAL SILICON FLASH")
+    )
     print(f"[*] Port : {port} @ {baud} baud")
     print(f"[*] MAC  : {mac_addr}")
-    print(f"[*] Mode : {'DRY-RUN' if dry_run else 'REAL SILICON FLASH'}")
+    print(f"[*] Mode : {mode_label}")
 
-    # 1. Burn cryptographic keys
+    # 6. Burn cryptographic keys
     for efuse_k in hw_cfg.get("efuse_keys", []):
         key_path = Path(efuse_k["key_file"]).resolve()
         block = efuse_k["block"]
         purpose = efuse_k["purpose"]
         burn_efuse_key(port, baud, block, key_path, purpose, dry_run, toolchain)
 
-        read_protect = efuse_k.get("read_protect", (purpose in ["FLASH_ENCRYPTION", "XTS_AES_128_KEY"]))
+        read_protect = efuse_k.get(
+            "read_protect", (purpose in ["FLASH_ENCRYPTION", "XTS_AES_128_KEY"])
+        )
         write_protect = efuse_k.get("write_protect", True)
-        protect_efuse_key(port, baud, block, read_protect, write_protect, dry_run, toolchain)
+        protect_efuse_key(
+            port, baud, block, read_protect, write_protect, dry_run, toolchain
+        )
 
-    # 2. Burn registers
+    # 7. Burn registers
     for reg in hw_cfg.get("efuse_registers", []):
-        burn_efuse_register(port, baud, reg["name"], str(reg["value"]), dry_run, toolchain)
+        burn_efuse_register(
+            port, baud, reg["name"], str(reg["value"]), dry_run, toolchain
+        )
 
-    # 3. Flash layout
-    flash_dynamic_layout(
-        port, baud, chip, flash_mode,
-        flash_freq, flash_size, parser,
-        binary_mapping, dry_run, toolchain
-    )
+    # 8. Flash layout (skipped if virtual simulation)
+    if not is_virtual:
+        flash_dynamic_layout(
+            port,
+            baud,
+            chip,
+            flash_mode,
+            flash_freq,
+            flash_size,
+            parser,
+            binary_mapping,
+            dry_run,
+            toolchain,
+        )
+    else:
+        print(
+            "[*] [VIRTUAL SIMULATION] Flash layout verification complete (hardware flash skipped)."
+        )
 
-    # 4. Audit Log
+    # 9. Extract key files by purpose for audit trail
     flash_key_file = "NONE"
     sb_key_file = "NONE"
     for k in hw_cfg.get("efuse_keys", []):
-        if k.get("purpose") in ["FLASH_ENCRYPTION", "XTS_AES_128_KEY", "XTS_AES_256_KEY"]:
+        if k.get("purpose") in [
+            "FLASH_ENCRYPTION",
+            "XTS_AES_128_KEY",
+            "XTS_AES_256_KEY",
+        ]:
             flash_key_file = str(k.get("key_file", "NONE"))
-        elif k.get("purpose") in ["SECURE_BOOT_DIGEST0", "SECURE_BOOT_DIGEST1", "SECURE_BOOT_DIGEST2"]:
+        elif k.get("purpose") in [
+            "SECURE_BOOT_DIGEST0",
+            "SECURE_BOOT_DIGEST1",
+            "SECURE_BOOT_DIGEST2",
+        ]:
             sb_key_file = str(k.get("key_file", "NONE"))
 
+    # 10. Audit Log
     audit_dir = Path(paths_cfg.get("audit_dir", "build/audit_logs")).resolve()
     audit_logger = AuditLogger(audit_dir)
+    status_str = (
+        "VIRTUAL_SIMULATION_SUCCESS"
+        if is_virtual
+        else ("DRY_RUN_SUCCESS" if dry_run else "PROVISIONED_SUCCESS")
+    )
     audit_file = audit_logger.record_provisioning_event(
         mac_address=mac_addr,
-        device_id=cfg.get("nvs_generation", {}).get("template_variables", {}).get("DEVICE_ID", "UNKNOWN"),
-        hsvn=int(cfg.get("nvs_generation", {}).get("template_variables", {}).get("HSVN", 1)),
+        device_id=cfg.get("nvs_generation", {})
+        .get("template_variables", {})
+        .get("DEVICE_ID", "UNKNOWN"),
+        hsvn=int(
+            cfg.get("nvs_generation", {}).get("template_variables", {}).get("HSVN", 1)
+        ),
         flash_key_file=flash_key_file,
         sb_key_file=sb_key_file,
         nvs_key_file=str(cfg.get("nvs_generation", {}).get("output_key_bin", "NONE")),
-        status="PROVISIONED_SUCCESS" if not dry_run else "DRY_RUN_SUCCESS",
+        status=status_str,
     )
 
     print(f"[SUCCESS] Unit {mac_addr} provisioned. Audit record: {audit_file}")
@@ -427,7 +559,9 @@ def verify_secure_boot_preflight(cfg: Dict[str, Any]) -> None:
                 f"but '{key_pem.name}' is an EC key! Run 'inv es.crypto.generate-pki' with RSA."
             )
         if priv_key.key_size != 3072:
-            raise ValueError(f"[SECURITY ERROR] RSA key size must be exactly 3072 bits. Got: {priv_key.key_size}")
+            raise ValueError(
+                f"[SECURITY ERROR] RSA key size must be exactly 3072 bits. Got: {priv_key.key_size}"
+            )
         print(f"    [OK] Private Key: RSA 3072-bit (Matches '{expected_scheme}')")
     elif "ecdsa" in expected_scheme:
         if not isinstance(priv_key, ec.EllipticCurvePrivateKey):
@@ -440,7 +574,12 @@ def verify_secure_boot_preflight(cfg: Dict[str, Any]) -> None:
     # 3. Inspect signature blocks on plaintext bootloader and application binaries
     paths_cfg = cfg.get("paths", {})
     build_dir = Path(paths_cfg.get("build_dir", "build")).resolve()
-    binary_name = cfg.get("signing", {}).get("binary_name", cfg.get("project", {}).get("binary_name", "Embedded_IoT_BT_WIFI_Base_Project.bin"))
+    binary_name = cfg.get("signing", {}).get(
+        "binary_name",
+        cfg.get("project", {}).get(
+            "binary_name", "Embedded_IoT_BT_WIFI_Base_Project.bin"
+        ),
+    )
 
     bins_to_verify = [
         ("Bootloader", (build_dir / "bootloader" / "bootloader.bin").resolve()),
@@ -456,7 +595,13 @@ def verify_secure_boot_preflight(cfg: Dict[str, Any]) -> None:
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode != 0:
             # Fallback to deprecated underscore command on older versions
-            cmd = [sys.executable, "-m", "espsecure", "signature_info_v2", str(bin_path)]
+            cmd = [
+                sys.executable,
+                "-m",
+                "espsecure",
+                "signature_info_v2",
+                str(bin_path),
+            ]
             res = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
         if res.returncode != 0 or "Signature block 0 is valid" not in res.stdout:
@@ -480,9 +625,14 @@ def verify_secure_boot_preflight(cfg: Dict[str, Any]) -> None:
                 f"but hardware expects ECDSA!\nPlease recompile with 'idf.py build' before provisioning."
             )
 
-        print(f"    [OK] {label} Binary: Valid Secure Boot V2 signature ({'RSA' if is_rsa else 'ECDSA'})")
+        print(
+            f"    [OK] {label} Binary: Valid Secure Boot V2 signature ({'RSA' if is_rsa else 'ECDSA'})"
+        )
 
-    print("[*] [PRE-FLIGHT PASSED] All binaries and keys match hardware security requirements.\n")
+    print(
+        "[*] [PRE-FLIGHT PASSED] All binaries and keys match hardware security requirements.\n"
+    )
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -513,6 +663,18 @@ def main() -> int:
         "--continuous",
         action="store_true",
         help="Assembly-line batch mode: continuously loops awaiting device insertion",
+    )
+    parser.add_argument(
+        "--target-mode",
+        choices=["virtual", "hardware"],
+        default="virtual",
+        help="Execution target: 'virtual' (safe software emulation) or 'hardware' (physical silicon)",
+    )
+    parser.add_argument(
+        "--burn-password",
+        type=str,
+        default=None,
+        help="Required passphrase when --target-mode=hardware to authorize physical eFuse burns",
     )
     parser.add_argument("--dry-run", action="store_true", help="Force dry-run mode")
     args = parser.parse_args()
@@ -549,14 +711,14 @@ def main() -> int:
         if args.step in ["all", "sign"]:
             step_sign_release(config)
 
-        # 3. Silicon provisioning: single-shot or continuous assembly-line loop
+        # 3. Silicon provisioning: single-shot, continuous, or virtual mode
         if args.step in ["all", "provision"]:
             override_dry_run = True if args.dry_run else None
 
             if args.continuous:
                 print("\n" + "=" * 60)
                 print(" STARTING CONTINUOUS FACTORY PROVISIONING FIXTURE")
-                print("=" * 60)
+                print("==================================================")
                 hw_cfg = config.get("hardware", {})
                 port = hw_cfg.get("port") or hw_cfg.get("default_port", "/dev/ttyUSB0")
                 baud = int(hw_cfg.get("baud") or hw_cfg.get("flash_baud", 460800))
@@ -565,17 +727,33 @@ def main() -> int:
                 while True:
                     try:
                         mac = wait_for_device_connection(port, baud, 60.0, toolchain)
-                        step_provision_hardware(config, pt_parser, override_dry_run)
-                        print(f"\n[PASS] Unit {mac} successfully provisioned and locked.")
+                        step_provision_hardware(
+                            config,
+                            pt_parser,
+                            target_mode=args.target_mode,
+                            override_dry_run=override_dry_run,
+                            burn_password=args.burn_password,
+                        )
+                        print(
+                            f"\n[PASS] Unit {mac} successfully provisioned and locked."
+                        )
                         wait_for_device_disconnection(port, 0.5, toolchain)
                     except KeyboardInterrupt:
-                        print("\n[STOPPED] Continuous provisioning terminated by operator.")
+                        print(
+                            "\n[STOPPED] Continuous provisioning terminated by operator."
+                        )
                         break
                     except Exception as exc:
                         print(f"\n[FAIL] Provisioning failed on unit: {exc}")
                         wait_for_device_disconnection(port, 0.5, toolchain)
             else:
-                step_provision_hardware(config, pt_parser, override_dry_run)
+                step_provision_hardware(
+                    config,
+                    pt_parser,
+                    target_mode=args.target_mode,
+                    override_dry_run=override_dry_run,
+                    burn_password=args.burn_password,
+                )
 
         return 0
 

@@ -69,8 +69,10 @@ def generate_pki(
 
 @task(
     help={
-        "step": f"Target provisioning step to execute: {', '.join(VALID_PROVISION_STEPS)} (default: 'all')",
-        "simulate": "Pass --dry-run to main.py (simulates execution without burning silicon)",
+        "step": f"Target provisioning step: {', '.join(VALID_PROVISION_STEPS)} (default: 'all')",
+        "target_mode": "Execution target: 'virtual' (default, zero risk) or 'hardware' (physical silicon)",
+        "simulate": "Simulate without writing files/flashing (dry-run)",
+        "burn_password": "Passphrase required when --target-mode=hardware to burn eFuses",
         "continuous": "Run in automated continuous fixture loop awaiting device insertion",
         "dry_run": "Print command line without executing",
         "config": "Path to custom provisioning config file",
@@ -80,7 +82,9 @@ def generate_pki(
 def provision_hardware(
     c: Context,
     step: str = "all",
+    target_mode: str = "virtual",
     simulate: bool = False,
+    burn_password: str = "",
     continuous: bool = False,
     dry_run: bool = False,
     config: str = "",
@@ -109,11 +113,18 @@ def provision_hardware(
         env=_get_execution_env(),
     )
 
-    cmd = f'python "{script_path}" --step {step} --config "{resolved_config_file}"'
+    cmd = (
+        f'python "{script_path}" '
+        f'--step {step} '
+        f'--target-mode {target_mode} '
+        f'--config "{resolved_config_file}"'
+    )
     if simulate:
         cmd += " --dry-run"
     if continuous:
         cmd += " --continuous"
+    if burn_password:
+        cmd += f' --burn-password "{burn_password}"'
 
     serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
@@ -149,7 +160,9 @@ def provision_sign(
 
 @task(
     help={
+        "virtual": "Execute against software-simulated silicon model (zero hardware risk)",
         "simulate": "Simulate flashing without burning eFuses or writing flash",
+        "burn_password": "Required passphrase to authorize physical eFuse burns",
         "continuous": "Run in automated continuous fixture loop awaiting device insertion",
         "dry_run": "Print command line without executing",
         "config": "Config override",
@@ -158,7 +171,9 @@ def provision_sign(
 )
 def provision_flash(
     c: Context,
+    virtual: bool = False,
     simulate: bool = False,
+    burn_password: str = "",
     continuous: bool = False,
     dry_run: bool = False,
     config: str = "",
@@ -168,7 +183,9 @@ def provision_flash(
     provision_hardware(
         c,
         step="provision",
+        virtual=virtual,
         simulate=simulate,
+        burn_password=burn_password,
         continuous=continuous,
         dry_run=dry_run,
         config=config,

@@ -256,10 +256,21 @@ class EspIdfToolchain(BaseToolchain):
 
         return "UNKNOWN_DEVICE"
 
+    def _get_virt_flags(self) -> str:
+        """Returns virtual eFuse CLI flags when running in software simulation mode."""
+        chip = getattr(self, "chip", "esp32s3")
+        if getattr(self, "_virtual_mode", False) and getattr(self, "_virtual_state_file", None):
+            return f'--chip {chip} --virt --path-efuse-file "{self._virtual_state_file.resolve()}"'
+        return f'--chip {chip}'
+
     def _is_secure_download_mode(self, c: Optional[Context], port: str, baud: int) -> bool:
         """Checks if target chip is locked in Secure Download Mode."""
+        if getattr(self, "_virtual_mode", False):
+            return False
+
         serializer = self._get_serializer()
-        cmd = f"python -m espefuse --port {port} --baud {baud} summary"
+        chip_flag = f"--chip {getattr(self, 'chip', 'esp32s3')}"
+        cmd = f"python -m espefuse {chip_flag} --port {port} --baud {baud} summary"
         serializer.add(cmd)
         ctx = self._ctx(c)
         try:
@@ -268,6 +279,20 @@ class EspIdfToolchain(BaseToolchain):
             return "Secure Download Mode is enabled" in output
         except Exception:
             return False
+
+    def _get_efuse_summary(self, c: Optional[Context], port: str, baud: int) -> str:
+        """Queries physical or virtual eFuse summary table."""
+        serializer = self._get_serializer()
+        virt_flags = self._get_virt_flags()
+        cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} summary".strip()
+        serializer.add(" ".join(cmd.split()))
+        ctx = self._ctx(c)
+        try:
+            res = ctx.run(serializer.serialize(), hide=True, warn=True)
+            output = (res.stdout or "") + (res.stderr or "")
+            return output if res and res.ok else ""
+        except Exception:
+            return ""
 
     def _burn_key(
         self,
@@ -282,7 +307,10 @@ class EspIdfToolchain(BaseToolchain):
         if not key_file.exists():
             raise FileNotFoundError(f"Key file missing for {slot}: {key_file}")
 
-        if not dry_run:
+        is_virt = getattr(self, "_virtual_mode", False)
+
+        # Idempotency and hardware lock checks
+        if not dry_run and not is_virt:
             if self._is_secure_download_mode(c, port, baud):
                 print(f"[*] Secure Download Mode active (silicon eFuses permanently locked). Skipping {slot} burn.")
                 return
@@ -302,8 +330,9 @@ class EspIdfToolchain(BaseToolchain):
                     return
 
         serializer = self._get_serializer()
-        cmd = f'python -m espefuse --port {port} --baud {baud} --do-not-confirm burn_key {slot} "{key_file.resolve()}" {purpose}'
-        serializer.add(cmd)
+        virt_flags = self._get_virt_flags()
+        cmd = f'python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm burn_key {slot} "{key_file.resolve()}" {purpose}'.strip()
+        serializer.add(" ".join(cmd.split()))
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _protect_key(
@@ -316,7 +345,10 @@ class EspIdfToolchain(BaseToolchain):
         write_protect: bool,
         dry_run: bool,
     ) -> None:
-        if not dry_run:
+        is_virt = getattr(self, "_virtual_mode", False)
+
+        # Idempotency and hardware lock checks
+        if not dry_run and not is_virt:
             if self._is_secure_download_mode(c, port, baud):
                 print(f"[*] Secure Download Mode active. Skipping {slot} protection lock.")
                 return
@@ -331,19 +363,21 @@ class EspIdfToolchain(BaseToolchain):
                     if "-/W" in line or "-/-" in line or "R/-" in line or "write-protected" in line.lower():
                         write_protect = False
 
-        if not read_protect and not write_protect:
-            print(f"[*] eFuse block {slot} is already protected as requested. Skipping lock.")
-            return
+            if not read_protect and not write_protect:
+                print(f"[*] eFuse block {slot} is already protected as requested. Skipping lock.")
+                return
 
         serializer = self._get_serializer()
+        virt_flags = self._get_virt_flags()
+
         if read_protect:
-            serializer.add(
-                f"python -m espefuse --port {port} --baud {baud} --do-not-confirm read_protect_efuse {slot}"
-            )
+            cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm read_protect_efuse {slot}".strip()
+            serializer.add(" ".join(cmd.split()))
+
         if write_protect:
-            serializer.add(
-                f"python -m espefuse --port {port} --baud {baud} --do-not-confirm write_protect_efuse {slot}"
-            )
+            cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm write_protect_efuse {slot}".strip()
+            serializer.add(" ".join(cmd.split()))
+
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _burn_register(
@@ -355,13 +389,17 @@ class EspIdfToolchain(BaseToolchain):
         value: str,
         dry_run: bool,
     ) -> None:
-        if not dry_run and self._is_secure_download_mode(c, port, baud):
-            print(f"[*] Secure Download Mode active. Skipping {register_name} burn.")
-            return
+        is_virt = getattr(self, "_virtual_mode", False)
+
+        if not dry_run and not is_virt:
+            if self._is_secure_download_mode(c, port, baud):
+                print(f"[*] Secure Download Mode active. Skipping {register_name} burn.")
+                return
 
         serializer = self._get_serializer()
-        cmd = f"python -m espefuse --port {port} --baud {baud} --do-not-confirm burn_efuse {register_name} {value}"
-        serializer.add(cmd)
+        virt_flags = self._get_virt_flags()
+        cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm burn_efuse {register_name} {value}".strip()
+        serializer.add(" ".join(cmd.split()))
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _flash_layout(

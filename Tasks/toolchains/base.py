@@ -16,6 +16,8 @@ class BaseToolchain(IToolchain):
 
     def __init__(self, config: Any) -> None:
         self.config = config
+        self._virtual_mode: bool = False
+        self._virtual_state_file: Optional[Path] = None
 
     @property
     def _use_color(self) -> bool:
@@ -257,6 +259,15 @@ class BaseToolchain(IToolchain):
         resolved_port = str(port).strip() if port else self._get_default_port()
         self._wait_for_device_disconnection(c, resolved_port, check_interval_sec)
 
+    def enable_virtual_mode(self, virtual_state_file: Path) -> None:
+        self._virtual_mode = True
+        self._virtual_state_file = virtual_state_file
+        virtual_state_file.parent.mkdir(parents=True, exist_ok=True)
+        if not virtual_state_file.exists():
+            virtual_state_file.write_bytes(b"\x00" * 1024)
+
+    def is_virtual_mode(self) -> bool:
+        return self._virtual_mode
     # --- ABSTRACT HOOKS ---
 
     @abstractmethod

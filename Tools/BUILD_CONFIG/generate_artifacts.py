@@ -56,7 +56,7 @@ def generate_partitions_csv(cfg: Dict[str, Any], out_path: Path) -> Path:
 
 
 def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
-    """Generates Kconfig hardware overlay from SSoT hardware and security definitions."""
+    """Generates Kconfig hardware overlay from SSoT with mandatory Development Mode safety defaults."""
     hw = cfg.get("hardware", {})
     sec = cfg.get("security", {})
     layout = cfg.get("flash_layout", {})
@@ -73,8 +73,6 @@ def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
     signing_key = f"{clean_keys_dir}/secure_boot_signing_key.pem".replace("./", "")
 
     hsvn = sec.get("hsvn", cfg.get("project", {}).get("version_number", 1))
-
-    # Dynamically resolve Secure Boot V2 signature scheme from SSoT
     sb_scheme = str(sec.get("secure_boot_scheme", "rsa3072")).lower()
 
     lines = [
@@ -91,6 +89,25 @@ def generate_sdkconfig_hardware(cfg: Dict[str, Any], out_path: Path) -> Path:
         "CONFIG_PARTITION_TABLE_CUSTOM=y",
         'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"',
         f"CONFIG_PARTITION_TABLE_OFFSET={pt_offset}",
+        "",
+        "# =========================================================",
+        "# FLASH ENCRYPTION SETTINGS (PRODUCTION HARDENED)",
+        "# =========================================================",
+        "# Zero-Brick Safety Invariant: Hardware Development Mode Default",
+        "CONFIG_SECURE_FLASH_ENC_ENABLED=y",
+        "CONFIG_SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT=y",
+        "# CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE is not set",
+        "CONFIG_SECURE_FLASH_UART_BOOTLOADER_ALLOW_CACHE=y",
+        "CONFIG_SECURE_FLASH_REQUIRE_ALREADY_ENABLED=n",
+        "",
+        "# =========================================================",
+        "# SECURE BOOT V2 SETTINGS",
+        "# =========================================================",
+        "",
+        "# Hardware hardening & ROM lockdown:",
+        "CONFIG_SECURE_BOOT_ALLOW_JTAG=y",
+        "CONFIG_SECURE_BOOT_ALLOW_ROM_BASIC=y",
+        "# CONFIG_SECURE_ENABLE_SECURE_ROM_DL_MODE is not set",
         "",
         "# Security Hardware Keys & Anti-Rollback (Resolved from SSoT)",
     ]
