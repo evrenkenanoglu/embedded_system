@@ -1,152 +1,236 @@
-import sys
-import subprocess
+"""
+Smart_Attach_Common.py
+----------------------
+Core library and common utilities for managing ESP32 / USB-UART serial
+devices attached to WSL2 using usbipd-win.
+
+Can also be executed standalone to automatically find and attach the first
+matching device.
+"""
+
 import ctypes
+import os
 import re
-import time  # <-- Added this for a slight delay
+import subprocess
+import sys
+import time
 
 # --- CONFIGURATION ---
-TARGET_VID_PID = "10c4:ea60"
-# ---------------------
+# Known USB-to-UART Bridge Chip VID:PIDs:
+# - 303a:1001 = ESP32-C6 / ESP32-S3 Native USB-Serial/JTAG
+# - 1a86:55d3 = CH343 / CH340 series
+# - 10c4:ea60 = Silicon Labs CP2102 / CP2104
+# - 0403:6001 = FTDI FT232R
+TARGET_VID_PIDS = [
+    "303a:1001",
+    "1a86:55d3",
+    "10c4:ea60",
+    "0403:6001",
+]
+
+# Backward compatibility alias
+TARGET_VID_PID = TARGET_VID_PIDS
 
 
-def find_host_ip():
-    """Finds the host's IP address for 'Ethernet adapter Ethernet 2'."""
-    try:
-        print("Finding host IP address for WSL...")
-        # Capture output from ipconfig
-        result = subprocess.check_output(["ipconfig"], text=True)
+def extract_vid_pid(text: str) -> str | None:
+    """
+    Extracts vendor and product ID (VID:PID) from a line of text.
 
-        # 1. Locate the specific 'Ethernet 2' block
-        # This matches from 'Ethernet 2:' until it hits another 'adapter' header
-        pattern = r"Ethernet adapter Ethernet 2:(.*?)(?=Ethernet adapter|Wireless LAN adapter|$)"
-        host_section = re.search(pattern, result, re.DOTALL)
+    Supports:
+      - Standard hex format: '10c4:ea60'
+      - Windows DeviceID format: 'VID_10C4&PID_EA60'
 
-        if host_section:
-            section_text = host_section.group(1)
-            # 2. Extract the IPv4 Address within that block
-            ip_match = re.search(r"IPv4 Address[.\s]*:\s*([\d.]+)", section_text)
+    Returns:
+        Lowercase string formatted as 'vid:pid', or None if not matched.
+    """
+    # Check standard hex format (e.g., 303a:1001)
+    match_std = re.search(r"([0-9a-fA-F]{4}):([0-9a-fA-F]{4})", text)
+    if match_std:
+        return f"{match_std.group(1)}:{match_std.group(2)}".lower()
 
-            if ip_match:
-                ip = ip_match.group(1)
-                print(f"Host IP found: {ip}")
-                return ip
+    # Check Windows DeviceID format (e.g., VID_303A&PID_1001)
+    match_win = re.search(
+        r"VID_([0-9a-fA-F]{4})&PID_([0-9a-fA-F]{4})", text, re.IGNORECASE
+    )
+    if match_win:
+        return f"{match_win.group(1)}:{match_win.group(2)}".lower()
 
-        print("Host IP not found in 'Ethernet 2' section.")
-    except Exception as e:
-        print(f"[ERROR] Failed to find host IP: {e}")
     return None
 
 
-def is_admin():
-    """Checks if the script is running with Administrator privileges."""
+def is_admin() -> bool:
+    """Checks whether the current script process has Windows Administrator privileges."""
     try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
+        return ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except Exception:
         return False
 
 
-def run_as_admin():
-    """Restarts the current script with Administrator privileges."""
+def run_as_admin() -> None:
+    """Restarts the current script with elevated Administrator privileges."""
     print("Requesting Administrator privileges...")
     try:
-        # 'runas' is the Windows verb for "Run as Administrator"
+        # Wrap script path and arguments in quotes to handle directory names with spaces
+        params = " ".join([f'"{arg}"' for arg in sys.argv])
         ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, " ".join(sys.argv), None, 1
+            None, "runas", sys.executable, params, None, 1
         )
     except Exception as e:
-        print(f"Error elevating privileges: {e}")
+        print(f"[ERROR] Failed to elevate privileges: {e}")
         input("Press Enter to exit...")
 
 
-def find_bus_id(target_vid_pid):
-    """Runs 'usbipd list' and parses output to find the Bus ID."""
+def find_target_device(vid_pid_list: list[str]) -> tuple[str | None, str | None]:
+    """
+    Scans devices using 'usbipd list' and matches against the provided VID:PID list.
+
+    Returns:
+        tuple (bus_id, matched_vid_pid) if found, otherwise (None, None).
+    """
     try:
         result = subprocess.check_output(["usbipd", "list"], text=True)
+        target_set = {v.lower() for v in vid_pid_list}
+
         for line in result.splitlines():
-            if target_vid_pid in line:
+            line_vid_pid = extract_vid_pid(line)
+            if line_vid_pid and line_vid_pid in target_set:
                 parts = line.split()
                 if parts:
-                    return parts[0]
+                    bus_id = parts[0]
+                    return bus_id, line_vid_pid
+
     except FileNotFoundError:
         print("[ERROR] 'usbipd' command not found. Please install usbipd-win.")
         input("Press Enter to exit...")
         sys.exit(1)
     except Exception as e:
         print(f"[ERROR] Failed to scan devices: {e}")
-    return None
+
+    return None, None
 
 
-def current_device_status(target_vid_pid):
-    print("\n--- Current Device Status ---")
+def find_bus_id(target_vid_pid: str | list[str]) -> str | None:
+    """
+    Convenience wrapper to return only the BUS ID.
+    Accepts either a single VID:PID string or a list of VID:PID strings.
+    """
+    if isinstance(target_vid_pid, str):
+        target_list = [target_vid_pid]
+    else:
+        target_list = target_vid_pid
+
+    bus_id, _ = find_target_device(target_list)
+    return bus_id
+
+
+def current_device_status(vid_pid_list: str | list[str] | None = None) -> None:
+    """
+    Prints the current status of relevant USB devices from 'usbipd list'.
+    Accepts None (uses default TARGET_VID_PIDS), a single string, or a list.
+    """
+    print("\n--- Current Connected Devices ---")
+
+    if vid_pid_list is None:
+        targets = TARGET_VID_PIDS
+    elif isinstance(vid_pid_list, str):
+        targets = [vid_pid_list]
+    else:
+        targets = vid_pid_list
+
+    target_set = {v.lower() for v in targets}
+
     try:
-        subprocess.run(f"usbipd list | findstr {target_vid_pid}", shell=True)
-    except:
-        pass
+        result = subprocess.check_output(["usbipd", "list"], text=True)
+        found_any = False
+        for line in result.splitlines():
+            vid_pid = extract_vid_pid(line)
+            if vid_pid and vid_pid in target_set:
+                print(line)
+                found_any = True
+
+        if not found_any:
+            print("No matching devices found in 'usbipd list'.")
+    except Exception as e:
+        print(f"[ERROR] Unable to fetch device status: {e}")
 
 
-def bind(bus_id):
-    # We bind first (harmless if already bound) to ensure we have control
-    subprocess.run(
+def bind(bus_id: str) -> subprocess.CompletedProcess:
+    """Binds the specified bus ID with usbipd so it can be shared with WSL."""
+    return subprocess.run(
         ["usbipd", "bind", "--busid", bus_id],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
 
 
-def attach(bus_id, host_ip=None):
+def attach(bus_id: str) -> None:
+    """
+    Attaches the specified bus ID to WSL with persistent auto-attach enabled.
+    Spawns invisibly without opening a secondary console window.
+    """
     cmd = ["usbipd", "attach", "--wsl", "--busid", bus_id, "--auto-attach"]
-    if host_ip:
-        cmd.extend(["--host-ip", host_ip])
-
-    print(f"\nAttaching to WSL with command: {' '.join(cmd)}")
-    CREATE_NO_WINDOW = 0x08000000
+    print(f"\nAttaching BUS [{bus_id}] to WSL with command: {' '.join(cmd)}")
+    create_no_window = 0x08000000
     subprocess.Popen(
         cmd,
-        creationflags=CREATE_NO_WINDOW,
+        creationflags=create_no_window,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
 
 
-def deattach(bus_id):
+def deattach(bus_id: str) -> subprocess.CompletedProcess:
+    """Detaches the specified bus ID from WSL."""
     return subprocess.run(["usbipd", "detach", "--busid", bus_id], text=True)
 
 
-def try_attach(bus_id):
-    """Attempts to bind and attach the device to WSL."""
+def try_attach(bus_id: str, matched_vid_pid: str | None = None) -> None:
+    """Attempts to bind and auto-attach the device to WSL."""
     try:
-        # 1. Bind (ignores error if already bound)
-        bind(bus_id)
+        vid_pid_display = matched_vid_pid if matched_vid_pid else "Target Device"
+        print(f"Targeting device [{vid_pid_display}] on Bus ID [{bus_id}]")
 
-        # 2. Attach in the BACKGROUND using Popen
+        bind(bus_id)
         attach(bus_id)
 
-        print("\n[SUCCESS] Endless auto-attach loop started invisibly!")
-        print("-" * 30)
+        print("\n[SUCCESS] Auto-attach background process started.")
+        print("-" * 35)
 
-        # Give usbipd 3 seconds to do the initial attach before checking the list
-        print("Verifying connection...")
+        print("Verifying connection in 3 seconds...")
         time.sleep(3)
-        subprocess.run(f"usbipd list | findstr {TARGET_VID_PID}", shell=True)
+        current_device_status()
 
     except Exception as e:
-        print(f"\n[CRITICAL ERROR] {e}")
+        print(f"\n[CRITICAL ERROR] Failed during attach: {e}")
 
 
-def try_detach(bus_id):
-    """Attempts to bind and detach the device from WSL."""
+def try_detach(bus_id: str) -> None:
+    """Attempts to detach the device from WSL and return it to Windows."""
     try:
-        # We bind first (harmless if already bound) to ensure we have control
         bind(bus_id)
-
-        # Run the detach command
         result = deattach(bus_id)
 
         if result.returncode == 0:
-            print("\n[SUCCESS] ESP32 is now detached from WSL.")
-            print("Windows can now access the COM port.")
+            print(f"\n[SUCCESS] Bus ID {bus_id} is now detached from WSL.")
+            print("Windows can now access the COM port directly.")
         else:
-            print("\n[INFO] Device was likely already detached or not shared.")
+            print(f"\n[INFO] Device (Bus ID {bus_id}) was already detached or not shared.")
 
     except Exception as e:
-        print(f"\n[ERROR] An unexpected error occurred: {e}")
+        print(f"\n[ERROR] An error occurred while detaching: {e}")
+
+
+if __name__ == "__main__":
+    if not is_admin():
+        run_as_admin()
+        sys.exit(0)
+
+    bus_id, matched_vid_pid = find_target_device(TARGET_VID_PIDS)
+
+    if bus_id:
+        try_attach(bus_id, matched_vid_pid)
+    else:
+        print("\n[INFO] No target ESP32/Serial device found connected.")
+        current_device_status()
+
+    input("\nPress Enter to exit...")

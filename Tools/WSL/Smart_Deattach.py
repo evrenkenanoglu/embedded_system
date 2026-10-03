@@ -1,49 +1,48 @@
-import sys
-import subprocess
-import ctypes
-import time
+"""
+Smart_Deattach.py
+-----------------
+Detaches the ESP32/Serial device from WSL2 so Windows can immediately access
+the COM port (e.g. for Windows-native flashing or serial monitors).
+"""
 
+import sys
 from Smart_Attach_Common import (
+    TARGET_VID_PIDS,
     is_admin,
     run_as_admin,
-    find_bus_id,
+    find_target_device,
     try_detach,
-    TARGET_VID_PID,
+    current_device_status,
 )
 
 
-def main():
-    # 1. Self-elevate
+def main() -> None:
+    # 1. Self-elevate to Administrator
     if not is_admin():
         run_as_admin()
         sys.exit(0)
 
-    print(f"Searching for ESP32 (ID: {TARGET_VID_PID})...")
+    print("Searching for connected ESP32 / Serial devices...")
 
-    # 2. Find BUSID
-    bus_id = find_bus_id(TARGET_VID_PID)
+    # 2. Locate target device
+    bus_id, matched_vid_pid = find_target_device(TARGET_VID_PIDS)
 
     if not bus_id:
-        print("\n[ERROR] ESP32 not found!")
-        print("Please make sure the device is plugged in.")
+        print("\n[ERROR] ESP32 device not found!")
+        print("Please ensure the board is plugged in.")
         input("\nPress Enter to exit...")
         sys.exit(1)
 
-    print(f"Found ESP32 at Bus ID: {bus_id}")
-    print("Detaching from WSL (returning to Windows)...")
+    print(f"Found device [{matched_vid_pid}] at Bus ID: {bus_id}")
+    print("Detaching from WSL (releasing port back to Windows)...")
 
-    # 3. Detach Logic
+    # 3. Perform detach
     try_detach(bus_id)
 
-    # 4. List current status
-    print("\n--- Current Device Status ---")
-    try:
-        subprocess.run(f"usbipd list | findstr {TARGET_VID_PID}", shell=True)
-    except:
-        pass
+    # 4. Show updated status
+    current_device_status()
 
-    print("\n")
-    # 5. Wait for user input before closing
+    print("\n" + "=" * 35)
     input("Press Enter to close this window...")
 
 
