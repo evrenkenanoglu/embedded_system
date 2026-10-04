@@ -72,12 +72,14 @@ def get_all_target_devices(target_vid_pids: list[str]) -> list[dict]:
             else:
                 state = "Unknown"
 
-            devices.append({
-                "bus_id": bus_id,
-                "vid_pid": vid_pid,
-                "state": state,
-                "raw_line": line_clean,
-            })
+            devices.append(
+                {
+                    "bus_id": bus_id,
+                    "vid_pid": vid_pid,
+                    "state": state,
+                    "raw_line": line_clean,
+                }
+            )
 
     return devices
 
@@ -132,7 +134,9 @@ def run_daemon() -> None:
             # 1. Report disconnected devices
             for bus_id in list(last_states.keys()):
                 if bus_id not in current_bus_ids:
-                    print(f"[{time.strftime('%H:%M:%S')}] [DISCONNECTED] Device on Bus ID [{bus_id}] was removed.")
+                    print(
+                        f"[{time.strftime('%H:%M:%S')}] [DISCONNECTED] Device on Bus ID [{bus_id}] was removed."
+                    )
                     del last_states[bus_id]
 
             # 2. Check current devices for attach readiness
@@ -144,16 +148,20 @@ def run_daemon() -> None:
 
                 # If state changed, log it once
                 if state != prev_state:
-                    print(f"[{time.strftime('%H:%M:%S')}] [DETECTED] Bus ID [{bus_id}] ({vid_pid}) -> State: '{state}'")
+                    print(
+                        f"[{time.strftime('%H:%M:%S')}] [DETECTED] Bus ID [{bus_id}] ({vid_pid}) -> State: '{state}'"
+                    )
                     last_states[bus_id] = state
 
                 # If the device is connected to Windows but NOT attached to WSL
                 if state in ("Not shared", "Shared"):
-                    print(f"[{time.strftime('%H:%M:%S')}] [ACTION] Device on Bus [{bus_id}] is on Windows. Attaching to WSL...")
-                    
+                    print(
+                        f"[{time.strftime('%H:%M:%S')}] [ACTION] Device on Bus [{bus_id}] is on Windows. Attaching to WSL..."
+                    )
+
                     # Short pause for microcontroller reset/USB handshake to complete
                     time.sleep(SETTLE_DELAY)
-                    
+
                     if attach_device_to_wsl(bus_id, vid_pid):
                         last_states[bus_id] = "Attached"
 

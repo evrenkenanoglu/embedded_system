@@ -214,7 +214,9 @@ def try_detach(bus_id: str) -> None:
             print(f"\n[SUCCESS] Bus ID {bus_id} is now detached from WSL.")
             print("Windows can now access the COM port directly.")
         else:
-            print(f"\n[INFO] Device (Bus ID {bus_id}) was already detached or not shared.")
+            print(
+                f"\n[INFO] Device (Bus ID {bus_id}) was already detached or not shared."
+            )
 
     except Exception as e:
         print(f"\n[ERROR] An error occurred while detaching: {e}")
