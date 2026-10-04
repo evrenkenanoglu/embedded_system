@@ -13,6 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, Any, Tuple, List, Union, Optional
+import shutil
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
@@ -152,7 +153,8 @@ def build_x509_name(subject_cfg: Dict[str, str]) -> x509.Name:
 
 
 def save_pem_key(key: Any, file_path: Path) -> None:
-    """Saves private key in PEM format."""
+    """Saves private key in PEM format with automatic archival."""
+    archive_existing_file(file_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "wb") as f:
         f.write(
@@ -165,7 +167,8 @@ def save_pem_key(key: Any, file_path: Path) -> None:
 
 
 def save_pem_cert(cert: x509.Certificate, file_path: Path) -> None:
-    """Saves certificate in PEM format."""
+    """Saves certificate in PEM format with automatic archival."""
+    archive_existing_file(file_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "wb") as f:
         f.write(cert.public_bytes(serialization.Encoding.PEM))
@@ -300,58 +303,114 @@ def generate_server_tls_cert(
     return key, cert
 
 
-def generate_silicon_hardware_keys(silicon_cfg: Dict[str, Any]) -> None:
-    """Generates AES flash encryption key and Secure Boot V2 ECDSA/RSA key and public digest."""
+def generate_silicon_hardware_keys(
+    silicon_cfg: Dict[str, Any], force: bool = False
+) -> None:
+    """Generates or reuses AES flash encryption key and Secure Boot V2 RSA/ECDSA key with public digest."""
     # 1. Flash Encryption AES Key
     flash_cfg = silicon_cfg.get("flash_encryption", {})
     key_size = int(flash_cfg.get("key_size_bytes", 32))
     flash_file = Path(flash_cfg["key_file"]).resolve()
     flash_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(flash_file, "wb") as f:
-        f.write(secrets.token_bytes(key_size))
-    print(f"[OK] Flash Encryption Key generated: {flash_file.name}")
+    if flash_file.exists() and flash_file.stat().st_size == key_size and not force:
+        print(f"ℹ️  Reusing existing Flash Encryption key: {flash_file.name}")
+    else:
+        if flash_file.exists():
+            archive_existing_file(flash_file)
+        with open(flash_file, "wb") as f:
+            f.write(secrets.token_bytes(key_size))
+        print(f"✅ Flash Encryption Key generated: {flash_file.name}")
 
     # 2. Secure Boot V2 Signing Key & Digest
     sb_cfg = silicon_cfg.get("secure_boot_v2", {})
-    scheme = sb_cfg.get("scheme", "ecdsa256")
+    scheme = sb_cfg.get("scheme", "rsa3072")
     sb_pem = Path(sb_cfg["key_file"]).resolve()
     sb_digest = Path(sb_cfg["digest_file"]).resolve()
     sb_pem.parent.mkdir(parents=True, exist_ok=True)
     sb_digest.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd_gen = [
-        sys.executable,
-        "-m",
-        "espsecure",
-        "generate_signing_key",
-        "--version",
-        "2",
-        "--scheme",
-        scheme,
-        str(sb_pem.resolve()),
-    ]
-    res_gen = subprocess.run(cmd_gen, capture_output=True, text=True, check=False)
-    if res_gen.returncode != 0:
-        raise RuntimeError(f"Failed to generate Secure Boot V2 key:\n{res_gen.stderr}")
+    # Validate if existing key matches the configured scheme (RSA vs ECDSA)
+    key_scheme_matches = False
+    if sb_pem.exists():
+        try:
+            with open(sb_pem, "rb") as f:
+                loaded_key = serialization.load_pem_private_key(f.read(), password=None)
+            if "rsa" in scheme.lower():
+                key_scheme_matches = isinstance(loaded_key, rsa.RSAPrivateKey)
+            else:
+                key_scheme_matches = isinstance(loaded_key, ec.EllipticCurvePrivateKey)
+        except Exception:
+            key_scheme_matches = False
 
-    cmd_dig = [
-        sys.executable,
-        "-m",
-        "espsecure",
-        "digest_sbv2_public_key",
-        "--keyfile",
-        str(sb_pem.resolve()),
-        "--output",
-        str(sb_digest.resolve()),
-    ]
-    res_dig = subprocess.run(cmd_dig, capture_output=True, text=True, check=False)
-    if res_dig.returncode != 0:
-        raise RuntimeError(
-            f"Failed to extract Secure Boot V2 digest:\n{res_dig.stderr}"
-        )
+    # Reuse existing key if valid and not forced
+    if sb_pem.exists() and key_scheme_matches and not force:
+        print(f"ℹ️  Reusing existing Secure Boot V2 key ({scheme}): {sb_pem.name}")
+    else:
+        if sb_pem.exists():
+            if not key_scheme_matches:
+                print(
+                    f"⚠️  Existing key scheme mismatch (expected {scheme}). Archiving old key..."
+                )
+            archive_existing_file(sb_pem)
 
-    print(f"[OK] Secure Boot V2 key and digest generated: {sb_digest.name}")
+        cmd_gen = [
+            sys.executable,
+            "-m",
+            "espsecure",
+            "generate-signing-key",
+            "--version",
+            "2",
+            "--scheme",
+            scheme,
+            str(sb_pem.resolve()),
+        ]
+        res_gen = subprocess.run(cmd_gen, capture_output=True, text=True, check=False)
+        if res_gen.returncode != 0:
+            raise RuntimeError(
+                f"Failed to generate Secure Boot V2 key:\n{res_gen.stderr}"
+            )
+        print(f"✅ Secure Boot V2 key ({scheme}) generated: {sb_pem.name}")
+
+        # Invalidate old digest when a new private key is generated
+        if sb_digest.exists():
+            archive_existing_file(sb_digest)
+
+    # 3. Digest Generation / Reuse
+    if sb_digest.exists() and not force:
+        print(f"ℹ️  Reusing existing Secure Boot V2 digest: {sb_digest.name}")
+    else:
+        cmd_dig = [
+            sys.executable,
+            "-m",
+            "espsecure",
+            "digest-sbv2-public-key",
+            "--keyfile",
+            str(sb_pem.resolve()),
+            "--output",
+            str(sb_digest.resolve()),
+        ]
+        res_dig = subprocess.run(cmd_dig, capture_output=True, text=True, check=False)
+        if res_dig.returncode != 0:
+            raise RuntimeError(
+                f"Failed to extract Secure Boot V2 digest:\n{res_dig.stderr}"
+            )
+        print(f"✅ Secure Boot V2 key and digest generated: {sb_digest.name}")
+
+
+def archive_existing_file(file_path: Path) -> Optional[Path]:
+    """Safely moves existing key/cert to an archive timestamp folder before generating a new one."""
+    if not file_path.exists():
+        return None
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    archive_dir = file_path.parent / "archive" / timestamp
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    archived_path = archive_dir / file_path.name
+    shutil.move(str(file_path), str(archived_path))
+    print(
+        f"📦 [ESCROW] Archived existing file: {file_path.name} -> archive/{timestamp}/{file_path.name}"
+    )
+    return archived_path
 
 
 def main() -> int:
@@ -389,16 +448,14 @@ def main() -> int:
         root_cfg = config.get("root_ca", {})
         if root_cfg.get("enabled", True):
             ca_key, ca_cert = generate_root_ca(root_cfg)
-            print(
-                f"[OK] Root CA Authority generated: {Path(root_cfg['cert_file']).name}"
-            )
+            print(f"✅ Root CA Authority generated: {Path(root_cfg['cert_file']).name}")
 
             # 2. Code-Signing Certificate Generation
             signing_cfg = config.get("code_signing", {})
             if signing_cfg.get("enabled", True):
                 generate_code_signing_cert(signing_cfg, ca_key, ca_cert)
                 print(
-                    f"[OK] Developer Signing Certificate generated: {Path(signing_cfg['cert_file']).name}"
+                    f"✅ Developer Signing Certificate generated: {Path(signing_cfg['cert_file']).name}"
                 )
 
             # 3. Server HTTPS TLS Generation
@@ -406,7 +463,7 @@ def main() -> int:
             if server_cfg.get("enabled", True):
                 generate_server_tls_cert(server_cfg, ca_key, ca_cert)
                 print(
-                    f"[OK] Server TLS Certificate generated: {Path(server_cfg['cert_file']).name}"
+                    f"✅ Server TLS Certificate generated: {Path(server_cfg['cert_file']).name}"
                 )
 
         # 4. Silicon Hardware Keys Generation
@@ -415,12 +472,12 @@ def main() -> int:
             generate_silicon_hardware_keys(silicon_cfg)
 
         print(
-            "\n[SUCCESS] All PKI certificates and silicon keys generated successfully."
+            "\n✅ SUCCESS] All PKI certificates and silicon keys generated successfully."
         )
         return 0
 
     except Exception as e:
-        print(f"\n[FATAL ERROR] {e}", file=sys.stderr)
+        print(f"\n[❌ FATAL ERROR] {e}", file=sys.stderr)
         return 1
 
 

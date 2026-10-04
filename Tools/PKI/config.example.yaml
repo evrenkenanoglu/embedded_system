@@ -52,6 +52,6 @@ silicon_keys:
     key_size_bytes: 32  # 256-bit AES
     key_file: '{keys_dir}/flash_encryption_key.bin'
   secure_boot_v2:
-    scheme: ecdsa256  # ecdsa256 | rsa3072
+    scheme: rsa3072  # rsa3072 | rsa3072
     key_file: '{keys_dir}/secure_boot_signing_key.pem'
     digest_file: '{keys_dir}/secure_boot_digest.bin'

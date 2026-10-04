@@ -9,6 +9,7 @@
 #include "com_i2c.hpp"
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
+#include "soc/soc_caps.h"
 
 #define I2C_MASTER_TX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
@@ -28,8 +29,10 @@ namespace
         {
             case 0:
                 return I2C_NUM_0;
+#if SOC_HP_I2C_NUM >= 2
             case 1:
                 return I2C_NUM_1;
+#endif
             default:
                 return I2C_NUM_0; // Default to I2C_NUM_0 if invalid port is provided
         }
