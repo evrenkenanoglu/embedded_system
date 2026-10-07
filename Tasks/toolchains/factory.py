@@ -39,7 +39,7 @@ def get_toolchain(config: Any = None) -> BaseToolchain:
     toolchain_type = str(toolchain_type).lower()
 
     if toolchain_type not in _TOOLCHAIN_CACHE:
-        if toolchain_type in ("esp-idf", "esp32", "esp32s3", "espidf"):
+        if toolchain_type in ("esp-idf", "esp32", "esp32s3", "esp32c6", "espidf"):
             _TOOLCHAIN_CACHE[toolchain_type] = EspIdfToolchain(cfg)
         else:
             raise ValueError(f"Unsupported toolchain type: {toolchain_type}")

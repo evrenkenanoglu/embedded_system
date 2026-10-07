@@ -394,7 +394,7 @@
                 <form action="/upload" method="post" enctype="multipart/form-data">
                     <div class="form-group">
                         <label for="hardware">Hardware Identifier</label>
-                        <input type="text" id="hardware" name="hardware" placeholder="e.g., esp32-devkit-v1" required 
+                        <input type="text" id="hardware" name="hardware" placeholder="e.g., esp32-devkit-v1" required
                                value="{{ manifest.hardware_device if manifest else '' }}">
                     </div>
 
@@ -438,20 +438,20 @@
                 </form>
             </div>
 
-            <!-- Active Release Directory Directory -->
+            <!-- Active Release Directory -->
             <div class="card">
                 <h2 class="card-title">Active Release Directory</h2>
-                
-                {% if manifest %}
+
+                {% if manifest and manifest.releases %}
                     <div class="manifest-overview">
                         <div class="stat-box">
-                            <div class="stat-label">Target Hardware</div>
-                            <div class="stat-value">{{ manifest.hardware_device }}</div>
+                            <div class="stat-label">Active Channels</div>
+                            <div class="stat-value">{{ manifest.channels.keys() | list | length }}</div>
                         </div>
                         <div class="stat-box">
                             <div class="stat-label">Total Released Builds</div>
                             <div class="stat-value">
-                                {{ manifest.updates.keys() | list | length if manifest.updates else '0' }}
+                                {{ manifest.releases.keys() | list | length }}
                             </div>
                         </div>
                     </div>
@@ -464,64 +464,64 @@
                             Deployments List
                         </h3>
 
-                        {% if manifest.updates %}
-                            {% for version, details in manifest.updates.items() | reverse %}
-                                <div class="release-item">
-                                    <div class="release-header">
-                                        <div class="release-meta-left">
-                                            <span class="release-version">v{{ version }}</span>
-                                            <span class="channel-badge">{{ details.channel if details.channel else 'stable' }}</span>
-                                            
-                                            {% if details.status == 'active' %}
-                                                <span class="status-badge-item status-active">Active</span>
-                                            {% else %}
-                                                <span class="status-badge-item status-rollback">Soft-Rolled-Back</span>
-                                            {% endif %}
-                                        </div>
-                                        <button class="delete-btn" onclick="confirmDelete('{{ version }}')">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
-                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
-                                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
-                                            </svg>
-                                            Delete Build
-                                        </button>
+                        {% for version, details in manifest.releases.items() | reverse %}
+                            <div class="release-item">
+                                <div class="release-header">
+                                    <div class="release-meta-left">
+                                        <span class="release-version">v{{ version }}</span>
+                                        <span class="channel-badge">{{ details.channel }}</span>
+
+                                        {% if details.status == 'active' %}
+                                            <span class="status-badge-item status-active">Active</span>
+                                        {% else %}
+                                            <span class="status-badge-item status-rollback">Soft-Rolled-Back</span>
+                                        {% endif %}
                                     </div>
-                                    <div class="meta-grid">
-                                        <div class="meta-item">
-                                            <strong>Binary File</strong>
-                                            <code>{{ details.binary_path }}</code>
-                                        </div>
-                                        <div class="meta-item">
-                                            <strong>Payload Size</strong>
-                                            <span class="byte-size">{{ details.file_size_bytes }}</span>
-                                        </div>
-                                        <div class="meta-item">
-                                            <strong>Canary Target</strong>
-                                            <span>{{ details.canary_percentage if details.canary_percentage is defined else '100' }}%</span>
-                                        </div>
-                                        <div class="meta-item">
-                                            <strong>Hardware Anti-Rollback (HSVN)</strong>
-                                            <span>Level {{ details.hsvn if details.hsvn is defined else '1' }}</span>
-                                        </div>
-                                        <div class="meta-item" style="grid-column: 1 / -1;">
-                                            <strong>SHA-256 Checksum</strong>
-                                            <code>{{ details.sha256 }}</code>
-                                        </div>
-                                    </div>
-                                    {% if details.release_notes %}
-                                        <div class="release-notes">{{ details.release_notes }}</div>
-                                    {% endif %}
+                                    <button class="delete-btn" onclick="confirmDelete('{{ version }}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
+                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                            <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                        </svg>
+                                        Delete Build
+                                    </button>
                                 </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="empty-state">No binary updates registered in the manifest directory.</div>
-                        {% endif %}
+                                <div class="meta-grid">
+                                    <div class="meta-item">
+                                        <strong>Target Hardware</strong>
+                                        <code>{{ details.hardware }}</code>
+                                    </div>
+                                    <div class="meta-item">
+                                        <strong>Binary File</strong>
+                                        <code>{{ details.binary.file_name }}</code>
+                                    </div>
+                                    <div class="meta-item">
+                                        <strong>Payload Size</strong>
+                                        <span class="byte-size">{{ details.binary.size_bytes }}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <strong>Canary Target</strong>
+                                        <span>{{ details.canary_percentage }}%</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <strong>Hardware Anti-Rollback (HSVN)</strong>
+                                        <span>Level {{ details.hsvn }}</span>
+                                    </div>
+                                    <div class="meta-item" style="grid-column: 1 / -1;">
+                                        <strong>SHA-256 Checksum</strong>
+                                        <code>{{ details.binary.sha256 }}</code>
+                                    </div>
+                                </div>
+                                {% if details.release_notes %}
+                                    <div class="release-notes">{{ details.release_notes }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
                     </div>
                 {% else %}
                     <div class="empty-state">
                         <p>No active firmware deployment profiles found.</p>
                         <p style="font-size: 0.875rem; margin-top: 0.5rem; color: var(--text-muted);">
-                            Fill out the upload profile to configure your target hardware directory.
+                            Upload a build or package an OTA release via <code>inv es.ota.release</code>.
                         </p>
                     </div>
                 {% endif %}
@@ -534,7 +534,7 @@
             document.querySelectorAll(".byte-size").forEach(function(el) {
                 const bytes = parseInt(el.textContent, 10);
                 if (isNaN(bytes)) return;
-                
+
                 if (bytes >= 1048576) {
                     el.textContent = (bytes / 1048576).toFixed(2) + " MB";
                 } else if (bytes >= 1024) {
@@ -547,13 +547,13 @@
 
         async function confirmDelete(version) {
             const confirmBox = confirm(`Permanently delete firmware version v${version}?\n\nThis will remove metadata entries and purge physical binaries and delta files.`);
-            
+
             if (confirmBox) {
                 try {
                     const response = await fetch(`/delete/${version}`, {
                         method: 'POST'
                     });
-                    
+
                     if (response.ok) {
                         window.location.reload();
                     } else {

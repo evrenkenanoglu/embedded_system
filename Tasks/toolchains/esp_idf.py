@@ -220,9 +220,17 @@ class EspIdfToolchain(BaseToolchain):
 
     def _erase(self, c: Optional[Context], port: str, dry_run: bool, opts: str) -> None:
         port_flag = f"-p {port}" if port else ""
+        chip = getattr(self, "chip", None) or getattr(self, "target", None)
+        chip_flag = f"--chip {chip}" if chip else ""
+        baud = getattr(self, "flash_baud", None) or getattr(self, "baud", None)
+        baud_flag = f"-b {baud}" if baud else ""
+
         serializer = self._get_serializer()
         serializer.add(f'cd "{self.work_dir.as_posix()}"')
-        serializer.add(f"idf.py {port_flag} erase-flash".strip(), extra=opts)
+
+        # Bypass idf.py injecting --no-stub during Secure Boot / Flash Encryption:
+        cmd = f"python -m esptool {port_flag} {baud_flag} {chip_flag} erase_flash".strip()
+        serializer.add(cmd, extra=opts)
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _provision(
