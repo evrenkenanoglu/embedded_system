@@ -36,23 +36,32 @@ def generate_delta_patch(base_path: Path, new_path: Path, patch_path: Path) -> b
     """
     detools_executable = shutil.which("detools") or shutil.which("detools.exe")
     if not detools_executable:
-        print("[WARN] 'detools' executable not found in PATH. Skipping delta patch creation.", file=sys.stderr)
+        print(
+            "[WARN] 'detools' executable not found in PATH. Skipping delta patch creation.",
+            file=sys.stderr,
+        )
         return False
 
     patch_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         detools_executable,
         "create_patch",
-        "-c", "heatshrink",
+        "-c",
+        "heatshrink",
         str(base_path.resolve()),
         str(new_path.resolve()),
         str(patch_path.resolve()),
     ]
     try:
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True
+        )
         return True
     except subprocess.CalledProcessError as exc:
-        print(f"[ERROR] detools failed (code {exc.returncode}): {exc.stderr.strip()}", file=sys.stderr)
+        print(
+            f"[ERROR] detools failed (code {exc.returncode}): {exc.stderr.strip()}",
+            file=sys.stderr,
+        )
         return False
     except Exception as exc:
         print(f"[ERROR] Failed to execute detools process: {exc}", file=sys.stderr)
@@ -68,7 +77,10 @@ def load_manifest(manifest_path: Path) -> Dict[str, Any]:
                 if isinstance(data, dict):
                     return data
         except Exception as exc:
-            print(f"[WARN] Failed to parse {manifest_path}: {exc}. Rebuilding structure.", file=sys.stderr)
+            print(
+                f"[WARN] Failed to parse {manifest_path}: {exc}. Rebuilding structure.",
+                file=sys.stderr,
+            )
 
     return {
         "schema_version": "1.0.0",
@@ -108,8 +120,11 @@ def reconcile_1hop_patches(catalog_path: Path, manifest: Dict[str, Any]) -> bool
 
         # Find previous active release in this channel
         channel_releases = [
-            v for v, r in releases.items()
-            if r.get("channel") == ch_name and r.get("status") == "active" and v != latest_ver
+            v
+            for v, r in releases.items()
+            if r.get("channel") == ch_name
+            and r.get("status") == "active"
+            and v != latest_ver
         ]
         if not channel_releases:
             continue
@@ -128,8 +143,12 @@ def reconcile_1hop_patches(catalog_path: Path, manifest: Dict[str, Any]) -> bool
         if prev_ver in latest_rel["patches"]:
             continue
 
-        base_bin_name = prev_rel.get("binary", {}).get("file_name") or prev_rel.get("file_name")
-        new_bin_name = latest_rel.get("binary", {}).get("file_name") or latest_rel.get("file_name")
+        base_bin_name = prev_rel.get("binary", {}).get("file_name") or prev_rel.get(
+            "file_name"
+        )
+        new_bin_name = latest_rel.get("binary", {}).get("file_name") or latest_rel.get(
+            "file_name"
+        )
 
         if not base_bin_name or not new_bin_name:
             continue
@@ -141,7 +160,9 @@ def reconcile_1hop_patches(catalog_path: Path, manifest: Dict[str, Any]) -> bool
             patch_name = f"patch_{prev_ver}_to_{latest_ver}.bin"
             patch_path = patches_dir / patch_name
 
-            print(f"[*] [DIFF-WORKER] Generating 1-hop patch: {prev_ver} -> {latest_ver}...")
+            print(
+                f"[*] [DIFF-WORKER] Generating 1-hop patch: {prev_ver} -> {latest_ver}..."
+            )
             if generate_delta_patch(base_bin_path, new_bin_path, patch_path):
                 p_size = patch_path.stat().st_size
                 p_hash = calculate_sha256(patch_path)
@@ -152,7 +173,9 @@ def reconcile_1hop_patches(catalog_path: Path, manifest: Dict[str, Any]) -> bool
                     "signature": "",  # Unsigned on server; client verifies target_signature
                 }
                 updated = True
-                print(f"[OK] [DIFF-WORKER] Generated: {patch_name} ({p_size / 1024:.1f} KB)")
+                print(
+                    f"[OK] [DIFF-WORKER] Generated: {patch_name} ({p_size / 1024:.1f} KB)"
+                )
 
     return updated
 
@@ -178,7 +201,9 @@ def register_release(
 
     # 1. Store immutable version-tagged binary
     stem = binary_path.stem
-    versioned_filename = f"{stem}_{version}.bin" if not stem.endswith(version) else binary_path.name
+    versioned_filename = (
+        f"{stem}_{version}.bin" if not stem.endswith(version) else binary_path.name
+    )
     target_binary = binaries_dir / versioned_filename
     shutil.copy2(binary_path, target_binary)
 
@@ -235,18 +260,62 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Release Catalog Manager: Stores immutable binaries, manages catalog, and creates 1-hop diffs."
     )
-    parser.add_argument("--catalog-dir", type=Path, default=CATALOG_DIR, help="Path to release-catalog directory")
-    parser.add_argument("--binary", type=Path, default=None, help="Path to compiled application binary")
-    parser.add_argument("--version", type=str, default=None, help="Semver string (e.g. 1.0.1)")
-    parser.add_argument("--signature", type=str, default="", help="Pre-computed developer target signature (HEX)")
-    parser.add_argument("--signing-cert", type=Path, default=None, help="Path to developer signing.crt PEM")
-    parser.add_argument("--hardware", type=str, default="ESP32-C6-WROOM-1", help="Target hardware profile")
-    parser.add_argument("--channel", type=str, default="stable", help="Deployment cohort channel")
-    parser.add_argument("--hsvn", type=int, default=1, help="Hardware Security Version Number")
-    parser.add_argument("--canary", type=int, default=100, help="Canary percentage (0-100)")
-    parser.add_argument("--notes", type=str, default="Production release build.", help="Changelog or release notes")
-    parser.add_argument("--project-name", type=str, default="Embedded_IoT_BT_WIFI_Base_Project", help="Project name")
-    parser.add_argument("--reconcile", action="store_true", help="Only reconcile missing 1-hop delta patches")
+    parser.add_argument(
+        "--catalog-dir",
+        type=Path,
+        default=CATALOG_DIR,
+        help="Path to release-catalog directory",
+    )
+    parser.add_argument(
+        "--binary", type=Path, default=None, help="Path to compiled application binary"
+    )
+    parser.add_argument(
+        "--version", type=str, default=None, help="Semver string (e.g. 1.0.1)"
+    )
+    parser.add_argument(
+        "--signature",
+        type=str,
+        default="",
+        help="Pre-computed developer target signature (HEX)",
+    )
+    parser.add_argument(
+        "--signing-cert",
+        type=Path,
+        default=None,
+        help="Path to developer signing.crt PEM",
+    )
+    parser.add_argument(
+        "--hardware",
+        type=str,
+        default="ESP32-C6-WROOM-1",
+        help="Target hardware profile",
+    )
+    parser.add_argument(
+        "--channel", type=str, default="stable", help="Deployment cohort channel"
+    )
+    parser.add_argument(
+        "--hsvn", type=int, default=1, help="Hardware Security Version Number"
+    )
+    parser.add_argument(
+        "--canary", type=int, default=100, help="Canary percentage (0-100)"
+    )
+    parser.add_argument(
+        "--notes",
+        type=str,
+        default="Production release build.",
+        help="Changelog or release notes",
+    )
+    parser.add_argument(
+        "--project-name",
+        type=str,
+        default="Embedded_IoT_BT_WIFI_Base_Project",
+        help="Project name",
+    )
+    parser.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="Only reconcile missing 1-hop delta patches",
+    )
     args = parser.parse_args()
 
     catalog_path = args.catalog_dir.resolve()
@@ -262,7 +331,10 @@ def main() -> int:
         return 0
 
     if not args.binary or not args.version:
-        print("[ERROR] Both --binary and --version are required unless running with --reconcile.", file=sys.stderr)
+        print(
+            "[ERROR] Both --binary and --version are required unless running with --reconcile.",
+            file=sys.stderr,
+        )
         return 1
 
     if not args.binary.exists():

@@ -229,7 +229,9 @@ class EspIdfToolchain(BaseToolchain):
         serializer.add(f'cd "{self.work_dir.as_posix()}"')
 
         # Bypass idf.py injecting --no-stub during Secure Boot / Flash Encryption:
-        cmd = f"python -m esptool {port_flag} {baud_flag} {chip_flag} erase_flash".strip()
+        cmd = (
+            f"python -m esptool {port_flag} {baud_flag} {chip_flag} erase_flash".strip()
+        )
         serializer.add(cmd, extra=opts)
         serializer.run(self._ctx(c), dry_run=dry_run)
 

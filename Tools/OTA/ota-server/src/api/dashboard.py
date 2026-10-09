@@ -39,7 +39,10 @@ async def get_dashboard(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"manifest": manifest.model_dump(), "project_name": settings.PROJECT_NAME},
+        context={
+            "manifest": manifest.model_dump(),
+            "project_name": settings.PROJECT_NAME,
+        },
     )
 
 
@@ -67,21 +70,32 @@ async def upload_firmware(
 
     diff_worker_script = settings.CATALOG_DIR / "diff_worker.py"
     if not diff_worker_script.exists():
-        raise HTTPException(status_code=500, detail=f"diff_worker.py not found at {diff_worker_script}")
+        raise HTTPException(
+            status_code=500, detail=f"diff_worker.py not found at {diff_worker_script}"
+        )
 
     # Invoke standalone diff_worker to register release and generate 1-hop diff
     cmd = [
         sys.executable,
         str(diff_worker_script),
-        "--catalog-dir", str(settings.CATALOG_DIR),
-        "--binary", str(temp_upload_path),
-        "--version", version,
-        "--signature", target_signature,
-        "--hardware", hardware,
-        "--channel", channel,
-        "--hsvn", str(hsvn),
-        "--canary", str(canary_percentage),
-        "--notes", release_notes,
+        "--catalog-dir",
+        str(settings.CATALOG_DIR),
+        "--binary",
+        str(temp_upload_path),
+        "--version",
+        version,
+        "--signature",
+        target_signature,
+        "--hardware",
+        hardware,
+        "--channel",
+        channel,
+        "--hsvn",
+        str(hsvn),
+        "--canary",
+        str(canary_percentage),
+        "--notes",
+        release_notes,
     ]
 
     try:
@@ -98,7 +112,9 @@ async def delete_version(version: str):
     """Deletes release metadata and binary assets from release-catalog."""
     manifest = load_manifest()
     if version not in manifest.releases:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Version not found."
+        )
 
     target_release = manifest.releases[version]
     target_channel = target_release.channel
@@ -118,16 +134,21 @@ async def delete_version(version: str):
 
     # Recalculate channel latest
     remaining = [
-        v for v, r in manifest.releases.items()
+        v
+        for v, r in manifest.releases.items()
         if r.channel == target_channel and r.status == "active"
     ]
     if remaining:
+
         def semver_key(v):
             try:
                 return [int(x) for x in v.split(".")]
             except ValueError:
                 return [0]
-        manifest.channels[target_channel].latest_version = sorted(remaining, key=semver_key)[-1]
+
+        manifest.channels[target_channel].latest_version = sorted(
+            remaining, key=semver_key
+        )[-1]
     else:
         if target_channel in manifest.channels:
             del manifest.channels[target_channel]

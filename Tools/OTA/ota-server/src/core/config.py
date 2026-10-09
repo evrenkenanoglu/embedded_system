@@ -105,19 +105,30 @@ class Settings:
 
     _paths = _cfg.get("paths", {})
     CERT_DIR: Path = Path(_paths.get("cert_dir", SERVER_ROOT_DIR / "certs")).resolve()
-    TEMPLATES_DIR: Path = Path(_paths.get("templates_dir", SERVER_ROOT_DIR / "src/templates")).resolve()
-    STATIC_DIR: Path = Path(_paths.get("static_dir", SERVER_ROOT_DIR / "src/static")).resolve()
-    TELEMETRY_LOG_DIR: Path = Path(_paths.get("telemetry_dir", SERVER_ROOT_DIR / "telemetry_logs")).resolve()
+    TEMPLATES_DIR: Path = Path(
+        _paths.get("templates_dir", SERVER_ROOT_DIR / "src/templates")
+    ).resolve()
+    STATIC_DIR: Path = Path(
+        _paths.get("static_dir", SERVER_ROOT_DIR / "src/static")
+    ).resolve()
+    TELEMETRY_LOG_DIR: Path = Path(
+        _paths.get("telemetry_dir", SERVER_ROOT_DIR / "telemetry_logs")
+    ).resolve()
 
     # --- Decoupled Release Catalog Path Resolution ---
     # Points to release-catalog/ as the SSoT data layer
     default_catalog = BASE_DIR.parent / "release-catalog"
     CATALOG_DIR: Path = Path(
-        _paths.get("catalog_dir", _paths.get("ota_catalog_dir", _paths.get("firmware_dir", default_catalog)))
+        _paths.get(
+            "catalog_dir",
+            _paths.get("ota_catalog_dir", _paths.get("firmware_dir", default_catalog)),
+        )
     ).resolve()
     BINARIES_DIR: Path = (CATALOG_DIR / "binaries").resolve()
     PATCHES_DIR: Path = (CATALOG_DIR / "patches").resolve()
-    MANIFEST_FILE: Path = (CATALOG_DIR / _paths.get("manifest_filename", "manifest.json")).resolve()
+    MANIFEST_FILE: Path = (
+        CATALOG_DIR / _paths.get("manifest_filename", "manifest.json")
+    ).resolve()
 
     # Alias for backward compatibility with route prefixes
     FIRMWARE_DIR: Path = CATALOG_DIR
@@ -127,7 +138,9 @@ class Settings:
     _srv_cfg = _certs.get("server", {})
 
     CRL_FILE: Path = (CERT_DIR / _certs.get("crl_file", "revoked.crl")).resolve()
-    REVOKED_SERIALS: List[str] = [str(s).strip().upper() for s in _certs.get("revoked_serials", [])]
+    REVOKED_SERIALS: List[str] = [
+        str(s).strip().upper() for s in _certs.get("revoked_serials", [])
+    ]
 
     # TLS Transport Credentials (HTTPS only - zero code-signing keys)
     CA_CERT_FILE: Path = (CERT_DIR / _ca_cfg.get("cert_file", "ca.crt")).resolve()
@@ -135,12 +148,18 @@ class Settings:
     SSL_KEY_FILE: Path = (CERT_DIR / _srv_cfg.get("key_file", "server.key")).resolve()
 
     # Optional Developer Code-Signing Definitions (Not mandatory on server)
-    SIGNING_CERT_COMMON_NAME: str = _sign_cfg.get("common_name", "DeveloperFirmwareSigning")
+    SIGNING_CERT_COMMON_NAME: str = _sign_cfg.get(
+        "common_name", "DeveloperFirmwareSigning"
+    )
     SIGNING_CERT_ORG: str = _sign_cfg.get("organization", "Firmware Release Authority")
     SIGNING_KEY_TYPE: str = _sign_cfg.get("key_type", "ec-secp256r1")
     SIGNING_VALIDITY_DAYS: int = int(_sign_cfg.get("validity_days", 365))
-    SIGNING_CRT_FILE: Path = (CERT_DIR / _sign_cfg.get("cert_file", "signing.crt")).resolve()
-    SIGNING_KEY_FILE: Path = (CERT_DIR / _sign_cfg.get("key_file", "signing.key")).resolve()
+    SIGNING_CRT_FILE: Path = (
+        CERT_DIR / _sign_cfg.get("cert_file", "signing.crt")
+    ).resolve()
+    SIGNING_KEY_FILE: Path = (
+        CERT_DIR / _sign_cfg.get("key_file", "signing.key")
+    ).resolve()
 
     _auth = _cfg.get("auth", {})
     API_KEY_HEADER: str = _auth.get("api_key_header", "X-Device-API-Key")
@@ -163,8 +182,12 @@ class Settings:
     CHUNK_SIZE_BYTES: int = int(_deploy.get("chunk_size_bytes", 8192))
 
     _rollback = _cfg.get("rollback", {})
-    MAX_FAILURE_RATE_PERCENT: float = float(_rollback.get("max_failure_rate_percent", 10.0))
-    MIN_STATUS_REPORTS_FOR_ROLLBACK: int = int(_rollback.get("min_reports_for_rollback", 5))
+    MAX_FAILURE_RATE_PERCENT: float = float(
+        _rollback.get("max_failure_rate_percent", 10.0)
+    )
+    MIN_STATUS_REPORTS_FOR_ROLLBACK: int = int(
+        _rollback.get("min_reports_for_rollback", 5)
+    )
     SLIDING_WINDOW_SECONDS: int = int(_rollback.get("sliding_window_seconds", 3600))
     WEBHOOK_URL: str = str(_rollback.get("webhook_url", ""))
 

@@ -77,11 +77,19 @@ class ReleaseEntry(BaseModel):
                     patch_info.get("file_name")
                     or patch_info.get("patch_path", "").lstrip("/").split("/")[-1]
                 )
-                p_size = patch_info.get("size_bytes") or patch_info.get("file_size_bytes") or 0
+                p_size = (
+                    patch_info.get("size_bytes")
+                    or patch_info.get("file_size_bytes")
+                    or 0
+                )
                 p_hash = patch_info.get("sha256") or ""
                 p_sig = patch_info.get("signature") or ""
                 norm_patches[prev_ver] = {
-                    "file_name": f"patches/{p_file}" if not p_file.startswith("patches/") else p_file,
+                    "file_name": (
+                        f"patches/{p_file}"
+                        if not p_file.startswith("patches/")
+                        else p_file
+                    ),
                     "size_bytes": p_size,
                     "sha256": p_hash,
                     "signature": p_sig,

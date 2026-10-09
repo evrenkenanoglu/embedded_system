@@ -30,7 +30,10 @@ def verify_certificate_status(cert_pem: str) -> Tuple[bool, str]:
 
     # 1. Expiration validity window check
     if now < cert.not_valid_before_utc:
-        return False, f"Certificate is not yet valid (notBefore: {cert.not_valid_before_utc})"
+        return (
+            False,
+            f"Certificate is not yet valid (notBefore: {cert.not_valid_before_utc})",
+        )
     if now > cert.not_valid_after_utc:
         return False, f"Certificate has expired (notAfter: {cert.not_valid_after_utc})"
 
@@ -38,7 +41,10 @@ def verify_certificate_status(cert_pem: str) -> Tuple[bool, str]:
 
     # 2. Configured serial blocklist check
     if serial_hex in settings.REVOKED_SERIALS:
-        return False, f"Certificate serial 0x{serial_hex} is listed on revocation blocklist"
+        return (
+            False,
+            f"Certificate serial 0x{serial_hex} is listed on revocation blocklist",
+        )
 
     # 3. Dynamic CRL file evaluation if present on disk
     if settings.CRL_FILE.exists():
@@ -49,9 +55,14 @@ def verify_certificate_status(cert_pem: str) -> Tuple[bool, str]:
                 if b"-----BEGIN X509 CRL-----" in crl_bytes
                 else x509.load_der_x509_crl(crl_bytes)
             )
-            revoked_entry = crl.get_revoked_certificate_by_serial_number(cert.serial_number)
+            revoked_entry = crl.get_revoked_certificate_by_serial_number(
+                cert.serial_number
+            )
             if revoked_entry is not None:
-                return False, f"Certificate serial 0x{serial_hex} revoked in CRL on {revoked_entry.revocation_date_utc}"
+                return (
+                    False,
+                    f"Certificate serial 0x{serial_hex} revoked in CRL on {revoked_entry.revocation_date_utc}",
+                )
         except Exception as exc:
             return False, f"CRL verification error: {exc}"
 

@@ -65,7 +65,9 @@ def main() -> int:
         return 1
 
     if not args.signing_cert.exists():
-        print(f"[ERROR] Certificate file not found: {args.signing_cert}", file=sys.stderr)
+        print(
+            f"[ERROR] Certificate file not found: {args.signing_cert}", file=sys.stderr
+        )
         return 1
 
     file_size = args.binary.stat().st_size
@@ -77,7 +79,11 @@ def main() -> int:
 
     # Immutable version-tagged filename (e.g. Embedded_IoT_BT_WIFI_Base_Project_1.0.1.bin)
     stem = args.binary.stem
-    versioned_filename = f"{stem}_{args.version}.bin" if not stem.endswith(args.version) else args.binary.name
+    versioned_filename = (
+        f"{stem}_{args.version}.bin"
+        if not stem.endswith(args.version)
+        else args.binary.name
+    )
 
     storage_dir = args.manifest.parent
     binaries_dir = storage_dir / "binaries"
@@ -87,7 +93,9 @@ def main() -> int:
     if args.copy_to_storage:
         dest_binary_path = binaries_dir / versioned_filename
         shutil.copy2(args.binary, dest_binary_path)
-        print(f"[OK] Stored immutable binary in binaries/: {dest_binary_path.name} ({file_size / (1024 * 1024):.2f} MB)")
+        print(
+            f"[OK] Stored immutable binary in binaries/: {dest_binary_path.name} ({file_size / (1024 * 1024):.2f} MB)"
+        )
 
     manifest_data: Dict[str, Any] = {}
     if args.manifest.exists():
@@ -114,7 +122,9 @@ def main() -> int:
         "target_hsvn": args.hsvn,
         "status": "active",
         "canary_percentage": 100,
-        "patches": manifest_data.get("releases", {}).get(args.version, {}).get("patches", {}),
+        "patches": manifest_data.get("releases", {})
+        .get(args.version, {})
+        .get("patches", {}),
     }
 
     temp_path = args.manifest.with_suffix(".tmp")

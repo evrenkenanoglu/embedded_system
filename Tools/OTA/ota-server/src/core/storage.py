@@ -19,6 +19,7 @@ logger = logging.getLogger("uvicorn.error")
 
 def calculate_sha256(file_path: Path) -> str:
     import hashlib
+
     sha = hashlib.sha256()
     with open(file_path, "rb") as f:
         while chunk := f.read(settings.CHUNK_SIZE_BYTES):
@@ -53,7 +54,8 @@ def reconcile_1hop_patches() -> None:
 
         # Find the previous active release in this channel
         all_channel_releases = [
-            v for v, r in manifest.releases.items()
+            v
+            for v, r in manifest.releases.items()
             if r.channel == channel_name and r.status == "active" and v != latest_ver
         ]
         if not all_channel_releases:
@@ -80,7 +82,9 @@ def reconcile_1hop_patches() -> None:
             patch_name = f"patch_{prev_ver}_to_{latest_ver}.bin"
             patch_path = patches_dir / patch_name
 
-            logger.info(f"[STORAGE] Generating 1-hop delta patch: {prev_ver} -> {latest_ver}...")
+            logger.info(
+                f"[STORAGE] Generating 1-hop delta patch: {prev_ver} -> {latest_ver}..."
+            )
             if generate_delta_patch(str(base_bin), str(new_bin), str(patch_path)):
                 p_size = patch_path.stat().st_size
                 p_hash = calculate_sha256(patch_path)
@@ -92,7 +96,9 @@ def reconcile_1hop_patches() -> None:
                     "signature": "",
                 }
                 updated = True
-                logger.info(f"⚡ [STORAGE] 1-Hop patch generated successfully: {patch_name} ({p_size / 1024:.1f} KB)")
+                logger.info(
+                    f"⚡ [STORAGE] 1-Hop patch generated successfully: {patch_name} ({p_size / 1024:.1f} KB)"
+                )
 
     if updated:
         manifest.updated_at = int(time.time())

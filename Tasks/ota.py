@@ -48,9 +48,12 @@ def server(c: Context, dry_run: bool = False, config: str = "", opts: str = "") 
     default_config = (
         getattr(CONFIG.paths, "es_config_ota_server", None)
         or getattr(CONFIG.paths, "config_ota_server", None)
-        or Path(getattr(CONFIG.paths, "configs_dir", workspace_root / "configs")) / "config_ota_server.yaml"
+        or Path(getattr(CONFIG.paths, "configs_dir", workspace_root / "configs"))
+        / "config_ota_server.yaml"
     )
-    raw_config = Path(config) if config and str(config).strip() else Path(default_config)
+    raw_config = (
+        Path(config) if config and str(config).strip() else Path(default_config)
+    )
     if not raw_config.is_absolute():
         raw_config = (workspace_root / raw_config).resolve()
 
@@ -94,7 +97,9 @@ def release(
     toolchain = get_toolchain()
 
     # Step 1: Compile firmware
-    print(f"\n[*] [OTA RELEASE: 1/4] Compiling firmware for target '{selected_target}'...")
+    print(
+        f"\n[*] [OTA RELEASE: 1/4] Compiling firmware for target '{selected_target}'..."
+    )
     toolchain.build(c, target=selected_target, dry_run=dry_run, opts=build_opts)
 
     # Step 2: Sign binary and package into release-catalog
@@ -103,28 +108,41 @@ def release(
 
     # Step 3: Run standalone diff_worker.py (Zero web server imports!)
     catalog_dir = Path(
-        getattr(CONFIG.paths, "ota_catalog_dir", workspace_root / "embedded_system/Tools/OTA/release-catalog")
+        getattr(
+            CONFIG.paths,
+            "ota_catalog_dir",
+            workspace_root / "embedded_system/Tools/OTA/release-catalog",
+        )
     ).resolve()
     diff_worker_script = catalog_dir / "diff_worker.py"
 
     if diff_worker_script.exists():
-        print(f"\n[*] [OTA RELEASE: 3/4] Reconciling 1-hop delta patch via diff_worker.py...")
+        print(
+            f"\n[*] [OTA RELEASE: 3/4] Reconciling 1-hop delta patch via diff_worker.py..."
+        )
         serializer = CommandSerializer(
             prefix_commands=[CONFIG.venv_activate_cmd],
             env=CONFIG.env,
         )
-        serializer.add(f'python "{diff_worker_script}" --catalog-dir "{catalog_dir}" --reconcile')
+        serializer.add(
+            f'python "{diff_worker_script}" --catalog-dir "{catalog_dir}" --reconcile'
+        )
         serializer.run(c, dry_run=dry_run)
     else:
-        print(f"⚠️ [WARN] diff_worker.py not found at: {diff_worker_script}. Skipping delta generation.")
+        print(
+            f"⚠️ [WARN] diff_worker.py not found at: {diff_worker_script}. Skipping delta generation."
+        )
 
     # Step 4: Sync release-catalog to Windows host
     if sync_windows:
         print(f"\n[*] [OTA RELEASE: 4/4] Syncing release catalog to Windows host...")
         from embedded_system.Tasks.util import sync_ota_windows
+
         sync_ota_windows(c)
 
-    print("\n[SUCCESS] OTA release compilation, code-signing, delta generation, and sync complete!\n")
+    print(
+        "\n[SUCCESS] OTA release compilation, code-signing, delta generation, and sync complete!\n"
+    )
 
 
 @task(
@@ -148,15 +166,23 @@ def factory_provision(
     selected_target = _get_target_chip(target)
     toolchain = get_toolchain()
 
-    print(f"\n[*] [FACTORY PROVISION: STEP 1/3] Compiling factory firmware for target '{selected_target}'...")
+    print(
+        f"\n[*] [FACTORY PROVISION: STEP 1/3] Compiling factory firmware for target '{selected_target}'..."
+    )
     toolchain.build(c, target=selected_target, dry_run=dry_run, opts=build_opts)
 
-    print(f"\n[*] [FACTORY PROVISION: STEP 2/3] Generating encrypted factory NVS partition...")
+    print(
+        f"\n[*] [FACTORY PROVISION: STEP 2/3] Generating encrypted factory NVS partition..."
+    )
     provision_nvs(c, dry_run=dry_run, config=config)
 
-    print(f"\n[*] [FACTORY PROVISION: STEP 3/3] Burning silicon eFuses and flashing layout (Simulate={simulate})...")
+    print(
+        f"\n[*] [FACTORY PROVISION: STEP 3/3] Burning silicon eFuses and flashing layout (Simulate={simulate})..."
+    )
     provision_flash(c, simulate=simulate, dry_run=dry_run, config=config)
-    print("\n[SUCCESS] Factory build, NVS encryption, and silicon provisioning completed.\n")
+    print(
+        "\n[SUCCESS] Factory build, NVS encryption, and silicon provisioning completed.\n"
+    )
 
 
 @task(
@@ -178,11 +204,14 @@ def upload(
 ) -> None:
     """Upload compiled firmware to an external/remote OTA server via HTTP API."""
     workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
-    script_path = (workspace_root / "embedded_system/Tools/OTA/ota-server/upload_firmware.py").resolve()
+    script_path = (
+        workspace_root / "embedded_system/Tools/OTA/ota-server/upload_firmware.py"
+    ).resolve()
 
     default_config = (
         getattr(CONFIG.paths, "config_project", None)
-        or Path(getattr(CONFIG.paths, "configs_dir", workspace_root / "configs")) / "config_project.yaml"
+        or Path(getattr(CONFIG.paths, "configs_dir", workspace_root / "configs"))
+        / "config_project.yaml"
     )
     raw_config = Path(default_config)
     if not raw_config.is_absolute():
