@@ -1,3 +1,9 @@
+"""
+@file       config.py
+@brief      Runtime configuration resolver for the secure OTA server.
+@copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+"""
+
 import os
 import sys
 from pathlib import Path
@@ -10,7 +16,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 def resolve_config_file() -> Path:
     """Resolves configuration file from environment variable, CLI args, or workspace cascade."""
-    # 1. Environment variable (set by run.py or task runner)
     env_path = os.environ.get("OTA_CONFIG_PATH")
     if env_path:
         cand = Path(env_path)
@@ -18,7 +23,6 @@ def resolve_config_file() -> Path:
         if resolved.exists():
             return resolved
 
-    # 2. Explicit CLI argument (--config <path> / -c <path>)
     for idx, arg in enumerate(sys.argv[:-1]):
         if arg in ("--config", "-c"):
             cand = Path(sys.argv[idx + 1])
@@ -27,7 +31,6 @@ def resolve_config_file() -> Path:
                 os.environ["OTA_CONFIG_PATH"] = str(resolved)
                 return resolved
 
-    # 3. Upward search for configs/config_ota_server.yaml from current location
     curr = BASE_DIR
     while curr != curr.parent:
         cand = curr / "configs" / "config_ota_server.yaml"
@@ -37,7 +40,6 @@ def resolve_config_file() -> Path:
             return resolved
         curr = curr.parent
 
-    # 4. Local tool fallbacks
     for cand in [BASE_DIR / "config.yaml", BASE_DIR / "config.example.yaml"]:
         if cand.exists():
             return cand.resolve()
@@ -49,7 +51,6 @@ CONFIG_FILE = resolve_config_file()
 
 
 def _expand_placeholders(data: Any, context: Dict[str, str]) -> Any:
-    """Replaces placeholders like {project_root_dir} and {server_root_dir}."""
     if isinstance(data, dict):
         return {k: _expand_placeholders(v, context) for k, v in data.items()}
     elif isinstance(data, list):
@@ -74,12 +75,9 @@ def _load_and_resolve_yaml() -> dict:
             sys.exit(1)
 
     env_cfg = raw.get("environment", {})
-
-    # 1. Resolve project_root_dir
     project_root_raw = env_cfg.get("project_root_dir", ".")
     project_root = str(Path(project_root_raw).resolve())
 
-    # 2. Resolve server_root_dir
     server_root_raw = env_cfg.get("server_root_dir", str(BASE_DIR))
     server_root_raw = server_root_raw.replace("{project_root_dir}", project_root)
     server_root = str(Path(server_root_raw).resolve())
@@ -88,7 +86,6 @@ def _load_and_resolve_yaml() -> dict:
         "project_root_dir": project_root,
         "server_root_dir": server_root,
     }
-
     return _expand_placeholders(raw, context)
 
 
@@ -108,60 +105,42 @@ class Settings:
 
     _paths = _cfg.get("paths", {})
     CERT_DIR: Path = Path(_paths.get("cert_dir", SERVER_ROOT_DIR / "certs")).resolve()
-    FIRMWARE_DIR: Path = Path(
-        _paths.get("firmware_dir", SERVER_ROOT_DIR / "firmware_storage")
+    TEMPLATES_DIR: Path = Path(_paths.get("templates_dir", SERVER_ROOT_DIR / "src/templates")).resolve()
+    STATIC_DIR: Path = Path(_paths.get("static_dir", SERVER_ROOT_DIR / "src/static")).resolve()
+    TELEMETRY_LOG_DIR: Path = Path(_paths.get("telemetry_dir", SERVER_ROOT_DIR / "telemetry_logs")).resolve()
+
+    # --- Decoupled Release Catalog Path Resolution ---
+    # Points to release-catalog/ as the SSoT data layer
+    default_catalog = BASE_DIR.parent / "release-catalog"
+    CATALOG_DIR: Path = Path(
+        _paths.get("catalog_dir", _paths.get("ota_catalog_dir", _paths.get("firmware_dir", default_catalog)))
     ).resolve()
-    TEMPLATES_DIR: Path = Path(
-        _paths.get("templates_dir", SERVER_ROOT_DIR / "src/templates")
-    ).resolve()
-    STATIC_DIR: Path = Path(
-        _paths.get("static_dir", SERVER_ROOT_DIR / "src/static")
-    ).resolve()
-    TELEMETRY_LOG_DIR: Path = Path(
-        _paths.get("telemetry_dir", SERVER_ROOT_DIR / "telemetry_logs")
-    ).resolve()
-    MANIFEST_FILE: Path = (
-        FIRMWARE_DIR / _paths.get("manifest_filename", "manifest.json")
-    ).resolve()
+    BINARIES_DIR: Path = (CATALOG_DIR / "binaries").resolve()
+    PATCHES_DIR: Path = (CATALOG_DIR / "patches").resolve()
+    MANIFEST_FILE: Path = (CATALOG_DIR / _paths.get("manifest_filename", "manifest.json")).resolve()
+
+    # Alias for backward compatibility with route prefixes
+    FIRMWARE_DIR: Path = CATALOG_DIR
 
     _certs = _cfg.get("certificates", {})
     _ca_cfg = _certs.get("ca", {})
     _srv_cfg = _certs.get("server", {})
-    _sign_cfg = _certs.get("signing", {})
 
     CRL_FILE: Path = (CERT_DIR / _certs.get("crl_file", "revoked.crl")).resolve()
-    REVOKED_SERIALS: List[str] = [
-        str(s).strip().upper() for s in _certs.get("revoked_serials", [])
-    ]
+    REVOKED_SERIALS: List[str] = [str(s).strip().upper() for s in _certs.get("revoked_serials", [])]
 
-    CA_COMMON_NAME: str = _ca_cfg.get("common_name", "MasterRootCA")
-    CA_KEY_TYPE: str = _ca_cfg.get("key_type", "ec-secp256r1")
-    CA_KEY_SIZE: int = int(_ca_cfg.get("key_size", 256))
-    CA_VALIDITY_DAYS: int = int(_ca_cfg.get("validity_days", 3650))
+    # TLS Transport Credentials (HTTPS only - zero code-signing keys)
     CA_CERT_FILE: Path = (CERT_DIR / _ca_cfg.get("cert_file", "ca.crt")).resolve()
-    CA_KEY_FILE: Path = (CERT_DIR / _ca_cfg.get("key_file", "ca.key")).resolve()
-
-    SERVER_COMMON_NAME: str = _srv_cfg.get("common_name", "localhost")
-    SERVER_KEY_TYPE: str = _srv_cfg.get("key_type", "ec-secp256r1")
-    SERVER_KEY_SIZE: int = int(_srv_cfg.get("key_size", 256))
-    SERVER_VALIDITY_DAYS: int = int(_srv_cfg.get("validity_days", 365))
     SSL_CERT_FILE: Path = (CERT_DIR / _srv_cfg.get("cert_file", "server.crt")).resolve()
     SSL_KEY_FILE: Path = (CERT_DIR / _srv_cfg.get("key_file", "server.key")).resolve()
-    STATIC_DNS_SANS: List[str] = _srv_cfg.get("dns_sans", ["localhost", "ota.local"])
-    STATIC_IP_SANS: List[str] = _srv_cfg.get("ip_sans", ["127.0.0.1", "192.168.1.100"])
 
-    SIGNING_CERT_COMMON_NAME: str = _sign_cfg.get(
-        "common_name", "DeveloperFirmwareSigning"
-    )
+    # Optional Developer Code-Signing Definitions (Not mandatory on server)
+    SIGNING_CERT_COMMON_NAME: str = _sign_cfg.get("common_name", "DeveloperFirmwareSigning")
     SIGNING_CERT_ORG: str = _sign_cfg.get("organization", "Firmware Release Authority")
     SIGNING_KEY_TYPE: str = _sign_cfg.get("key_type", "ec-secp256r1")
     SIGNING_VALIDITY_DAYS: int = int(_sign_cfg.get("validity_days", 365))
-    SIGNING_CRT_FILE: Path = (
-        CERT_DIR / _sign_cfg.get("cert_file", "signing.crt")
-    ).resolve()
-    SIGNING_KEY_FILE: Path = (
-        CERT_DIR / _sign_cfg.get("key_file", "signing.key")
-    ).resolve()
+    SIGNING_CRT_FILE: Path = (CERT_DIR / _sign_cfg.get("cert_file", "signing.crt")).resolve()
+    SIGNING_KEY_FILE: Path = (CERT_DIR / _sign_cfg.get("key_file", "signing.key")).resolve()
 
     _auth = _cfg.get("auth", {})
     API_KEY_HEADER: str = _auth.get("api_key_header", "X-Device-API-Key")
@@ -184,12 +163,8 @@ class Settings:
     CHUNK_SIZE_BYTES: int = int(_deploy.get("chunk_size_bytes", 8192))
 
     _rollback = _cfg.get("rollback", {})
-    MAX_FAILURE_RATE_PERCENT: float = float(
-        _rollback.get("max_failure_rate_percent", 10.0)
-    )
-    MIN_STATUS_REPORTS_FOR_ROLLBACK: int = int(
-        _rollback.get("min_reports_for_rollback", 5)
-    )
+    MAX_FAILURE_RATE_PERCENT: float = float(_rollback.get("max_failure_rate_percent", 10.0))
+    MIN_STATUS_REPORTS_FOR_ROLLBACK: int = int(_rollback.get("min_reports_for_rollback", 5))
     SLIDING_WINDOW_SECONDS: int = int(_rollback.get("sliding_window_seconds", 3600))
     WEBHOOK_URL: str = str(_rollback.get("webhook_url", ""))
 

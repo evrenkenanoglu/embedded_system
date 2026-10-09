@@ -3,6 +3,9 @@ from typing import Literal
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 from core.config_resolver import resolve_to_file
+import os
+import re
+import shutil
 
 FormatLang = Literal["all", "c", "python", "yaml", "cmake"]
 FormatMode = Literal["apply", "check"]
@@ -146,3 +149,121 @@ def format_check(
         config=config,
         opts=opts,
     )
+
+
+def _normalize_wsl_path(path_val: str) -> Path:
+    """Translates Windows drive paths (C:\\... or /mnt/c/...) to valid absolute WSL paths."""
+    p_str = str(path_val).strip().replace("\\", "/")
+    match = re.search(r"([a-zA-Z]):/(.*)", p_str)
+    if match:
+        drive = match.group(1).lower()
+        rest = match.group(2).lstrip("/")
+        return Path(f"/mnt/{drive}/{rest}")
+    return Path(p_str)
+
+
+def _to_windows_path(p: Path) -> str:
+    """Translates /mnt/c/... mount path back to Windows C:\\... for display."""
+    p_str = p.as_posix()
+    if p_str.startswith("/mnt/"):
+        parts = p_str.split("/")
+        drive = parts[2].upper()
+        rest = "\\".join(parts[3:])
+        return f"{drive}:\\{rest}"
+    return str(p)
+
+
+@task(
+    help={
+        "dest": "Override catalog destination directory on Windows",
+        "certs_dest": "Override certs destination directory on Windows",
+        "include_certs": "Also sync SSL certificates",
+    }
+)
+def sync_ota_windows(
+    c: Context,
+    dest: str = "",
+    certs_dest: str = "",
+    include_certs: bool = True,
+) -> None:
+    """Sync release-catalog and certs from WSL to the Windows host paths."""
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
+
+    # 1. Resolve Source Directories
+    source_catalog_dir = Path(
+        getattr(
+            CONFIG.paths,
+            "ota_catalog_dir",
+            workspace_root / "embedded_system/Tools/OTA/release-catalog",
+        )
+    ).resolve()
+
+    certs_src = Path(
+        getattr(CONFIG.paths, "certs_dir", workspace_root / "certs")
+    ).resolve()
+
+    # 2. Resolve Destination Directories
+    raw_dest = dest or getattr(
+        CONFIG.paths,
+        "ota_storage_windows_dest_dir",
+        "/mnt/c/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Tools/OTA/release-catalog",
+    )
+    dest_catalog_root = _normalize_wsl_path(raw_dest).resolve()
+
+    raw_certs_dest = certs_dest or getattr(
+        CONFIG.paths,
+        "ota_certs_windows_dest_dir",
+        "/mnt/c/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/certs",
+    )
+    dest_certs_root = _normalize_wsl_path(raw_certs_dest).resolve()
+
+    if not source_catalog_dir.exists():
+        print(f"❌ Source release-catalog not found: {source_catalog_dir}")
+        return
+
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print(" ❯ 📦 SYNCING RELEASE CATALOG TO WINDOWS HOST")
+    print(f"   Catalog WSL -> Windows : {source_catalog_dir} -> {dest_catalog_root}")
+    print(f"   Certs   WSL -> Windows : {certs_src} -> {dest_certs_root}")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+    # 3. Sync release-catalog tree (binaries/, patches/, manifest.json, diff_worker.py)
+    dest_catalog_root.mkdir(parents=True, exist_ok=True)
+    (dest_catalog_root / "binaries").mkdir(parents=True, exist_ok=True)
+    (dest_catalog_root / "patches").mkdir(parents=True, exist_ok=True)
+
+    # Sync manifest and diff_worker script
+    for fname in ["manifest.json", "diff_worker.py"]:
+        src_f = source_catalog_dir / fname
+        if src_f.exists():
+            shutil.copy2(src_f, dest_catalog_root / fname)
+
+    # Sync binaries/
+    src_bin = source_catalog_dir / "binaries"
+    if src_bin.exists():
+        for bfile in src_bin.glob("*.bin"):
+            shutil.copy2(bfile, dest_catalog_root / "binaries" / bfile.name)
+
+    # Sync patches/
+    src_patch = source_catalog_dir / "patches"
+    if src_patch.exists():
+        for pfile in src_patch.glob("*.bin"):
+            shutil.copy2(pfile, dest_catalog_root / "patches" / pfile.name)
+
+    print(f"✅ Synced release-catalog -> {dest_catalog_root}")
+
+    # 4. Sync SSL certificates
+    if include_certs and certs_src.exists():
+        dest_certs_root.mkdir(parents=True, exist_ok=True)
+        for cert_file in certs_src.glob("*.*"):
+            if cert_file.is_file():
+                shutil.copy2(cert_file, dest_certs_root / cert_file.name)
+        print(f"✅ Synced SSL certificates -> {dest_certs_root}")
+
+    win_server_path = _to_windows_path(dest_catalog_root.parent / "ota-server")
+    print("\n🎉 Sync completed successfully!")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("💡 To run the server on Windows PowerShell:")
+    print(f'   cd "{win_server_path}"')
+    print("   python run.py")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

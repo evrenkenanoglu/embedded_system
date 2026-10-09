@@ -1,169 +1,216 @@
-# """upload_firmware.py - Utility to upload firmware payloads and metadata to the OTA server.
+#!/usr/bin/env python3
+"""
+@file       upload_firmware.py
+@brief      SSoT-driven CLI utility to upload signed firmware to the OTA server API.
+@copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+"""
 
-# Usage:
-#     python upload_firmware.py --url https://192.168.0.172:8443/upload \
-#         --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev1.bin" \
-#         --hw "ESP32-S3-WROOM" \
-#         --version "1.0.0-dev1" \
-#         --notes "Baseline development build with diagnostics" \
-#         --channel "development" \
-#         --hsvn 1 \
-#         --canary 100 \
-#         --insecure
-
-#     python upload_firmware.py --url https://192.168.0.172:8443/upload \
-#         --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev2.bin" \
-#         --hw "ESP32-S3-WROOM" \
-#         --version "1.0.0-dev2" \
-#         --notes "Baseline development build with diagnostics" \
-#         --channel "development" \
-#         --hsvn 1 \
-#         --canary 100 \
-#         --insecure
-# """
 import argparse
-import os
 import sys
 from pathlib import Path
+from typing import Optional, Dict, Any
 
 try:
     import requests
     import urllib3
+    import yaml
 except ImportError:
-    print("ERROR: This script requires the 'requests' library.")
-    print("Run: pip install requests")
+    print(
+        "ERROR: Missing dependencies. Run: pip install requests pyyaml", file=sys.stderr
+    )
     sys.exit(1)
 
 
+def load_yaml_config(config_path: Path) -> Dict[str, Any]:
+    """Loads configuration file safely."""
+    if not config_path.exists():
+        return {}
+    with open(config_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
 def parse_arguments():
-    """Parses command-line arguments and returns the parsed options with default fallbacks."""
     parser = argparse.ArgumentParser(
-        description="CLI utility to compile metadata and transfer firmware payloads to the OTA server.",
+        description="SSoT-driven CLI utility to upload firmware payloads to the OTA server.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
+        "--config",
+        "-C",
+        type=Path,
+        default=None,
+        help="Path to SSoT config file (config_project.yaml or resolved config)",
+    )
+    parser.add_argument(
         "-u",
         "--url",
-        default="https://localhost:8443/upload",
-        help="Destination upload URL endpoint",
+        default=None,
+        help="Destination upload URL endpoint (default: derived from config gateway_url)",
     )
-
     parser.add_argument(
         "-f",
         "--file",
-        required=True,
-        help="Local file path to the binary (.bin) payload",
+        default=None,
+        help="Local path to .bin file (default: derived from build_dir/binary_name)",
     )
-
     parser.add_argument(
         "-d",
         "--hw",
-        default="ESP32-S3-WROOM",
-        help="Compatibly matching target hardware identification signature",
+        default=None,
+        help="Target hardware identifier (default: derived from config hardware.model)",
     )
-
     parser.add_argument(
         "-v",
         "--version",
-        required=True,
-        help="Semantically ordered firmware version increment",
+        default=None,
+        help="Firmware semver string (default: derived from config project.version)",
     )
-
     parser.add_argument(
         "-n",
         "--notes",
-        default="Command-line automated release upload.",
+        default="Automated release pipeline upload.",
         help="Descriptive change log or release notes",
     )
-
     parser.add_argument(
         "-c",
         "--channel",
         default="stable",
-        help="Deployment channel target (e.g., stable, beta, development, testing)",
+        help="Deployment channel target (stable, beta, testing, development)",
     )
-
     parser.add_argument(
         "--hsvn",
         type=int,
-        default=1,
-        help="Hardware Security Version Number (HSVN) boundary value",
+        default=None,
+        help="Hardware Security Version Number (default: derived from config project.version_number)",
     )
-
     parser.add_argument(
         "--canary",
         type=int,
         default=100,
-        help="Target canary rollout percentage bounds (0 to 100)",
+        help="Target canary rollout percentage (0 to 100)",
     )
-
     parser.add_argument(
         "-k",
         "--insecure",
         action="store_true",
-        help="Bypass SSL certificate authority validation checks (recommended for local testing)",
+        help="Bypass SSL certificate verification (recommended for local IP testing)",
+    )
+    parser.add_argument(
+        "--ca-cert",
+        type=Path,
+        default=None,
+        help="Path to Root CA certificate for HTTPS validation",
     )
 
     return parser.parse_args()
 
 
 def upload_binary(args):
-    """Executes the multipart HTTP POST transfer request to the destination server."""
-    binary_path = Path(args.file)
+    cfg: Dict[str, Any] = {}
+    if args.config:
+        cfg = load_yaml_config(args.config.resolve())
 
-    if not binary_path.exists() or not binary_path.is_file():
-        print(f"ERROR: Firmware target file not found at: {binary_path.resolve()}")
+    # 1. Resolve parameters (CLI explicit flag -> Config file -> Fallback)
+    proj_cfg = cfg.get("project", {})
+    hw_cfg = cfg.get("hardware", {})
+    net_cfg = cfg.get("network", {})
+    paths_cfg = cfg.get("paths", {})
+
+    version = args.version or proj_cfg.get("version", "1.0.1")
+    project_name = proj_cfg.get("name", "Embedded_IoT_BT_WIFI_Base_Project")
+    hardware = args.hw or hw_cfg.get("model", "ESP32-C6-WROOM-1")
+    hsvn = args.hsvn if args.hsvn is not None else proj_cfg.get("version_number", 1)
+
+    # Resolve target upload URL
+    gateway_url = net_cfg.get("gateway_url", "https://127.0.0.1:8443").rstrip("/")
+    upload_url = args.url or f"{gateway_url}/upload"
+
+    # Resolve local binary file
+    if args.file:
+        binary_path = Path(args.file).resolve()
+    else:
+        build_dir = Path(paths_cfg.get("build_dir", "build")).resolve()
+        bin_name = proj_cfg.get("binary_name", f"{project_name}.bin")
+        binary_path = build_dir / bin_name
+
+    if not binary_path.exists():
+        print(f"❌ ERROR: Firmware binary not found at: {binary_path}", file=sys.stderr)
+        print(
+            "   Run 'inv es.esp32.build' first to compile the binary.", file=sys.stderr
+        )
         sys.exit(1)
 
-    # Compile the POST form arguments matching the upgraded server-side signature
+    # 2. Assign immutable, version-tagged filename for server storage
+    server_target_filename = f"{project_name}_{version}.bin"
+
     payload = {
-        "hardware": args.hw,
-        "version": args.version,
+        "hardware": hardware,
+        "version": version,
         "release_notes": args.notes,
         "channel": args.channel,
-        "hsvn": args.hsvn,
+        "hsvn": hsvn,
         "canary_percentage": args.canary,
     }
 
-    # SSL configuration switch
-    verify_ssl = not args.insecure
-
-    if not verify_ssl:
+    # SSL validation setup
+    ca_cert_path = args.ca_cert or Path(paths_cfg.get("certs_dir", "certs")) / "ca.crt"
+    verify: Any = True
+    if args.insecure:
+        verify = False
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    elif ca_cert_path.exists():
+        verify = str(ca_cert_path.resolve())
 
-    print(f"Uploading '{binary_path.name}' to {args.url}...")
+    file_size_mb = binary_path.stat().st_size / (1024 * 1024)
+
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print(f" ❯ 🚀 UPLOADING FIRMWARE RELEASE TO OTA SERVER")
+    print(f"   Target URL   : {upload_url}")
+    print(f"   Local Binary : {binary_path} ({file_size_mb:.2f} MB)")
+    print(f"   Remote Name  : {server_target_filename}")
     print(
-        f"Metadata: Hardware={args.hw}, Version={args.version}, Channel={args.channel}, HSVN={args.hsvn}, Canary={args.canary}%"
+        f"   Metadata     : Version={version} | HW={hardware} | HSVN={hsvn} | Channel={args.channel}"
     )
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
     try:
         with open(binary_path, "rb") as f:
-            files = {"file": (binary_path.name, f, "application/octet-stream")}
-
+            # Send file with its version-tagged filename so server stores it immutably
+            files = {"file": (server_target_filename, f, "application/octet-stream")}
             response = requests.post(
-                args.url,
+                upload_url,
                 data=payload,
                 files=files,
-                verify=verify_ssl,
+                verify=verify,
+                timeout=60.0,
                 allow_redirects=True,
             )
 
         if response.status_code in [200, 303]:
-            print("Upload Successful! Manifest updated on the server.")
+            print("\n🎉 Upload Successful! Release registered and active on server.")
         else:
-            print(f"Upload Failed. Server returned Status Code: {response.status_code}")
-            print(f"Response: {response.text}")
+            print(
+                f"\n❌ Upload Failed! Server status: {response.status_code}",
+                file=sys.stderr,
+            )
+            print(f"   Server Response: {response.text}", file=sys.stderr)
+            sys.exit(1)
 
-    except Exception as e:
-        print(f"Connection Error: Could not reach the OTA server: {e}")
+    except requests.exceptions.SSLError as exc:
+        print(f"\n❌ SSL Verification Error: {exc}", file=sys.stderr)
+        print(
+            "   Tip: Pass -k / --insecure for local self-signed testing.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except Exception as exc:
+        print(
+            f"\n❌ Connection Error: Failed to reach OTA server at {upload_url}: {exc}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    parsed_args = parse_arguments()
-    upload_binary(parsed_args)
-
-
-# python upload_firmware.py --url https://192.168.0.172:8443/upload --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev1.bin" --hw "ESP32-S3-WROOM" --version "1.0.0-dev1" --notes "Baseline development build with diagnostics" --channel "development" --hsvn 1 --canary 100 --insecure
-# python upload_firmware.py --url https://192.168.0.172:8443/upload --file "\\wsl.localhost\Ubuntu\home\evren_wsl\WORKSPACE_PERSONAL\Embedded_IoT_BT_WIFI_Base_Project\build\Embedded_IoT_BT_WIFI_Base_Project_1.0.0-dev2.bin" --hw "ESP32-S3-WROOM" --version "1.0.0-dev2" --notes "Baseline development build with diagnostics" --channel "development" --hsvn 1 --canary 100 --insecure
+    upload_binary(parse_arguments())
