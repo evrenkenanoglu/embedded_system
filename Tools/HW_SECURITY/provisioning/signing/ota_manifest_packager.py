@@ -80,13 +80,14 @@ def main() -> int:
     versioned_filename = f"{stem}_{args.version}.bin" if not stem.endswith(args.version) else args.binary.name
 
     storage_dir = args.manifest.parent
-    storage_dir.mkdir(parents=True, exist_ok=True)
+    binaries_dir = storage_dir / "binaries"
+    binaries_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy binary into storage if requested
+    # Copy binary into binaries/ subfolder
     if args.copy_to_storage:
-        dest_binary_path = storage_dir / versioned_filename
+        dest_binary_path = binaries_dir / versioned_filename
         shutil.copy2(args.binary, dest_binary_path)
-        print(f"[OK] Stored immutable binary: {dest_binary_path.name} ({file_size / (1024 * 1024):.2f} MB)")
+        print(f"[OK] Stored immutable binary in binaries/: {dest_binary_path.name} ({file_size / (1024 * 1024):.2f} MB)")
 
     manifest_data: Dict[str, Any] = {}
     if args.manifest.exists():

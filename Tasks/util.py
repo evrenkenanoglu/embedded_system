@@ -227,28 +227,33 @@ def sync_ota_windows(
     print(f"   Certs   WSL -> Windows : {certs_src} -> {dest_certs_root}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-    # 3. Sync release-catalog tree (binaries/, patches/, manifest.json, diff_worker.py)
+    # 3. Prepare destination directories
     dest_catalog_root.mkdir(parents=True, exist_ok=True)
-    (dest_catalog_root / "binaries").mkdir(parents=True, exist_ok=True)
-    (dest_catalog_root / "patches").mkdir(parents=True, exist_ok=True)
+    dst_bin = dest_catalog_root / "binaries"
+    dst_patch = dest_catalog_root / "patches"
+    dst_bin.mkdir(parents=True, exist_ok=True)
+    dst_patch.mkdir(parents=True, exist_ok=True)
 
-    # Sync manifest and diff_worker script
+    # Sync manifest.json and diff_worker.py
     for fname in ["manifest.json", "diff_worker.py"]:
         src_f = source_catalog_dir / fname
         if src_f.exists():
             shutil.copy2(src_f, dest_catalog_root / fname)
 
-    # Sync binaries/
+    # Sync binaries: check both release-catalog/binaries/ and release-catalog/ root
     src_bin = source_catalog_dir / "binaries"
     if src_bin.exists():
         for bfile in src_bin.glob("*.bin"):
-            shutil.copy2(bfile, dest_catalog_root / "binaries" / bfile.name)
+            shutil.copy2(bfile, dst_bin / bfile.name)
 
-    # Sync patches/
+    for bfile in source_catalog_dir.glob("*.bin"):
+        shutil.copy2(bfile, dst_bin / bfile.name)
+
+    # Sync patches: check release-catalog/patches/
     src_patch = source_catalog_dir / "patches"
     if src_patch.exists():
         for pfile in src_patch.glob("*.bin"):
-            shutil.copy2(pfile, dest_catalog_root / "patches" / pfile.name)
+            shutil.copy2(pfile, dst_patch / pfile.name)
 
     print(f"✅ Synced release-catalog -> {dest_catalog_root}")
 
