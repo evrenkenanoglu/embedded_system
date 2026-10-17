@@ -79,14 +79,14 @@ private:
     sys_error_t _sendTelemetryReport(const std::string& statusStr, sys_error_t errorCode);
 
 private:
-    mutable std::mutex    _mutex;
-    IOtaService&          _otaService;
-    IHttpClient&          _httpClient;
-    OtaManagerOptions_t   _options;
-    OtaPlatformHooks_t    _platformHooks;
-    bool                  _isInitialized;
-    OtaCheckpointManager* _checkpointMgr{nullptr};
-    IHAL_MEM*             _diagStorage{nullptr};
+    mutable std::recursive_mutex _mutex;
+    IOtaService&                 _otaService;
+    IHttpClient&                 _httpClient;
+    OtaManagerOptions_t          _options;
+    OtaPlatformHooks_t           _platformHooks;
+    bool                         _isInitialized;
+    OtaCheckpointManager*        _checkpointMgr{nullptr};
+    IHAL_MEM*                    _diagStorage{nullptr};
 
     // Transient target context
     bool        _updatePending;

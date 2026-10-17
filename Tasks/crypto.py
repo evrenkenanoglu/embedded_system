@@ -10,7 +10,17 @@ from invoke import Context, task
 from core import CONFIG, CommandSerializer
 from core.config_resolver import resolve_to_file
 
+import importlib.util
+
 VALID_PROVISION_STEPS = ("all", "nvs", "sign", "provision")
+
+
+def _get_partition_parser_cls():
+    parser_path = Path(CONFIG.paths.partition_parser_script).resolve()
+    spec = importlib.util.spec_from_file_location("partition_parser", parser_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.PartitionTableParser
 
 
 def _get_execution_env() -> dict:
@@ -65,6 +75,72 @@ def generate_pki(
     cmd = f'python "{script_path}" --config "{resolved_config_file}"'
     serializer.add(cmd, extra=opts)
     serializer.run(c, dry_run=dry_run)
+
+
+@task(
+    help={
+        "port": "Serial port override",
+        "baud": "Baud rate override",
+        "dry_run": "Print command line without executing",
+    }
+)
+def flash_nvs(
+    c: Context,
+    port: str = "",
+    baud: str = "",
+    dry_run: bool = False,
+) -> None:
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
+    build_dir = Path(CONFIG.paths.build_dir).resolve()
+    prov_dir = build_dir / "provisioning"
+    partitions_csv = workspace_root / "partitions.csv"
+
+    nvs_keys_bin = prov_dir / "nvs_keys_encrypted.bin"
+    fctry_bin = prov_dir / "nvs_encrypted.bin"
+
+    if not nvs_keys_bin.exists() or not fctry_bin.exists():
+        print(f"❌ Provisioned binaries not found in {prov_dir}.")
+        print("   Run 'inv es.crypto.provision-nvs' first.")
+        return
+
+    # Caller extracts layout invariants from SSoT and passes them to parser
+    ParserCls = _get_partition_parser_cls()
+    pt_parser = ParserCls(
+        partitions_csv_path=partitions_csv,
+        partition_table_offset=int(str(CONFIG.flash_layout.partition_table_offset), 0),
+        bootloader_offset=int(str(CONFIG.flash_layout.bootloader_offset), 0),
+        app_alignment=int(str(CONFIG.flash_layout.app_alignment), 0),
+        data_alignment=int(str(CONFIG.flash_layout.data_alignment), 0),
+        partition_table_size=int(str(CONFIG.flash_layout.partition_table_size), 0),
+    )
+
+    nvs_keys_offset = hex(pt_parser.get_offset("nvs_keys"))
+    fctry_offset = hex(pt_parser.get_offset("fctry"))
+
+    target_port = port or getattr(CONFIG.hardware, "default_port", "/dev/ttyACM0")
+    target_baud = baud or str(getattr(CONFIG.hardware, "flash_baud", 460800))
+    target_chip = str(getattr(CONFIG.target, "chip", "esp32c6")).lower()
+
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print(f" ❯ ⚡ FLASHING FACTORY NVS PARTITIONS ({target_port})")
+    print(f"   nvs_keys ({nvs_keys_offset}) : {nvs_keys_bin.name}")
+    print(f"   fctry    ({fctry_offset}) : {fctry_bin.name}")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+    serializer = CommandSerializer(
+        prefix_commands=[CONFIG.venv_activate_cmd],
+        env=_get_execution_env(),
+    )
+
+    cmd = (
+        f"python -m esptool -p {target_port} -b {target_baud} --chip {target_chip} write_flash "
+        f'{nvs_keys_offset} "{nvs_keys_bin}" '
+        f'{fctry_offset} "{fctry_bin}"'
+    )
+
+    serializer.add(cmd)
+    serializer.run(c, dry_run=dry_run)
+    print("\n✅ Factory NVS partitions flashed successfully!")
 
 
 @task(

@@ -57,6 +57,7 @@ public:
     sys_error_t stopStream() override;
     size_t      getExpectedSize() const override;
     sys_error_t setResumeOffset(size_t offset) override;
+    sys_error_t setServerCertificate(const std::string& certPem) override;
 
     /**
      * @brief Configure custom verification headers to be sent with the stream download request.

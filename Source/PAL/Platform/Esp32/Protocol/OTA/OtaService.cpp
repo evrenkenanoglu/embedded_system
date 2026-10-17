@@ -137,6 +137,12 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
         _state.store(OtaState::Failed)                       // Cleanup
     );
 
+    /// Dynamically bind verified Root CA trust anchor to transport driver
+    if (!options.serverCert.empty())
+    {
+        _transport.setServerCertificate(options.serverCert);
+    }
+
     /// Establish Transport Connection using stateless dynamic endpoint connection string.
     err = _transport.connect(options.endpoint);
 

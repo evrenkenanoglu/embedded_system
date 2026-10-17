@@ -89,4 +89,12 @@ public:
      * @return sys_error_t ERROR_SUCCESS on success.
      */
     virtual sys_error_t setResumeOffset(size_t offset) = 0;
+
+    /**
+     * @brief Dynamically updates the server Root CA trust anchor certificate.
+     *
+     * @param[in] certPem PEM-encoded Root CA certificate string.
+     * @return sys_error_t ERROR_SUCCESS on success.
+     */
+    virtual sys_error_t setServerCertificate(const std::string& certPem) = 0;
 };

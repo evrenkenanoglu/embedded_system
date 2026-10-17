@@ -211,7 +211,7 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
 
     if (
         not invoke_nvs_partition_gen(
-            rendered_csv, nvs_bin_file, partition_size, nvs_key_file
+            rendered_csv, nvs_bin_file, partition_size, nvs_key_file, encrypt=True
         )
         or not nvs_bin_file.exists()
     ):
@@ -244,7 +244,7 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
             (
                 parser.get_offset("nvs_keys")
                 if "nvs_keys" in parser.partitions
-                else 0x34000
+                else 0x36000
             ),
             "nvs_keys_encrypted.bin",
         ),
@@ -686,21 +686,21 @@ def main() -> int:
             config["paths"]["partitions_csv"], roots
         )
 
-        # Dynamic SSoT resolution of flash offsets
-        pt_offset_raw = config.get("hardware", {}).get(
-            "partition_table_offset", "0x10000"
-        )
-        pt_offset = int(pt_offset_raw, 0)
-        boot_offset = (
-            0x0000
-            if config.get("hardware", {}).get("chip", "esp32s3") == "esp32s3"
-            else 0x1000
-        )
+        # Dynamic SSoT resolution of flash offsets from flash_layout
+        flash_layout = config.get("flash_layout", {})
+        pt_offset = int(str(flash_layout.get("partition_table_offset", "0x10000")), 0)
+        boot_offset = int(str(flash_layout.get("bootloader_offset", "0x0000")), 0)
+        app_align = int(str(flash_layout.get("app_alignment", "0x10000")), 0)
+        data_align = int(str(flash_layout.get("data_alignment", "0x1000")), 0)
+        pt_size = int(str(flash_layout.get("partition_table_size", "0x1000")), 0)
 
         pt_parser = PartitionTableParser(
             partitions_csv_path=partitions_csv_path,
             partition_table_offset=pt_offset,
             bootloader_offset=boot_offset,
+            app_alignment=app_align,
+            data_alignment=data_align,
+            partition_table_size=pt_size,
         )
 
         # 1. Run NVS generation once per release/fixture session

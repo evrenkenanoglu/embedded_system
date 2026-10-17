@@ -153,9 +153,13 @@ def find_nvs_partition_gen_tool() -> Optional[List[str]]:
 
 
 def invoke_nvs_partition_gen(
-    csv_path: Path, bin_out_path: Path, partition_size: int, key_file_path: Path
+    csv_path: Path,
+    bin_out_path: Path,
+    partition_size: int,
+    key_file_path: Optional[Path] = None,
+    encrypt: bool = False,
 ) -> bool:
-    """Executes nvs_partition_gen utility to generate encrypted binary."""
+    """Executes nvs_partition_gen utility to generate plaintext or encrypted binary."""
     bin_out_path.parent.mkdir(parents=True, exist_ok=True)
     tool_cmd = find_nvs_partition_gen_tool()
 
@@ -166,23 +170,37 @@ def invoke_nvs_partition_gen(
         )
         return False
 
-    # If the key file already exists, pass it via --inputkey; otherwise use --keygen --keyfile
-    key_args = (
-        ["--inputkey", str(key_file_path.resolve())]
-        if key_file_path.exists()
-        else ["--keygen", "--keyfile", str(key_file_path.resolve())]
-    )
+    if encrypt:
+        if key_file_path is None:
+            print(
+                "[ERROR] Key file path required when encryption is enabled.",
+                file=sys.stderr,
+            )
+            return False
 
-    cmd = (
-        tool_cmd
-        + [
-            "encrypt",
+        key_args = (
+            ["--inputkey", str(key_file_path.resolve())]
+            if key_file_path.exists()
+            else ["--keygen", "--keyfile", str(key_file_path.resolve())]
+        )
+
+        cmd = (
+            tool_cmd
+            + [
+                "encrypt",
+                str(csv_path.resolve()),
+                str(bin_out_path.resolve()),
+                hex(partition_size),
+            ]
+            + key_args
+        )
+    else:
+        cmd = tool_cmd + [
+            "generate",
             str(csv_path.resolve()),
             str(bin_out_path.resolve()),
             hex(partition_size),
         ]
-        + key_args
-    )
 
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -210,10 +228,20 @@ def main() -> int:
         "--out-csv", type=Path, required=True, help="Path to write rendered CSV"
     )
     parser.add_argument(
-        "--out-bin", type=Path, required=True, help="Path to write encrypted NVS binary"
+        "--out-bin", type=Path, required=True, help="Path to write NVS binary"
     )
     parser.add_argument(
-        "--out-key", type=Path, required=True, help="Path to NVS encryption key binary"
+        "--out-key",
+        type=Path,
+        required=False,
+        default=None,
+        help="Path to NVS encryption key binary",
+    )
+    parser.add_argument(
+        "--encrypt",
+        action="store_true",
+        default=False,
+        help="Generate encrypted NVS partition",
     )
     parser.add_argument(
         "--partitions-csv", type=Path, required=False, help="Path to partitions.csv"
@@ -245,14 +273,21 @@ def main() -> int:
         )
         return 1
 
-    if not args.out_key.exists():
+    if args.encrypt and args.out_key and not args.out_key.exists():
         generate_nvs_keys(args.out_key)
 
     if (
-        invoke_nvs_partition_gen(args.out_csv, args.out_bin, size, args.out_key)
+        invoke_nvs_partition_gen(
+            args.out_csv,
+            args.out_bin,
+            size,
+            key_file_path=args.out_key,
+            encrypt=args.encrypt,
+        )
         and args.out_bin.exists()
     ):
-        print(f"[SUCCESS] Encrypted NVS partition generated: {args.out_bin}")
+        mode_str = "Encrypted" if args.encrypt else "Plaintext"
+        print(f"[SUCCESS] {mode_str} NVS partition generated: {args.out_bin}")
         return 0
 
     return 1

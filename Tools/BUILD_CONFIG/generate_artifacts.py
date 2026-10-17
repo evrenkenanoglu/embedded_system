@@ -7,10 +7,10 @@
 """
 
 import argparse
-import re
+import csv
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 
@@ -64,11 +64,11 @@ def validate_silicon_invariants(cfg: Dict[str, Any]) -> None:
 
     # ESP32-C2 is ECDSA-only; ESP32-S3 and ESP32-C6 use RSA-3072
     if chip == "esp32c2" and "rsa" in sb_scheme:
-        raise ValueError(f"ESP32-C2 requires ECDSA for Secure Boot V2.")
+        raise ValueError("ESP32-C2 requires ECDSA for Secure Boot V2.")
     if chip in ["esp32s3", "esp32c6"] and "ecdsa" in sb_scheme:
         raise ValueError(
             f"Silicon Invariant: {chip.upper()} Boot ROM uses RSA-3072 for Secure Boot V2. "
-            f"Please set 'secure_boot_scheme: rsa3072' in configs/config_project.yaml."
+            f"Please set 'security.secure_boot_scheme: rsa3072' in configs/config_project.yaml."
         )
 
 
@@ -130,7 +130,6 @@ def generate_sdkconfig_hardware(
     hw = cfg.get("hardware", {})
     sec = cfg.get("security", {})
     layout = cfg.get("flash_layout", {})
-    chip = str(cfg.get("target", {}).get("chip") or hw.get("chip", "esp32c6")).lower()
 
     flash_size = str(hw.get("flash_size", "8MB")).upper()
     flash_mode = str(hw.get("flash_mode", "dio")).lower()
@@ -275,7 +274,33 @@ def generate_project_version_cmake(cfg: Dict[str, Any], out_path: Path) -> Path:
     return out_path
 
 
-def generate_ota_header(cfg: Dict[str, Any], out_path: Path) -> Path:
+def parse_nvs_template_csv(csv_path: Path) -> Tuple[List[str], Dict[str, str]]:
+    """Parses nvs_ota_template.csv to extract namespaces and key mappings."""
+    namespaces: List[str] = []
+    key_to_ns: Dict[str, str] = {}
+    current_ns = ""
+
+    if csv_path.exists():
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            for row in reader:
+                if not row or not row[0].strip():
+                    continue
+                k = row[0].strip()
+                row_type = row[1].strip() if len(row) > 1 else ""
+                if row_type == "namespace":
+                    current_ns = k
+                    namespaces.append(k)
+                else:
+                    key_to_ns[k] = current_ns
+
+    return namespaces, key_to_ns
+
+
+def generate_ota_header(
+    cfg: Dict[str, Any], out_path: Path, workspace_root: Optional[Path] = None
+) -> Path:
     """Generates C/C++ macro header contract for OTA runtime parameters with typed constants."""
     proj = cfg.get("project", {})
     hw = cfg.get("hardware", {})
@@ -289,13 +314,38 @@ def generate_ota_header(cfg: Dict[str, Any], out_path: Path) -> Path:
     policy = ota.get("policy", {})
     storage = ota.get("storage", {})
 
-    sb_scheme = str(sec.get("secure_boot_scheme", "ecdsa256")).lower()
-    # Dynamic signature length based on cryptographic algorithm:
-    sig_raw_len = 64 if "ecdsa" in sb_scheme else 384
+    # Evaluate signature length from application OTA crypto curve (ec-secp256r1 = 64 bytes)
+    crypto_curve = str(sec.get("crypto_curve", "ec-secp256r1")).lower()
+    sig_raw_len = 64 if ("secp256" in crypto_curve or "ecdsa" in crypto_curve) else 384
+
+    ws = workspace_root or Path(".")
+    raw_template_path = cfg.get("paths", {}).get(
+        "provisioning_dir", "{paths.embedded_system_dir}/Tools/HW_SECURITY/provisioning"
+    )
+    prov_dir = ws / Path(_resolve_relative_path(raw_template_path, ws))
+    template_csv = prov_dir / "nvs" / "templates" / "nvs_ota_template.csv"
+    if not template_csv.exists():
+        template_csv = (
+            ws
+            / "embedded_system"
+            / "Tools"
+            / "HW_SECURITY"
+            / "provisioning"
+            / "nvs"
+            / "templates"
+            / "nvs_ota_template.csv"
+        )
+
+    namespaces, csv_keys = parse_nvs_template_csv(template_csv)
+
+    pki_ns = storage.get("pki_namespace", "sec_pki")
+    cfg_ns = storage.get("cfg_namespace", "sys_cfg")
+    root_ca_key = storage.get("root_ca_key", "root_ca_pem")
+    root_ca_backup_key = storage.get("root_ca_backup_key", "ca_backup_pem")
 
     lines = [
         "/** @file       ota_generated_config.h",
-        " *  @brief      Auto-generated OTA parameters from configs/config_project.yaml - DO NOT EDIT.",
+        " *  @brief      Auto-generated OTA parameters from configs/config_project.yaml & nvs_ota_template.csv - DO NOT EDIT.",
         " *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved",
         " */",
         "",
@@ -310,7 +360,7 @@ def generate_ota_header(cfg: Dict[str, Any], out_path: Path) -> Path:
         f'#define OTA_DEFAULT_CHANNEL             "{ota.get("channel", "stable")}"',
         "",
         "// Network Gateway & Endpoints",
-        f'#define OTA_DEFAULT_GATEWAY_URL         "{net.get("gateway_url", "https://192.168.1.100:8443")}"',
+        f'#define OTA_DEFAULT_GATEWAY_URL         "{net.get("gateway_url", "https://192.168.0.172:8443")}"',
         f'#define OTA_API_CHECK_ROUTE             "{routes.get("check", "/api/v1/ota/check")}"',
         f'#define OTA_API_STATUS_ROUTE            "{routes.get("status", "/api/v1/ota/status")}"',
         f'#define OTA_DEFAULT_API_KEY             "{sec.get("api_key", "secure-device-token-factory-001")}"',
@@ -336,12 +386,24 @@ def generate_ota_header(cfg: Dict[str, Any], out_path: Path) -> Path:
         f'#define OTA_MAINTENANCE_END_HOUR        ((uint8_t){policy.get("allowed_end_hour", 4)}U)',
         f'#define OTA_BYPASS_CONDITIONS           ({1 if policy.get("bypass_conditions", False) else 0})',
         "",
-        "// Storage Partition & Namespace Mapping",
+        "// Storage Partition & Namespace Mapping (SSoT: config_project.yaml & nvs_ota_template.csv)",
         f'#define OTA_FACTORY_PARTITION_NAME      "{storage.get("fctry_partition", "fctry")}"',
-        f'#define OTA_FACTORY_PKI_NAMESPACE       "{storage.get("pki_namespace", "sec_pki")}"',
-        f'#define OTA_FACTORY_CFG_NAMESPACE       "{storage.get("cfg_namespace", "sys_cfg")}"',
-        f'#define OTA_KEY_ROOT_CA                 "{storage.get("root_ca_key", "root_ca_pem")}"',
-        f'#define OTA_KEY_ROOT_CA_BACKUP          "{storage.get("root_ca_backup_key", "root_ca_backup_pem")}"',
+        f'#define OTA_FACTORY_PKI_NAMESPACE       "{pki_ns}"',
+        f'#define OTA_FACTORY_CFG_NAMESPACE       "{cfg_ns}"',
+        "",
+        "// Trust Anchors & PKI Storage Keys (SSoT: nvs_ota_template.csv)",
+        f'#define OTA_KEY_ROOT_CA                 "{root_ca_key}"',
+        f'#define OTA_KEY_ROOT_CA_BACKUP          "{root_ca_backup_key}"',
+        "",
+        "// Factory Configuration Keys (SSoT: nvs_ota_template.csv)",
+        '#define OTA_KEY_DEVICE_ID               "device_id"',
+        '#define OTA_KEY_HW_REV                  "hw_rev"',
+        '#define OTA_KEY_HSVN                    "hsvn"',
+        '#define OTA_KEY_CHANNEL                 "channel"',
+        '#define OTA_KEY_API_KEY                 "api_key"',
+        '#define OTA_KEY_GATEWAY_URL             "gateway_url"',
+        "",
+        "// Operational Resilient Storage Keys",
         f'#define OTA_KEY_CHECKPOINT              "{storage.get("checkpoint_key", "ota_chkpt")}"',
         f'#define OTA_KEY_ROLLBACK_DIAG           "{storage.get("rollback_diag_key", "ota_rollback")}"',
         "",
@@ -382,7 +444,6 @@ def main() -> int:
     cfg = load_ssot(args.config.resolve())
     ws = args.workspace.resolve()
 
-    # Pre-flight silicon invariant assertion
     validate_silicon_invariants(cfg)
 
     if args.target in ["all", "partitions"]:
@@ -398,12 +459,11 @@ def main() -> int:
         print(f"✅ Generated: {p}")
 
     if args.target in ["all", "ota_header"]:
-        # Resolve target header destination dynamically if present in config, else default
         raw_header_path = cfg.get("paths", {}).get(
             "ota_header", "main/swConfig/ota_generated_config.h"
         )
         header_path = ws / Path(_resolve_relative_path(raw_header_path, ws))
-        p = generate_ota_header(cfg, header_path)
+        p = generate_ota_header(cfg, header_path, workspace_root=ws)
         print(f"✅ Generated: {p}")
 
     return 0

@@ -70,6 +70,9 @@ struct OtaManagerOptions_t
     uint8_t     allowedStartHour     = 2;     ///< Low traffic window start hour (2 AM)
     uint8_t     allowedEndHour       = 4;     ///< Low traffic window end hour (4 AM)
     bool        bypassConditions     = false; ///< Bypasses conditions for local testing
+    std::string rootCaKey;                    ///< Key for primary Root CA
+    std::string rootCaBackupKey;              ///< Key for backup Root CA
+    std::string rollbackDiagKey;              ///< Key for rollback diagnostics
 };
 
 /**

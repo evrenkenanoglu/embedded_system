@@ -66,17 +66,28 @@ sys_error_t mem_nvs::init(void* params)
             esp_err_t     secErr = nvs_flash_read_security_cfg(keyPart, &secCfg);
             if (secErr == ESP_OK)
             {
-                // Secure initialization of encrypted custom partition
+                // Secure initialization of encrypted custom partition using verified key
                 err = nvs_flash_secure_init_partition(_partitionName.c_str(), &secCfg);
             }
             else
             {
+#if defined(CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE)
+                SYS_LOG_E("Release security panic: Failed to read NVS security configuration for '%s' (0x%x). Plaintext mount prohibited.", _partitionName.c_str(), secErr);
+                err = secErr;
+#else
+                SYS_LOG_W("Development warning: NVS security configuration unreadable (0x%x). Attempting plaintext init.", secErr);
                 err = nvs_flash_init_partition(_partitionName.c_str());
+#endif
             }
         }
         else
         {
+#if defined(CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE)
+            SYS_LOG_E("Release security panic: 'nvs_keys' partition not found. Custom partition '%s' cannot be securely mounted.", _partitionName.c_str());
+            err = ESP_ERR_NOT_FOUND;
+#else
             err = nvs_flash_init_partition(_partitionName.c_str());
+#endif
         }
 #else
         err = nvs_flash_init_partition(_partitionName.c_str());

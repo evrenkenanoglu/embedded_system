@@ -276,3 +276,9 @@ sys_error_t OtaHttpTransport::setResumeOffset(size_t offset)
     SYS_LOG_I("Configured transport resume offset: %zu bytes", _resumeOffset);
     return ERROR_SUCCESS;
 }
+
+sys_error_t OtaHttpTransport::setServerCertificate(const std::string& certPem)
+{
+    _serverCert = certPem;
+    return ERROR_SUCCESS;
+}

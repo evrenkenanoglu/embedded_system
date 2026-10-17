@@ -10,6 +10,7 @@
 
 #include "App/Protocols/OTA/OtaManager.hpp"
 #include "cJSON.h"
+#include "swConfig/ota_generated_config.h"
 
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
@@ -71,7 +72,7 @@ OtaManager::~OtaManager()
 
 sys_error_t OtaManager::init(const OtaManagerOptions_t& options, const OtaPlatformHooks_t& hooks)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
         (_isInitialized), // Expression
@@ -85,7 +86,13 @@ sys_error_t OtaManager::init(const OtaManagerOptions_t& options, const OtaPlatfo
         SYS_LOG_E("Failed to initialize underlying OtaService!") // Error message
     );
 
-    _options       = options;
+    _options = options;
+    if (_options.rootCaKey.empty())
+        _options.rootCaKey = OTA_KEY_ROOT_CA;
+    if (_options.rootCaBackupKey.empty())
+        _options.rootCaBackupKey = OTA_KEY_ROOT_CA_BACKUP;
+    if (_options.rollbackDiagKey.empty())
+        _options.rollbackDiagKey = OTA_KEY_ROLLBACK_DIAG;
     _platformHooks = hooks;
     _updatePending = false;
     _isInitialized = true;
@@ -96,7 +103,7 @@ sys_error_t OtaManager::init(const OtaManagerOptions_t& options, const OtaPlatfo
 
 sys_error_t OtaManager::deInit()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
         (!_isInitialized), // Expression
@@ -111,7 +118,7 @@ sys_error_t OtaManager::deInit()
 
 uint32_t OtaManager::calculateNextCheckInterval() const
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     if (_options.jitterRangeSec == 0 || !_platformHooks.getRandomNumber)
     {
@@ -162,7 +169,7 @@ bool OtaManager::_isTwoStageConditionMet()
 
 sys_error_t OtaManager::checkForUpdates(OtaCheckResult& outResult)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
         (!_isInitialized),                        // Expression
@@ -286,7 +293,7 @@ sys_error_t OtaManager::_parseCheckResponse(const std::string& jsonStr, OtaCheck
 
 sys_error_t OtaManager::executeUpdate()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
         (!_isInitialized),                        // Expression
@@ -460,35 +467,42 @@ sys_error_t OtaManager::_sendTelemetryReport(const std::string& statusStr, sys_e
 
 sys_error_t OtaManager::loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    RETURN_ON_ERROR(
-        factoryMem.init(),                                                                // Expression
-        SYS_LOG_E("Failed to initialize factory storage device for trust anchor readout") // Log message
-    );
+    sys_error_t initErr = factoryMem.init();
+    if (initErr != ERROR_SUCCESS)
+    {
+        SYS_LOG_E("Factory storage init failed (err: 0x%x). Cannot load Root CA trust anchors.", initErr);
+        return initErr;
+    }
 
     std::vector<char> certBuf(4096, 0);
 
-    // 1. Read primary Root CA trust anchor
-    sys_error_t err = factoryMem.readData("root_ca_pem", reinterpret_cast<uint8_t*>(certBuf.data()), certBuf.size() - 1);
+    const char* rootCaKey       = _options.rootCaKey.c_str();
+    const char* rootCaBackupKey = _options.rootCaBackupKey.c_str();
 
-    RETURN_IF_ERROR(
-        (err != ERROR_SUCCESS),                                                       // Expression
-        err,                                                                          // Error code
-        SYS_LOG_E("Failed to load primary 'root_ca_pem' from secure factory storage") // Error message
-    );
+    // 1. Attempt to read primary Root CA trust anchor from NVS
+    sys_error_t err = factoryMem.readData(rootCaKey, reinterpret_cast<uint8_t*>(certBuf.data()), certBuf.size() - 1);
 
-    _options.serverCert = certBuf.data();
-    SYS_LOG_I("Primary Root CA trust anchor loaded from storage (%zu bytes)", _options.serverCert.length());
+    if (err == ERROR_SUCCESS && std::strlen(certBuf.data()) > 0)
+    {
+        _options.serverCert = certBuf.data();
+        SYS_LOG_I("Primary Root CA trust anchor loaded from NVS storage key '%s' (%zu bytes)", rootCaKey, _options.serverCert.length());
+    }
+    else
+    {
+        SYS_LOG_E("Failed to load primary Root CA ('%s') from factory storage (err: 0x%x)", rootCaKey, err);
+        return (err != ERROR_SUCCESS) ? err : ERROR_FAIL;
+    }
 
-    // 2. Read optional secondary Root CA trust anchor (supports scheduled CA rotation)
+    // 2. Attempt to read optional secondary Root CA trust anchor
     std::fill(certBuf.begin(), certBuf.end(), 0);
-    err = factoryMem.readData("root_ca_backup_pem", reinterpret_cast<uint8_t*>(certBuf.data()), certBuf.size() - 1);
+    err = factoryMem.readData(rootCaBackupKey, reinterpret_cast<uint8_t*>(certBuf.data()), certBuf.size() - 1);
 
     if (err == ERROR_SUCCESS && std::strlen(certBuf.data()) > 0)
     {
         _options.backupServerCert = certBuf.data();
-        SYS_LOG_I("Secondary backup Root CA trust anchor loaded from storage (%zu bytes)", _options.backupServerCert.length());
+        SYS_LOG_I("Secondary backup Root CA trust anchor loaded from NVS storage key '%s' (%zu bytes)", rootCaBackupKey, _options.backupServerCert.length());
     }
     else
     {
@@ -501,7 +515,7 @@ sys_error_t OtaManager::loadTrustAnchorsFromStorage(IHAL_MEM& factoryMem)
 
 void OtaManager::rebootSystem()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     if (_platformHooks.rebootSystem)
     {
@@ -582,7 +596,7 @@ sys_error_t OtaManager::_parseUrl(const std::string& url, std::string& outHost, 
 
 sys_error_t OtaManager::registerSelfTest(const std::string& name, OtaSelfTestHook_t testHook)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
         (testHook == nullptr),                                               // Expression
@@ -597,7 +611,7 @@ sys_error_t OtaManager::registerSelfTest(const std::string& name, OtaSelfTestHoo
 
 sys_error_t OtaManager::validateCurrentFirmware()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
         (!_isInitialized),                                                 // Expression
@@ -671,21 +685,25 @@ sys_error_t OtaManager::validateCurrentFirmware()
 
 void OtaManager::setCheckpointManager(OtaCheckpointManager* checkpointMgr)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
     _checkpointMgr = checkpointMgr;
     SYS_LOG_I("OtaCheckpointManager injected into OTA Manager.");
 }
 
 void OtaManager::setDiagnosticStorage(IHAL_MEM* diagMem)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
     _diagStorage = diagMem;
+    if (_diagStorage != nullptr)
+    {
+        _diagStorage->init();
+    }
     SYS_LOG_I("Diagnostic storage device injected into OTA Manager.");
 }
 
 sys_error_t OtaManager::processPendingRollbackTelemetry()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
         (!_isInitialized),                                                 // Expression
@@ -699,7 +717,8 @@ sys_error_t OtaManager::processPendingRollbackTelemetry()
     }
 
     OtaRollbackDiagnostic_t diag{};
-    const sys_error_t       readErr = _diagStorage->readData("ota_rollback", reinterpret_cast<uint8_t*>(&diag), sizeof(OtaRollbackDiagnostic_t));
+    const char*             rollbackKey = _options.rollbackDiagKey.c_str();
+    const sys_error_t       readErr     = _diagStorage->readData(rollbackKey, reinterpret_cast<uint8_t*>(&diag), sizeof(OtaRollbackDiagnostic_t));
 
     // No pending rollback log found; clean exit
     if (readErr != ERROR_SUCCESS)
