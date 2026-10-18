@@ -147,19 +147,6 @@ class Settings:
     SSL_CERT_FILE: Path = (CERT_DIR / _srv_cfg.get("cert_file", "server.crt")).resolve()
     SSL_KEY_FILE: Path = (CERT_DIR / _srv_cfg.get("key_file", "server.key")).resolve()
 
-    # Optional Developer Code-Signing Definitions (Not mandatory on server)
-    SIGNING_CERT_COMMON_NAME: str = _sign_cfg.get(
-        "common_name", "DeveloperFirmwareSigning"
-    )
-    SIGNING_CERT_ORG: str = _sign_cfg.get("organization", "Firmware Release Authority")
-    SIGNING_KEY_TYPE: str = _sign_cfg.get("key_type", "ec-secp256r1")
-    SIGNING_VALIDITY_DAYS: int = int(_sign_cfg.get("validity_days", 365))
-    SIGNING_CRT_FILE: Path = (
-        CERT_DIR / _sign_cfg.get("cert_file", "signing.crt")
-    ).resolve()
-    SIGNING_KEY_FILE: Path = (
-        CERT_DIR / _sign_cfg.get("key_file", "signing.key")
-    ).resolve()
 
     _auth = _cfg.get("auth", {})
     API_KEY_HEADER: str = _auth.get("api_key_header", "X-Device-API-Key")
