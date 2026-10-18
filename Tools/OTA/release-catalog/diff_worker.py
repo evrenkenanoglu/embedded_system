@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -130,10 +131,13 @@ def reconcile_1hop_patches(catalog_path: Path, manifest: Dict[str, Any]) -> bool
             continue
 
         def semver_key(v: str):
-            try:
-                return [int(x) for x in v.split(".")]
-            except ValueError:
-                return [0]
+            parts = []
+            for x in v.split("."):
+                try:
+                    parts.append(int(x))
+                except ValueError:
+                    parts.append(-1)
+            return parts
 
         prev_ver = sorted(channel_releases, key=semver_key)[-1]
         latest_rel = releases[latest_ver]
@@ -167,7 +171,7 @@ def reconcile_1hop_patches(catalog_path: Path, manifest: Dict[str, Any]) -> bool
                 p_size = patch_path.stat().st_size
                 p_hash = calculate_sha256(patch_path)
                 latest_rel["patches"][prev_ver] = {
-                    "file_name": f"patches/{patch_name}",
+                    "file_name": patch_path.relative_to(catalog_path).as_posix(),
                     "size_bytes": p_size,
                     "sha256": p_hash,
                     "signature": "",  # Unsigned on server; client verifies target_signature
@@ -200,10 +204,8 @@ def register_release(
     manifest_path = catalog_path / "manifest.json"
 
     # 1. Store immutable version-tagged binary
-    stem = binary_path.stem
-    versioned_filename = (
-        f"{stem}_{version}.bin" if not stem.endswith(version) else binary_path.name
-    )
+    stem = re.sub(r"_\d+\.\d+\.\d+$", "", binary_path.stem)
+    versioned_filename = f"{stem}_{version}.bin"
     target_binary = binaries_dir / versioned_filename
     shutil.copy2(binary_path, target_binary)
 
@@ -235,14 +237,16 @@ def register_release(
         "patches": manifest.get("releases", {}).get(version, {}).get("patches", {}),
     }
 
-    # 3. Compute 1-hop delta patch against previous release
-    reconcile_1hop_patches(catalog_path, manifest)
-
-    # 4. Point channel to latest version
+    # 3. Point channel to latest version (must happen before patch reconciliation
+    #    so the reconciler sees the correct latest_ver and generates patches in the
+    #    right direction: prev_ver → latest_ver, stored on latest_rel)
     manifest["channels"][channel] = {
         "latest_version": version,
         "hardware": hardware,
     }
+
+    # 4. Compute 1-hop delta patch against previous release
+    reconcile_1hop_patches(catalog_path, manifest)
 
     save_manifest(manifest_path, manifest)
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
