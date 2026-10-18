@@ -3,11 +3,11 @@ from invoke import Context, task
 from core import CONFIG, IS_WINDOWS, CommandSerializer
 
 
-@task(
-    help={
-        "upgrade": "Re-resolve all dependencies to latest versions",
-    }
-)
+            @task(
+                help={
+                    "upgrade": "Re-resolve all dependencies to latest versions",
+                }
+            )
 def compile(c: Context, upgrade: bool = False) -> None:
     """Compile cross-platform requirements.in to requirements.txt using uv."""
     in_path = CONFIG.paths.embedded_requirements_in
