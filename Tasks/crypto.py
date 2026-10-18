@@ -95,15 +95,7 @@ def flash_nvs(
     prov_dir = build_dir / "provisioning"
     partitions_csv = workspace_root / "partitions.csv"
 
-    nvs_keys_bin = prov_dir / "nvs_keys_encrypted.bin"
-    fctry_bin = prov_dir / "nvs_encrypted.bin"
-
-    if not nvs_keys_bin.exists() or not fctry_bin.exists():
-        print(f"❌ Provisioned binaries not found in {prov_dir}.")
-        print("   Run 'inv es.crypto.provision-nvs' first.")
-        return
-
-    # Caller extracts layout invariants from SSoT and passes them to parser
+    # Select pre-encrypted or plaintext key binary based on SSoT partition table flags
     ParserCls = _get_partition_parser_cls()
     pt_parser = ParserCls(
         partitions_csv_path=partitions_csv,
@@ -113,6 +105,19 @@ def flash_nvs(
         data_alignment=int(str(CONFIG.flash_layout.data_alignment), 0),
         partition_table_size=int(str(CONFIG.flash_layout.partition_table_size), 0),
     )
+
+    nvs_keys_entry = pt_parser.get_partition("nvs_keys")
+    if nvs_keys_entry.is_encrypted:
+        nvs_keys_bin = prov_dir / "nvs_keys_encrypted.bin"
+    else:
+        nvs_keys_bin = prov_dir / "nvs_keys.bin"
+
+    fctry_bin = prov_dir / "nvs_encrypted.bin"
+
+    if not nvs_keys_bin.exists() or not fctry_bin.exists():
+        print(f"❌ Provisioned binaries not found in {prov_dir}.")
+        print("   Run 'inv es.crypto.provision-nvs' first.")
+        return
 
     nvs_keys_offset = hex(pt_parser.get_offset("nvs_keys"))
     fctry_offset = hex(pt_parser.get_offset("fctry"))

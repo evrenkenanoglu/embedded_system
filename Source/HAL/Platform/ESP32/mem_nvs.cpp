@@ -133,26 +133,27 @@ sys_error_t mem_nvs::readData(const void* addressOrKey, uint8_t* data, size_t le
 
     size_t reqLen = length;
 
-    // Read data from NVS as blob
+    // Attempt to read data as binary blob
     err = nvs_get_blob(handle, key, (void*)data, &reqLen);
 
-    // If type mismatch, fallback to string readout (e.g. PEM certificates)
-    if (err == ESP_ERR_NVS_TYPE_MISMATCH)
+    // If not found as blob or type mismatch, fall back to string readout (e.g. PEM certificates)
+    if (err != ESP_OK)
     {
         reqLen = length;
         err    = nvs_get_str(handle, key, reinterpret_cast<char*>(data), &reqLen);
     }
 
-    // If operation failed, close NVS and return error
+    // If operation failed, log, close NVS, and return error
     if (err != ESP_OK)
     {
+        SYS_LOG_E("Failed to read key '%s' from partition '%s' namespace '%s': 0x%x",
+                  key, _partitionName.c_str(), _namespace.c_str(), err);
         nvs_close(handle);
         return TRANSLATE_ERROR(err);
     }
 
     // Read operation successful, close NVS
     nvs_close(handle);
-
     return ERROR_SUCCESS;
 }
 
