@@ -147,7 +147,6 @@ class Settings:
     SSL_CERT_FILE: Path = (CERT_DIR / _srv_cfg.get("cert_file", "server.crt")).resolve()
     SSL_KEY_FILE: Path = (CERT_DIR / _srv_cfg.get("key_file", "server.key")).resolve()
 
-
     _auth = _cfg.get("auth", {})
     API_KEY_HEADER: str = _auth.get("api_key_header", "X-Device-API-Key")
     API_KEY: str = _auth.get("api_key", "secure-device-token-factory-001")
