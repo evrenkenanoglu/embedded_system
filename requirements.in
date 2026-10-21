@@ -8,4 +8,5 @@ cmake >= 3.25
 -r Tools/OTA/ota-server/requirements.txt
 -r Tools/PKI/requirements.txt
 -r Tools/FORMATTER/requirements.in
+-r Tools/AI/AI_Assistant_Runner/requirements.in
 pywin32>=311 ; sys_platform == 'win32'

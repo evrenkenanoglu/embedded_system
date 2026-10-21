@@ -1,0 +1,40 @@
+---
+# ==============================================================================
+# Standalone Configuration Template
+# Usage: python main.py config.example.yaml
+# ==============================================================================
+ai_assistant:
+  active_tool: copilot
+  providers:
+    openrouter:
+      base_url: https://openrouter.ai/api/v1
+      model: openrouter/free
+      provider_type: openai
+      api_key_env_var: OPEN_ROUTER_API_KEY
+    ollama:
+      base_url: http://localhost:11434/v1
+      model: qwen2.5-coder:7b
+      provider_type: openai
+      api_key_env_var: ollama
+    groq:
+      base_url: https://api.groq.com/openai/v1
+      model: llama-3.3-70b-versatile
+      provider_type: openai
+      api_key_env_var: GROQ_API_KEY
+  tools:
+    copilot:
+      binary: copilot
+      args: [--yolo, --remote]
+      clean_env: [COPILOT_API_URL]
+    claude:
+      binary: claude
+      args: [--dangerously-skip-permissions]
+      clean_env: []
+    antigravity:
+      binary: antigravity
+      args: []
+      clean_env: []
+    generic:
+      binary: aider
+      args: [--model, openrouter/free]
+      clean_env: []
