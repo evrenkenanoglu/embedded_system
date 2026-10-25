@@ -102,32 +102,16 @@ def release(
     print(f"\n[*] [OTA RELEASE: 2/4] Signing binary and packaging catalog entry...")
     provision_sign(c, dry_run=dry_run)
 
-    # Step 3: Run standalone diff_worker.py (Zero web server imports!)
-    catalog_dir = Path(
-        getattr(
-            CONFIG.paths,
-            "ota_catalog_dir",
-            workspace_root / "embedded_system/Tools/OTA/release-catalog",
-        )
-    ).resolve()
-    diff_worker_script = catalog_dir / "diff_worker.py"
-
-    if diff_worker_script.exists():
-        print(
-            f"\n[*] [OTA RELEASE: 3/4] Reconciling 1-hop delta patch via diff_worker.py..."
-        )
-        serializer = CommandSerializer(
-            prefix_commands=[CONFIG.venv_activate_cmd],
-            env=CONFIG.env,
-        )
-        serializer.add(
-            f'python "{diff_worker_script}" --catalog-dir "{catalog_dir}" --reconcile'
-        )
-        serializer.run(c, dry_run=dry_run)
-    else:
-        print(
-            f"⚠️ [WARN] diff_worker.py not found at: {diff_worker_script}. Skipping delta generation."
-        )
+    # Step 3: Reconcile 1-hop delta patches via the release-catalog tool task
+    # (Zero raw python script paths — delegated through `inv tools.release-catalog.*`)
+    print(
+        f"\n[*] [OTA RELEASE: 3/4] Reconciling 1-hop delta patches via release-catalog..."
+    )
+    c.run(
+        "inv tools.release-catalog.reconcile",
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
+    )
 
     # Step 4: Sync release-catalog to Windows host
     if sync_windows:
