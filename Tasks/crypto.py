@@ -5,6 +5,7 @@
 """
 
 import os
+import sys
 from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
@@ -45,36 +46,37 @@ def _get_execution_env() -> dict:
 @task(
     help={
         "dry_run": "Print execution command without running",
-        "config": "Path to custom PKI configuration file (defaults to CONFIG.paths.es_config_pki)",
-        "opts": "Forward arbitrary arguments to the PKI generation script",
+        "config_path": "Path to custom PKI configuration file (overrides SSoT)",
+        "opts": "Forward arbitrary arguments to the PKI generation tool",
     }
 )
 def generate_pki(
-    c: Context, dry_run: bool = False, config: str = "", opts: str = ""
+    c: Context, dry_run: bool = False, config_path: str = "", opts: str = ""
 ) -> None:
-    """Resolve SSoT config to a flat temporary file and invoke standalone PKI generator."""
-    script_path = Path(CONFIG.paths.generate_pki_script).resolve()
-    if not script_path.exists():
-        raise FileNotFoundError(f"PKI generation script not found: {script_path}")
+    """Resolve SSoT config to a flat file and delegate to the standalone PKI tool task."""
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
 
     # 1. Identify input template config
-    raw_config = config or getattr(CONFIG.paths, "es_config_pki", "")
-    if not raw_config:
+    raw_config = (
+        Path(config_path)
+        if config_path and str(config_path).strip()
+        else Path(getattr(CONFIG.paths, "es_config_pki", ""))
+    )
+    if not str(raw_config).strip() or str(raw_config) == ".":
         raise ValueError("No PKI configuration file specified.")
+    if not raw_config.is_absolute():
+        raw_config = (workspace_root / raw_config).resolve()
 
     # 2. Compile into a flat, standalone YAML file in build/configs/
-    resolved_config_file = resolve_to_file(
-        raw_config, workspace_root=CONFIG.paths.workspace_dir
-    )
+    resolved_config_file = resolve_to_file(raw_config, workspace_root=workspace_root)
 
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=_get_execution_env(),
+    # 3. Delegate to the tool's runtime task (zero raw python script paths)
+    opts_flag = f'--opts="{opts.strip()}"' if opts and str(opts).strip() else ""
+    c.run(
+        f'inv tools.pki.generate --config="{resolved_config_file}" {opts_flag}',
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-
-    cmd = f'python "{script_path}" --config "{resolved_config_file}"'
-    serializer.add(cmd, extra=opts)
-    serializer.run(c, dry_run=dry_run)
 
 
 @task(
