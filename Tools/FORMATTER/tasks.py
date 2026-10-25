@@ -17,11 +17,36 @@ VALID_SCOPES = ("changed", "all")
 
 
 def _execution_env() -> dict:
-    """Prepends the interpreter's bin dir to PATH so formatter console scripts resolve."""
-    bin_dir = str(Path(sys.executable).parent)
+    """Prepends candidate interpreter bin dirs to PATH so console scripts resolve.
+
+    Prefers the canonical project venv (.venv/bin) when present, guaranteeing the
+    formatter subprocess sees the venv's dependencies (pathspec, black, etc.)
+    even when the hook is launched by a bare system interpreter.
+    """
     env = dict(os.environ)
-    env["PATH"] = os.pathsep.join([bin_dir, env.get("PATH", "")])
+    candidates = []
+    venv_dir = Path(__file__).resolve()
+    while venv_dir != venv_dir.parent:
+        venv_dir = venv_dir.parent
+        candidate = venv_dir / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
+        if (candidate / "activate").exists() or candidate.is_dir():
+            candidates.append(str(candidate))
+            break
+    candidates.append(str(Path(sys.executable).parent))
+    env["PATH"] = os.pathsep.join([*candidates, env.get("PATH", "")])
     return env
+
+
+def _resolve_venv_python() -> str:
+    """Returns the project venv interpreter path if available, else sys.executable."""
+    marker = "python.exe" if sys.platform == "win32" else "python"
+    probe = Path(__file__).resolve()
+    while probe != probe.parent:
+        probe = probe.parent
+        candidate = probe / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / marker
+        if candidate.exists():
+            return str(candidate)
+    return sys.executable
 
 
 def _resolve_config_path(config: str, tool_dir: Path) -> Path:
@@ -75,7 +100,7 @@ def format(
 
     # CRITICAL: Always use sys.executable (never hardcoded 'python')
     cmd_parts = [
-        f'"{sys.executable}" "{script_path}"',
+        f'"{_resolve_venv_python()}" "{script_path}"',
         f'--config="{config_path}"',
         f"--lang {lang}",
         f"--mode {mode}",
