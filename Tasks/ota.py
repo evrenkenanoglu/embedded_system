@@ -4,6 +4,7 @@
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
+import sys
 from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
@@ -31,20 +32,17 @@ def _get_target_chip(explicit_target: str = "") -> str:
 @task(
     help={
         "dry_run": "Print execution command without running",
-        "config": "Path to custom OTA server configuration file",
-        "opts": "Forward arbitrary arguments to the OTA server script",
+        "config_path": "Path to custom OTA server configuration file (overrides SSoT)",
+        "opts": "Forward arbitrary arguments to the OTA server tool",
     }
 )
-def server(c: Context, dry_run: bool = False, config: str = "", opts: str = "") -> None:
+def server(
+    c: Context, dry_run: bool = False, config_path: str = "", opts: str = ""
+) -> None:
     """Start the Embedded System OTA server with compiled SSoT configuration."""
     workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
 
-    default_script = workspace_root / "embedded_system/Tools/OTA/ota-server/run.py"
-    raw_script = getattr(CONFIG.paths, "ota_server_script", default_script)
-    script_path = Path(raw_script).resolve()
-    if not script_path.exists():
-        raise FileNotFoundError(f"OTA server script not found: {script_path}")
-
+    # 1. Resolve SSoT config at this level
     default_config = (
         getattr(CONFIG.paths, "es_config_ota_server", None)
         or getattr(CONFIG.paths, "config_ota_server", None)
@@ -52,24 +50,22 @@ def server(c: Context, dry_run: bool = False, config: str = "", opts: str = "") 
         / "config_ota_server.yaml"
     )
     raw_config = (
-        Path(config) if config and str(config).strip() else Path(default_config)
+        Path(config_path)
+        if config_path and str(config_path).strip()
+        else Path(default_config)
     )
     if not raw_config.is_absolute():
         raw_config = (workspace_root / raw_config).resolve()
 
-    resolved_config_file = resolve_to_file(raw_config, workspace_root=workspace_root)
+    resolved_config = resolve_to_file(raw_config, workspace_root=workspace_root)
 
-    execution_env = dict(CONFIG.env or {})
-    execution_env["OTA_CONFIG_PATH"] = str(resolved_config_file)
-
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=execution_env,
+    # 2. Delegate to the tool's runtime task (zero raw python script paths)
+    opts_flag = f'--opts="{opts.strip()}"' if opts and str(opts).strip() else ""
+    c.run(
+        f'inv tools.ota-server.start --config="{resolved_config}" {opts_flag}',
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-
-    cmd = f'python "{script_path}" --config "{resolved_config_file}"'
-    serializer.add(cmd, extra=opts)
-    serializer.run(c, dry_run=dry_run)
 
 
 @task(
@@ -191,6 +187,7 @@ def factory_provision(
         "insecure": "Bypass TLS certificate verification (default: True for local dev IP)",
         "notes": "Custom release notes or changelog entry",
         "channel": "Deployment channel (default: stable)",
+        "config_path": "Path to custom SSoT configuration file (overrides config_project.yaml)",
         "dry_run": "Print upload command without executing",
     }
 )
@@ -200,40 +197,41 @@ def upload(
     insecure: bool = True,
     notes: str = "Automated CLI build upload",
     channel: str = "stable",
+    config_path: str = "",
     dry_run: bool = False,
 ) -> None:
     """Upload compiled firmware to an external/remote OTA server via HTTP API."""
     workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
-    script_path = (
-        workspace_root / "embedded_system/Tools/OTA/ota-server/upload_firmware.py"
-    ).resolve()
 
+    # 1. Resolve SSoT config at this level
     default_config = (
         getattr(CONFIG.paths, "config_project", None)
         or Path(getattr(CONFIG.paths, "configs_dir", workspace_root / "configs"))
         / "config_project.yaml"
     )
-    raw_config = Path(default_config)
+    raw_config = (
+        Path(config_path)
+        if config_path and str(config_path).strip()
+        else Path(default_config)
+    )
     if not raw_config.is_absolute():
         raw_config = (workspace_root / raw_config).resolve()
 
     resolved_config = resolve_to_file(raw_config, workspace_root=workspace_root)
 
-    cmd_parts = [
-        f'python "{script_path}"',
-        f'--config "{resolved_config}"',
-        f'--channel "{channel}"',
-        f'--notes "{notes}"',
+    # 2. Delegate to the tool's runtime task (zero raw python script paths)
+    flags = [
+        f'--config="{resolved_config}"',
+        f'--channel="{channel}"',
+        f'--notes="{notes}"',
     ]
-
     if url and str(url).strip():
-        cmd_parts.append(f'--url "{url}"')
+        flags.append(f'--url="{url.strip()}"')
     if insecure:
-        cmd_parts.append("--insecure")
+        flags.append("--insecure")
 
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+    c.run(
+        f'inv tools.ota-server.upload {" ".join(flags)}',
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-    serializer.add(" ".join(cmd_parts))
-    serializer.run(c, dry_run=dry_run)
