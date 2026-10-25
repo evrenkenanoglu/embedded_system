@@ -28,7 +28,9 @@ def _execution_env() -> dict:
     venv_dir = Path(__file__).resolve()
     while venv_dir != venv_dir.parent:
         venv_dir = venv_dir.parent
-        candidate = venv_dir / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
+        candidate = (
+            venv_dir / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
+        )
         if (candidate / "activate").exists() or candidate.is_dir():
             candidates.append(str(candidate))
             break
@@ -43,7 +45,9 @@ def _resolve_venv_python() -> str:
     probe = Path(__file__).resolve()
     while probe != probe.parent:
         probe = probe.parent
-        candidate = probe / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / marker
+        candidate = (
+            probe / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / marker
+        )
         if candidate.exists():
             return str(candidate)
     return sys.executable
