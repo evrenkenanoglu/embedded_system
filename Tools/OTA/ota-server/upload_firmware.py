@@ -137,7 +137,8 @@ def upload_binary(args):
     if not binary_path.exists():
         print(f"❌ ERROR: Firmware binary not found at: {binary_path}", file=sys.stderr)
         print(
-            "   Run 'inv es.platform.build' first to compile the binary.", file=sys.stderr
+            "   Run 'inv es.platform.build' first to compile the binary.",
+            file=sys.stderr,
         )
         sys.exit(1)
 
