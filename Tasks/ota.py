@@ -9,7 +9,7 @@ from pathlib import Path
 from invoke import Context, task
 from core import CONFIG, CommandSerializer
 from core.config_resolver import resolve_to_file
-from embedded_system.Tasks.toolchains.factory import get_toolchain
+from embedded_system.Tools.TOOLCHAIN.factory import get_toolchain
 from embedded_system.Tasks.crypto import provision_nvs, provision_sign, provision_flash
 
 

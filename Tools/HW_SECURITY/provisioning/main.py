@@ -37,7 +37,7 @@ from signing.hsm_sign_digest import (
     sign_digest_rsa_2048_local as sign_digest_rsa_2048,
 )
 from signing.ota_manifest_packager import main as package_manifest_entry
-from embedded_system.Tasks.toolchains.factory import get_toolchain
+from embedded_system.Tools.TOOLCHAIN.factory import get_toolchain
 
 import subprocess
 from cryptography.hazmat.primitives import serialization

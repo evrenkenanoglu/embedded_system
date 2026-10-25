@@ -5,8 +5,8 @@
 """
 
 from typing import Any, Dict
-from embedded_system.Tasks.toolchains.base import BaseToolchain
-from embedded_system.Tasks.toolchains.esp_idf import EspIdfToolchain
+from embedded_system.Tools.TOOLCHAIN.base import BaseToolchain
+from embedded_system.Tools.TOOLCHAIN.esp_idf import EspIdfToolchain
 
 _TOOLCHAIN_CACHE: Dict[str, BaseToolchain] = {}
 

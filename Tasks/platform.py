@@ -1,13 +1,31 @@
 from functools import lru_cache
+from pathlib import Path
 from invoke import Context, task
 from core import CONFIG
-from embedded_system.Tasks.toolchains.esp_idf import EspIdfToolchain
+from core.config_resolver import resolve_config
+from embedded_system.Tools.TOOLCHAIN.factory import get_toolchain
 from embedded_system.Tasks.build_config import generate as generate_build_config
 
 
 @lru_cache(maxsize=1)
-def _get_toolchain() -> EspIdfToolchain:
-    return EspIdfToolchain(CONFIG)
+def _get_platform_config():
+    """Resolve the Platform SSoT (config_platform.yaml) once per session."""
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
+    default_config = (
+        getattr(CONFIG.paths, "es_config_platform", None)
+        or Path(getattr(CONFIG.paths, "configs_dir", workspace_root / "configs"))
+        / "config_platform.yaml"
+    )
+    raw_config = Path(default_config)
+    if not raw_config.is_absolute():
+        raw_config = (workspace_root / raw_config).resolve()
+    return resolve_config(raw_config, workspace_root=workspace_root)
+
+
+@lru_cache(maxsize=1)
+def _get_toolchain():
+    """Resolve the active toolchain dynamically from the Platform SSoT."""
+    return get_toolchain(config=_get_platform_config())
 
 
 @task(
@@ -116,7 +134,7 @@ def menuconfig(
     opts: str = "",
 ) -> None:
     """Open terminal-based Kconfig configuration menu."""
-    _get_toolchain().menuconfig(c, dry_run=dry_run, opts=opts)
+    _get_toolchain().configure(c, dry_run=dry_run, opts=opts)
 
 
 @task(

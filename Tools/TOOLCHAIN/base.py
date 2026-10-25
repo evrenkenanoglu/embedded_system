@@ -8,7 +8,7 @@ from typing import Any, Generator, List, Optional
 from invoke import Context
 from invoke.exceptions import UnexpectedExit
 
-from embedded_system.Tasks.toolchains.interface import IToolchain
+from embedded_system.Tools.TOOLCHAIN.interface import IToolchain
 
 
 class BaseToolchain(IToolchain):

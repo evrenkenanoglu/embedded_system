@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 from invoke import Context
 from core import CommandSerializer
-from embedded_system.Tasks.toolchains.base import BaseToolchain
+from embedded_system.Tools.TOOLCHAIN.base import BaseToolchain
 
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -230,7 +230,7 @@ class EspIdfToolchain(BaseToolchain):
 
         # Bypass idf.py injecting --no-stub during Secure Boot / Flash Encryption:
         cmd = (
-            f"python -m esptool {port_flag} {baud_flag} {chip_flag} erase_flash".strip()
+            f"{sys.executable} -m esptool {port_flag} {baud_flag} {chip_flag} erase_flash".strip()
         )
         serializer.add(cmd, extra=opts)
         serializer.run(self._ctx(c), dry_run=dry_run)
@@ -241,7 +241,7 @@ class EspIdfToolchain(BaseToolchain):
         script_raw = self._get_path("provision_hardware_script")
         script = Path(script_raw).resolve()
         serializer = self._get_serializer()
-        cmd = f'python "{script}" --step {step} --config "{config_path}"'
+        cmd = f'{sys.executable} "{script}" --step {step} --config "{config_path}"'
         if dry_run:
             cmd += " --dry-run"
         serializer.add(cmd)
@@ -295,7 +295,7 @@ class EspIdfToolchain(BaseToolchain):
 
         serializer = self._get_serializer()
         chip_flag = f"--chip {getattr(self, 'chip', 'esp32s3')}"
-        cmd = f"python -m espefuse {chip_flag} --port {port} --baud {baud} summary"
+        cmd = f"{sys.executable} -m espefuse {chip_flag} --port {port} --baud {baud} summary"
         serializer.add(cmd)
         ctx = self._ctx(c)
         try:
@@ -309,7 +309,7 @@ class EspIdfToolchain(BaseToolchain):
         """Queries physical or virtual eFuse summary table."""
         serializer = self._get_serializer()
         virt_flags = self._get_virt_flags()
-        cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} summary".strip()
+        cmd = f"{sys.executable} -m espefuse {virt_flags} --port {port} --baud {baud} summary".strip()
         serializer.add(" ".join(cmd.split()))
         ctx = self._ctx(c)
         try:
@@ -370,7 +370,7 @@ class EspIdfToolchain(BaseToolchain):
 
         serializer = self._get_serializer()
         virt_flags = self._get_virt_flags()
-        cmd = f'python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm burn_key {slot} "{key_file.resolve()}" {purpose}'.strip()
+        cmd = f'{sys.executable} -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm burn_key {slot} "{key_file.resolve()}" {purpose}'.strip()
         serializer.add(" ".join(cmd.split()))
         serializer.run(self._ctx(c), dry_run=dry_run)
 
@@ -427,11 +427,11 @@ class EspIdfToolchain(BaseToolchain):
         virt_flags = self._get_virt_flags()
 
         if read_protect:
-            cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm read_protect_efuse {slot}".strip()
+            cmd = f"{sys.executable} -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm read_protect_efuse {slot}".strip()
             serializer.add(" ".join(cmd.split()))
 
         if write_protect:
-            cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm write_protect_efuse {slot}".strip()
+            cmd = f"{sys.executable} -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm write_protect_efuse {slot}".strip()
             serializer.add(" ".join(cmd.split()))
 
         serializer.run(self._ctx(c), dry_run=dry_run)
@@ -456,7 +456,7 @@ class EspIdfToolchain(BaseToolchain):
 
         serializer = self._get_serializer()
         virt_flags = self._get_virt_flags()
-        cmd = f"python -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm burn_efuse {register_name} {value}".strip()
+        cmd = f"{sys.executable} -m espefuse {virt_flags} --port {port} --baud {baud} --do-not-confirm burn_efuse {register_name} {value}".strip()
         serializer.add(" ".join(cmd.split()))
         serializer.run(self._ctx(c), dry_run=dry_run)
 
@@ -474,7 +474,7 @@ class EspIdfToolchain(BaseToolchain):
     ) -> None:
         serializer = self._get_serializer()
         cmd = (
-            f"python -m esptool --chip {chip} --port {port} --baud {baud} "
+            f"{sys.executable} -m esptool --chip {chip} --port {port} --baud {baud} "
             f"--before default_reset --after hard_reset write_flash --force "
             f"--flash_mode {flash_mode} --flash_freq {flash_freq} --flash_size {flash_size} "
             + " ".join(flash_args)
