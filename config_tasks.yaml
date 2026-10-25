@@ -1,0 +1,22 @@
+---
+# ==============================================================================
+# Embedded System Domain Task Registry & Discovery Rules
+# Standalone-capable: Anchored to {config_dir} (No config_project.yaml dependency)
+# ==============================================================================
+paths:
+  embedded_system_dir: '{config_dir}'
+  es_tools_dir: '{embedded_system_dir}/Tools'
+  es_tasks_dir: '{embedded_system_dir}/Tasks'
+discovery:
+  tasks:
+    # 1. Mount embedded lifecycle tasks under `es.<domain>` (e.g. inv es.ota.release)
+    - path: '{es_tasks_dir}'
+      namespace: es
+      mode: file
+      pattern: '*.py'
+
+    # 2. Mount embedded host tools under `tools.<tool_name>` (e.g. inv tools.ai-assistant-runner.start)
+    - path: '{es_tools_dir}'
+      namespace: tools
+      mode: flat
+      task_filename: tasks.py
