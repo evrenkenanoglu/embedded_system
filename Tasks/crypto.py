@@ -158,7 +158,7 @@ def flash_nvs(
         "burn_password": "Passphrase required when --target-mode=hardware to burn eFuses",
         "continuous": "Run in automated continuous fixture loop awaiting device insertion",
         "dry_run": "Print command line without executing",
-        "config": "Path to custom provisioning config file",
+        "config_path": "Path to custom provisioning config file (overrides SSoT)",
         "opts": "Forward additional arbitrary arguments",
     }
 )
@@ -170,75 +170,77 @@ def provision_hardware(
     burn_password: str = "",
     continuous: bool = False,
     dry_run: bool = False,
-    config: str = "",
+    config_path: str = "",
     opts: str = "",
 ) -> None:
-    """Resolve SSoT config to a flat temporary file and invoke standalone provisioning script."""
+    """Resolve SSoT config to a flat file and delegate to the provisioning tool task."""
     if step not in VALID_PROVISION_STEPS:
         raise ValueError(
             f"Invalid step '{step}'. Available options: {', '.join(VALID_PROVISION_STEPS)}"
         )
 
-    script_path = Path(CONFIG.paths.provision_hardware_script).resolve()
-    if not script_path.exists():
-        raise FileNotFoundError(f"Provision hardware script not found: {script_path}")
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
 
-    raw_config = config or getattr(CONFIG.paths, "es_config_provisioning", "")
-    if not raw_config:
+    # 1. Resolve SSoT config at this level
+    raw_config = (
+        Path(config_path)
+        if config_path and str(config_path).strip()
+        else Path(getattr(CONFIG.paths, "es_config_provisioning", ""))
+    )
+    if not str(raw_config).strip() or str(raw_config) == ".":
         raise ValueError("No provisioning configuration file specified.")
+    if not raw_config.is_absolute():
+        raw_config = (workspace_root / raw_config).resolve()
 
-    resolved_config_file = resolve_to_file(
-        raw_config, workspace_root=CONFIG.paths.workspace_dir
-    )
+    resolved_config_file = resolve_to_file(raw_config, workspace_root=workspace_root)
 
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=_get_execution_env(),
-    )
-
-    cmd = (
-        f'python "{script_path}" '
-        f"--step {step} "
-        f"--target-mode {target_mode} "
-        f'--config "{resolved_config_file}"'
-    )
+    # 2. Delegate to the tool's runtime task (zero raw python script paths)
+    flags = [
+        f'--config="{resolved_config_file}"',
+        f"--step {step}",
+        f"--target-mode {target_mode}",
+    ]
     if simulate:
-        cmd += " --dry-run"
+        flags.append("--simulate")
     if continuous:
-        cmd += " --continuous"
+        flags.append("--continuous")
     if burn_password:
-        cmd += f' --burn-password "{burn_password}"'
+        flags.append(f'--burn-password "{burn_password}"')
 
-    serializer.add(cmd, extra=opts)
-    serializer.run(c, dry_run=dry_run)
+    opts_flag = f' --opts="{opts.strip()}"' if opts and str(opts).strip() else ""
+    c.run(
+        f'inv tools.provisioning.run {" ".join(flags)}{opts_flag}',
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
+    )
 
 
 @task(
     help={
         "dry_run": "Print command line without executing",
-        "config": "Config override",
+        "config_path": "Config override",
         "opts": "Additional options",
     }
 )
 def provision_nvs(
-    c: Context, dry_run: bool = False, config: str = "", opts: str = ""
+    c: Context, dry_run: bool = False, config_path: str = "", opts: str = ""
 ) -> None:
     """Step 1: Generate encrypted NVS partition binary and encryption keys."""
-    provision_hardware(c, step="nvs", dry_run=dry_run, config=config, opts=opts)
+    provision_hardware(c, step="nvs", dry_run=dry_run, config_path=config_path, opts=opts)
 
 
 @task(
     help={
         "dry_run": "Print command line without executing",
-        "config": "Config override",
+        "config_path": "Config override",
         "opts": "Additional options",
     }
 )
 def provision_sign(
-    c: Context, dry_run: bool = False, config: str = "", opts: str = ""
+    c: Context, dry_run: bool = False, config_path: str = "", opts: str = ""
 ) -> None:
     """Step 2: Sign application binary and package release into server manifest."""
-    provision_hardware(c, step="sign", dry_run=dry_run, config=config, opts=opts)
+    provision_hardware(c, step="sign", dry_run=dry_run, config_path=config_path, opts=opts)
 
 
 @task(
