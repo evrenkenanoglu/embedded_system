@@ -1,32 +1,40 @@
+"""
+@file       wsl.py
+@brief      WSL USB bridge orchestration task-runner module.
+@copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+"""
+
+import sys
 from invoke import Context, task
-from core import CONFIG, CommandSerializer
 
 
-@task
+@task(
+    help={
+        "dry_run": "Print execution command without running",
+        "opts": "Forward arbitrary extra flags to the WSL tool",
+    }
+)
 def usb_bridge(c: Context, dry_run: bool = False, opts: str = "") -> None:
-    """Run the WSL Smart Attach/Detach script for USB devices."""
-    script_path = CONFIG.paths.smart_deattach_attach_script
-    if not script_path.exists():
-        raise FileNotFoundError(f"WSL script not found: {script_path}")
-
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+    """Run the WSL Smart Attach/Detach cycle for USB devices (detach + reattach)."""
+    opts_flag = f'--opts="{opts.strip()}"' if opts and str(opts).strip() else ""
+    c.run(
+        f"inv tools.wsl.reattach {opts_flag}".strip(),
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-    serializer.add(f'python "{script_path}"', extra=opts)
-    serializer.run(c, dry_run=dry_run)
 
 
-@task
+@task(
+    help={
+        "dry_run": "Print execution command without running",
+        "opts": "Forward arbitrary extra flags to the WSL tool",
+    }
+)
 def usb_bridge_daemon(c: Context, dry_run: bool = False, opts: str = "") -> None:
-    """Run the WSL Smart Auto Attach Daemon script for USB devices."""
-    script_path = CONFIG.paths.smart_auto_attach_daemon_script
-    if not script_path.exists():
-        raise FileNotFoundError(f"WSL script not found: {script_path}")
-
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+    """Run the WSL Smart Auto Attach Daemon for USB devices."""
+    opts_flag = f'--opts="{opts.strip()}"' if opts and str(opts).strip() else ""
+    c.run(
+        f"inv tools.wsl.daemon {opts_flag}".strip(),
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-    serializer.add(f'python "{script_path}"', extra=opts)
-    serializer.run(c, dry_run=dry_run)
