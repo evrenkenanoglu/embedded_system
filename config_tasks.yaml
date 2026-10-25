@@ -7,6 +7,9 @@ paths:
   embedded_system_dir: '{config_dir}'
   es_tools_dir: '{embedded_system_dir}/Tools'
   es_tasks_dir: '{embedded_system_dir}/Tasks'
+  # Dependency lockfiles (consumed by es.deps.compile / es.deps.install)
+  embedded_requirements_in: '{embedded_system_dir}/requirements.in'
+  embedded_requirements_file: '{embedded_system_dir}/requirements.txt'
 discovery:
   tasks:
     # 1. Mount embedded lifecycle tasks under `es.<domain>` (e.g. inv es.ota.release)
