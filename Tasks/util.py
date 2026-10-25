@@ -6,6 +6,7 @@ from core.config_resolver import resolve_to_file
 import os
 import re
 import shutil
+import sys
 
 FormatLang = Literal["all", "c", "python", "yaml", "cmake"]
 FormatMode = Literal["apply", "check"]
@@ -44,10 +45,10 @@ def _format_code(
     lang: FormatLang = "all",
     scope: FormatScope = "changed",
     dry_run: bool = False,
-    config: str = "",
+    config_path: str = "",
     opts: str = "",
 ) -> None:
-    """Internal helper to resolve SSoT config to a flat temporary file and invoke code formatter."""
+    """Internal helper to resolve SSoT config to a flat temporary file and delegate to the formatter tool task."""
     if mode not in VALID_FORMAT_MODES:
         raise ValueError(
             f"Invalid mode '{mode}'. Available options: {', '.join(VALID_FORMAT_MODES)}"
@@ -63,34 +64,29 @@ def _format_code(
             f"Invalid scope '{scope}'. Available options: {', '.join(VALID_FORMAT_SCOPES)}"
         )
 
-    script_path = Path(CONFIG.paths.code_formatter_script).resolve()
-    if not script_path.exists():
-        raise FileNotFoundError(f"Code formatter script not found: {script_path}")
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
 
     # 1. Identify input template config
-    raw_config = config or getattr(CONFIG.paths, "es_config_formatter", "")
-    if not raw_config:
+    raw_config = (
+        Path(config_path)
+        if config_path and str(config_path).strip()
+        else Path(getattr(CONFIG.paths, "es_config_formatter", ""))
+    )
+    if not str(raw_config).strip() or str(raw_config) == ".":
         raise ValueError("No formatter configuration file specified.")
+    if not raw_config.is_absolute():
+        raw_config = (workspace_root / raw_config).resolve()
 
     # 2. Compile into a flat, standalone YAML file in build/configs/
-    resolved_config_file = resolve_to_file(
-        raw_config, workspace_root=CONFIG.paths.workspace_dir
-    )
+    resolved_config_file = resolve_to_file(raw_config, workspace_root=workspace_root)
 
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=CONFIG.env,
+    # 3. Delegate to the tool's runtime task (zero raw python script paths)
+    c.run(
+        f'"{sys.executable}" -m invoke tools.formatter.format --config="{resolved_config_file}" '
+        f"--lang {lang} --mode {mode} --scope {scope}",
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-
-    cmd = (
-        f'python "{script_path}" '
-        f'--config "{resolved_config_file}" '
-        f"--mode {mode} "
-        f"--lang {lang} "
-        f"--scope {scope}"
-    )
-    serializer.add(cmd, extra=opts)
-    serializer.run(c, dry_run=dry_run)
 
 
 @task(
@@ -98,7 +94,7 @@ def _format_code(
         "lang": f"Target language: {', '.join(VALID_FORMAT_LANGS)} (default: 'all')",
         "scope": f"File scope: {', '.join(VALID_FORMAT_SCOPES)} (default: 'changed')",
         "dry_run": "Print command line without executing",
-        "config": "Path to custom formatter configuration file",
+        "config_path": "Path to custom formatter configuration file",
         "opts": "Forward additional arbitrary arguments",
     }
 )
@@ -107,7 +103,7 @@ def format_apply(
     lang: FormatLang = "all",
     scope: FormatScope = "changed",
     dry_run: bool = False,
-    config: str = "",
+    config_path: str = "",
     opts: str = "",
 ) -> None:
     """Apply formatting in-place (defaults to only git-modified/uncommitted files)."""
@@ -117,7 +113,7 @@ def format_apply(
         lang=lang,
         scope=scope,
         dry_run=dry_run,
-        config=config,
+        config_path=config_path,
         opts=opts,
     )
 
@@ -127,7 +123,7 @@ def format_apply(
         "lang": f"Target language: {', '.join(VALID_FORMAT_LANGS)} (default: 'all')",
         "scope": f"File scope: {', '.join(VALID_FORMAT_SCOPES)} (default: 'all')",
         "dry_run": "Print command line without executing",
-        "config": "Path to custom formatter configuration file",
+        "config_path": "Path to custom formatter configuration file",
         "opts": "Forward additional arbitrary arguments",
     }
 )
@@ -136,7 +132,7 @@ def format_check(
     lang: FormatLang = "all",
     scope: FormatScope = "all",
     dry_run: bool = False,
-    config: str = "",
+    config_path: str = "",
     opts: str = "",
 ) -> None:
     """Check formatting across the workspace without modifying files (CI/CD dry-run)."""
@@ -146,7 +142,7 @@ def format_check(
         lang=lang,
         scope=scope,
         dry_run=dry_run,
-        config=config,
+        config_path=config_path,
         opts=opts,
     )
 

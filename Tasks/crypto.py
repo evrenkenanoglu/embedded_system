@@ -73,7 +73,7 @@ def generate_pki(
     # 3. Delegate to the tool's runtime task (zero raw python script paths)
     opts_flag = f'--opts="{opts.strip()}"' if opts and str(opts).strip() else ""
     c.run(
-        f'inv tools.pki.generate --config="{resolved_config_file}" {opts_flag}',
+        f'"{sys.executable}" -m invoke tools.pki.generate --config="{resolved_config_file}" {opts_flag}',
         dry=dry_run,
         pty=(sys.platform != "win32"),
     )
@@ -209,7 +209,7 @@ def provision_hardware(
 
     opts_flag = f' --opts="{opts.strip()}"' if opts and str(opts).strip() else ""
     c.run(
-        f'inv tools.provisioning.run {" ".join(flags)}{opts_flag}',
+        f'"{sys.executable}" -m invoke tools.provisioning.run {" ".join(flags)}{opts_flag}',
         dry=dry_run,
         pty=(sys.platform != "win32"),
     )
@@ -226,7 +226,9 @@ def provision_nvs(
     c: Context, dry_run: bool = False, config_path: str = "", opts: str = ""
 ) -> None:
     """Step 1: Generate encrypted NVS partition binary and encryption keys."""
-    provision_hardware(c, step="nvs", dry_run=dry_run, config_path=config_path, opts=opts)
+    provision_hardware(
+        c, step="nvs", dry_run=dry_run, config_path=config_path, opts=opts
+    )
 
 
 @task(
@@ -240,7 +242,9 @@ def provision_sign(
     c: Context, dry_run: bool = False, config_path: str = "", opts: str = ""
 ) -> None:
     """Step 2: Sign application binary and package release into server manifest."""
-    provision_hardware(c, step="sign", dry_run=dry_run, config_path=config_path, opts=opts)
+    provision_hardware(
+        c, step="sign", dry_run=dry_run, config_path=config_path, opts=opts
+    )
 
 
 @task(

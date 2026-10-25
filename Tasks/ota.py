@@ -62,7 +62,7 @@ def server(
     # 2. Delegate to the tool's runtime task (zero raw python script paths)
     opts_flag = f'--opts="{opts.strip()}"' if opts and str(opts).strip() else ""
     c.run(
-        f'inv tools.ota-server.start --config="{resolved_config}" {opts_flag}',
+        f'"{sys.executable}" -m invoke tools.ota-server.start --config="{resolved_config}" {opts_flag}',
         dry=dry_run,
         pty=(sys.platform != "win32"),
     )
@@ -108,7 +108,7 @@ def release(
         f"\n[*] [OTA RELEASE: 3/4] Reconciling 1-hop delta patches via release-catalog..."
     )
     c.run(
-        "inv tools.release-catalog.reconcile",
+        f'"{sys.executable}" -m invoke tools.release-catalog.reconcile',
         dry=dry_run,
         pty=(sys.platform != "win32"),
     )
@@ -215,7 +215,7 @@ def upload(
         flags.append("--insecure")
 
     c.run(
-        f'inv tools.ota-server.upload {" ".join(flags)}',
+        f'"{sys.executable}" -m invoke tools.ota-server.upload {" ".join(flags)}',
         dry=dry_run,
         pty=(sys.platform != "win32"),
     )

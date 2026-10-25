@@ -21,7 +21,10 @@ repos:
     hooks:
       - id: format-staged
         name: In-Repo Formatter (C++, Python, YAML, CMake)
-        entry: python3 -c "import subprocess, sys; sys.exit(subprocess.run([sys.executable,
+        entry: python3 -c "import subprocess, sys, os; base=sys.executable; root=os.path.abspath(os.path.join(os.getcwd(),
+          '..')); venv=os.path.join(root, '.venv', 'bin', 'python'); py=venv if os.path.exists(venv)
+          else (os.path.join(root, '.venv', 'Scripts', 'python.exe') if os.path.exists(os.path.join(root,
+          '.venv', 'Scripts', 'python.exe')) else base); sys.exit(subprocess.run([py,
           '-m', 'invoke', 'es.util.format-apply', '--lang=all', '--scope=changed'],
           cwd='..').returncode)"
         language: system
