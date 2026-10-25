@@ -30,6 +30,7 @@ def start(
     workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
 
     # 1. Resolve SSoT config at this level
+
     raw_config = (
         Path(config_path)
         if config_path
