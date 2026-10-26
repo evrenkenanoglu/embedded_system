@@ -53,15 +53,15 @@ sys_error_t sys_wdt::registerCurrentTask()
 
 sys_error_t sys_wdt::feed()
 {
-    const esp_err_t err = esp_task_wdt_reset();
+    esp_err_t err = esp_task_wdt_reset();
     if (err == ESP_ERR_NOT_FOUND)
     {
-        return ERROR_SUCCESS;
+        // Auto-subscribe the calling task if not yet added to TWDT
+        esp_task_wdt_add(NULL);
+        err = esp_task_wdt_reset();
     }
 
-    RETURN_IF_ERROR((err != ESP_OK), TRANSLATE_ERROR(err), SYS_LOG_W("esp_task_wdt_reset failed: %s (0x%x)", ERROR_MESSAGE(err), err));
-
-    return ERROR_SUCCESS;
+    return (err == ESP_OK) ? ERROR_SUCCESS : TRANSLATE_ERROR(err);
 }
 
 sys_error_t sys_wdt::unregisterCurrentTask()
