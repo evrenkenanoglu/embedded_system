@@ -17,8 +17,10 @@
 #include "System/errorTranslateHandler.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <new>
 
 /** INCLUDES ******************************************************************/
@@ -47,10 +49,13 @@ namespace
 
 /** FUNCTIONS *****************************************************************/
 
-OtaManager::OtaManager(IOtaService& otaService, IHttpClient& httpClient)
-    : _mutex()
+OtaManager::OtaManager(IOtaService& otaService, IHttpClient& httpClient, uint32_t taskStackSize, UBaseType_t taskPriority)
+    : _lifecycleMutex()
+    , _mutex()
     , _otaService(otaService)
     , _httpClient(httpClient)
+    , _taskStackSize(taskStackSize)
+    , _taskPriority(taskPriority)
     , _options()
     , _platformHooks()
     , _isInitialized(false)
@@ -72,6 +77,7 @@ OtaManager::~OtaManager()
 
 sys_error_t OtaManager::init(const OtaManagerOptions_t& options, const OtaPlatformHooks_t& hooks)
 {
+    std::lock_guard<std::recursive_mutex> lifecycleLock(_lifecycleMutex);
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     RETURN_IF_ERROR(
@@ -97,22 +103,32 @@ sys_error_t OtaManager::init(const OtaManagerOptions_t& options, const OtaPlatfo
     _updatePending = false;
     _isInitialized = true;
 
-    SYS_LOG_I("Platform-independent OTA Manager successfully initialized.");
+    SYS_LOG_I("OTA manager initialized.");
     return ERROR_SUCCESS;
 }
 
 sys_error_t OtaManager::deInit()
 {
-    std::lock_guard<std::recursive_mutex> lock(_mutex);
-
+    std::lock_guard<std::recursive_mutex> lifecycleLock(_lifecycleMutex);
+    sys_error_t                           stopErr = stopAutomatic();
     RETURN_IF_ERROR(
-        (!_isInitialized), // Expression
-        ERROR_SUCCESS      // Error code
+        (stopErr != ERROR_SUCCESS), // Expression
+        stopErr                     // Error code
     );
 
-    _otaService.deInit();
-    _updatePending = false;
-    _isInitialized = false;
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+    if (_isInitialized)
+    {
+        _otaService.deInit();
+        _updatePending = false;
+        _isInitialized = false;
+    }
+
+    _selfTests.clear();
+    _checkpointMgr = nullptr;
+    _diagStorage   = nullptr;
+    _startupConfig = {};
     return ERROR_SUCCESS;
 }
 
@@ -122,13 +138,15 @@ uint32_t OtaManager::calculateNextCheckInterval() const
 
     if (_options.jitterRangeSec == 0 || !_platformHooks.getRandomNumber)
     {
-        return _options.baseCheckIntervalSec;
+        return std::max<uint32_t>(1, _options.baseCheckIntervalSec);
     }
 
-    uint32_t randVal = _platformHooks.getRandomNumber();
-    int32_t  offset  = (randVal % (_options.jitterRangeSec * 2)) - _options.jitterRangeSec;
+    const uint64_t jitterWindow = static_cast<uint64_t>(_options.jitterRangeSec) * 2U;
+    const int64_t  offset       = static_cast<int64_t>(_platformHooks.getRandomNumber() % jitterWindow) - _options.jitterRangeSec;
+    const int64_t  interval     = static_cast<int64_t>(_options.baseCheckIntervalSec) + offset;
 
-    return _options.baseCheckIntervalSec + offset;
+    const int64_t clampedInterval = std::max<int64_t>(1, std::min<int64_t>(interval, std::numeric_limits<uint32_t>::max()));
+    return static_cast<uint32_t>(clampedInterval);
 }
 
 bool OtaManager::_isTwoStageConditionMet()
@@ -240,6 +258,197 @@ sys_error_t OtaManager::checkForUpdates(OtaCheckResult& outResult)
     std::string jsonStr(reinterpret_cast<const char*>(responsePayload.data()));
 
     return _parseCheckResponse(jsonStr, outResult);
+}
+
+sys_error_t OtaManager::startAutomatic(const OtaManagerStartupConfig_t& startupConfig)
+{
+    std::lock_guard<std::recursive_mutex> lifecycleLock(_lifecycleMutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+    RETURN_IF_ERROR(
+        (_isInitialized || _taskHandle.load() != nullptr || _automaticRunning.load()), // Expression
+        ERROR_INVALID_STATE,                                                           // Error code
+        SYS_LOG_W("OTA manager is already initialized or running.")                    // Error message
+    );
+    RETURN_IF_ERROR(
+        (!startupConfig.hooks.rebootSystem),                        // Expression
+        ERROR_INVALID_ARG,                                          // Error code
+        SYS_LOG_E("Automatic OTA requires a reboot platform hook.") // Error message
+    );
+    RETURN_IF_ERROR(
+        (startupConfig.factoryTrustStorage == nullptr && startupConfig.options.serverCert.empty()), // Expression
+        ERROR_INVALID_ARG,                                                                          // Error code
+        SYS_LOG_E("OTA startup requires a trust-anchor storage dependency or configured CA.")       // Error message
+    );
+
+    _startupConfig  = startupConfig;
+    sys_error_t err = init(_startupConfig.options, _startupConfig.hooks);
+    if (err != ERROR_SUCCESS)
+    {
+        return err;
+    }
+
+    setCheckpointManager(_startupConfig.checkpointManager);
+    err = setDiagnosticStorage(_startupConfig.diagnosticStorage);
+    if (err != ERROR_SUCCESS)
+    {
+        deInit();
+        return err;
+    }
+
+    if (_startupConfig.factoryTrustStorage != nullptr)
+    {
+        err = loadTrustAnchorsFromStorage(*_startupConfig.factoryTrustStorage);
+        if (err != ERROR_SUCCESS)
+        {
+            deInit();
+            return err;
+        }
+    }
+
+    for (const auto& selfTest : _startupConfig.selfTests)
+    {
+        err = registerSelfTest(selfTest.first, selfTest.second);
+        if (err != ERROR_SUCCESS)
+        {
+            deInit();
+            return err;
+        }
+    }
+
+    _stopRequested.store(false);
+    _automaticRunning.store(true);
+
+    TaskHandle_t     taskHandle = nullptr;
+    const BaseType_t result     = xTaskCreate(_automaticTaskEntry, "OtaManager", _taskStackSize, this, _taskPriority, &taskHandle);
+    if (result != pdPASS)
+    {
+        _automaticRunning.store(false);
+        deInit();
+        return ERROR_FAIL;
+    }
+
+    _taskHandle.store(taskHandle);
+    xTaskNotifyGive(taskHandle);
+    return ERROR_SUCCESS;
+}
+
+sys_error_t OtaManager::stopAutomatic()
+{
+    std::lock_guard<std::recursive_mutex> lifecycleLock(_lifecycleMutex);
+    _stopRequested.store(true);
+
+    TaskHandle_t taskHandle = _taskHandle.load();
+    if (taskHandle == nullptr)
+    {
+        _automaticRunning.store(false);
+        return ERROR_SUCCESS;
+    }
+    if (xTaskGetCurrentTaskHandle() == taskHandle)
+    {
+        xTaskNotifyGive(taskHandle);
+        return ERROR_INVALID_STATE;
+    }
+
+    xTaskNotifyGive(taskHandle);
+    while (_taskHandle.load() != nullptr)
+    {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    _automaticRunning.store(false);
+    return ERROR_SUCCESS;
+}
+
+bool OtaManager::isAutomaticRunning() const
+{
+    return _automaticRunning.load();
+}
+
+void OtaManager::_automaticTaskEntry(void* param)
+{
+    auto* manager = static_cast<OtaManager*>(param);
+    if (manager == nullptr)
+    {
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    manager->_automaticWorker();
+    manager->_automaticRunning.store(false);
+    manager->_taskHandle.store(nullptr);
+    vTaskDelete(nullptr);
+}
+
+void OtaManager::_automaticWorker()
+{
+    if (_stopRequested.load())
+    {
+        return;
+    }
+    sys_error_t err = validateCurrentFirmware();
+    if (err != ERROR_SUCCESS)
+    {
+        SYS_LOG_E("OTA boot validation failed (err: 0x%x); background workflow stopped.", err);
+        _automaticRunning.store(false);
+        return;
+    }
+
+    while (!_stopRequested.load())
+    {
+        OtaCheckResult checkResult = OtaCheckResult::ManifestFetchError;
+        err                        = checkForUpdates(checkResult);
+        if (_stopRequested.load())
+        {
+            break;
+        }
+
+        uint32_t nextDelaySec = _options.retryIntervalSec;
+        if (err == ERROR_SUCCESS && checkResult == OtaCheckResult::NoUpdateAvailable)
+        {
+            nextDelaySec = calculateNextCheckInterval();
+            SYS_LOG_I("No OTA update is available; next check in %u seconds.", nextDelaySec);
+        }
+        else if (err == ERROR_SUCCESS && checkResult == OtaCheckResult::UpdateAvailable)
+        {
+            err = executeUpdate();
+            if (err == ERROR_SUCCESS)
+            {
+                SYS_LOG_I("OTA image staged successfully. Rebooting to validate the new firmware.");
+                rebootSystem();
+                _automaticRunning.store(false);
+                return;
+            }
+
+            if (err == ERROR_INVALID_STATE)
+            {
+                nextDelaySec = _options.deferredUpdateRetrySec;
+                SYS_LOG_W("OTA update deferred by safety conditions; retrying in %u seconds.", nextDelaySec);
+            }
+            else
+            {
+                SYS_LOG_E("OTA update failed (err: 0x%x); retrying in %u seconds.", err, nextDelaySec);
+            }
+        }
+        else if (err == ERROR_SUCCESS)
+        {
+            SYS_LOG_W("OTA manifest was not actionable (result: %d); retrying in %u seconds.", static_cast<int>(checkResult), nextDelaySec);
+        }
+        else
+        {
+            SYS_LOG_W("OTA check failed (err: 0x%x); retrying in %u seconds.", err, nextDelaySec);
+        }
+
+        uint64_t remainingMs = static_cast<uint64_t>(std::max<uint32_t>(1, nextDelaySec)) * 1000U;
+        while (remainingMs > 0 && !_stopRequested.load())
+        {
+            const uint32_t waitMs = static_cast<uint32_t>(std::min<uint64_t>(remainingMs, 1000U));
+            ulTaskNotifyTake(pdTRUE, std::max<TickType_t>(1, pdMS_TO_TICKS(waitMs)));
+            remainingMs -= waitMs;
+        }
+    }
+
+    _automaticRunning.store(false);
 }
 
 sys_error_t OtaManager::_parseCheckResponse(const std::string& jsonStr, OtaCheckResult& outResult)
@@ -690,15 +899,21 @@ void OtaManager::setCheckpointManager(OtaCheckpointManager* checkpointMgr)
     SYS_LOG_I("OtaCheckpointManager injected into OTA Manager.");
 }
 
-void OtaManager::setDiagnosticStorage(IHAL_MEM* diagMem)
+sys_error_t OtaManager::setDiagnosticStorage(IHAL_MEM* diagMem)
 {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
     _diagStorage = diagMem;
     if (_diagStorage != nullptr)
     {
-        _diagStorage->init();
+        const sys_error_t err = _diagStorage->init();
+        RETURN_IF_ERROR(
+            (err != ERROR_SUCCESS),                                // Expression
+            err,                                                   // Error code
+            SYS_LOG_E("Diagnostic storage initialization failed.") // Error message
+        );
     }
     SYS_LOG_I("Diagnostic storage device injected into OTA Manager.");
+    return ERROR_SUCCESS;
 }
 
 sys_error_t OtaManager::processPendingRollbackTelemetry()

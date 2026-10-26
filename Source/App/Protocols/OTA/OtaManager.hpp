@@ -16,18 +16,21 @@
 #include "PAL/Protocols/HTTP/IHttpClient.hpp"
 #include "PAL/Protocols/OTA/IOtaService.hpp"
 #include "PAL/Protocols/OTA/OtaCheckpointManager.hpp"
+#include <atomic>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <mutex>
 #include <string>
 #include <vector>
 
 /**
  * @class OtaManager
- * @brief Platform-independent manager implementing the two-stage conditional firmware update.
+ * @brief OTA orchestrator owning the FreeRTOS background lifecycle and update workflow.
  */
 class OtaManager : public IOtaManager
 {
 public:
-    OtaManager(IOtaService& otaService, IHttpClient& httpClient);
+    OtaManager(IOtaService& otaService, IHttpClient& httpClient, uint32_t taskStackSize = 16 * 1024, UBaseType_t taskPriority = tskIDLE_PRIORITY + 1);
     ~OtaManager() override;
 
     // Explicitly block copy mechanics to enforce unique ownership
@@ -43,6 +46,9 @@ public:
     sys_error_t deInit() override;
 
     sys_error_t checkForUpdates(OtaCheckResult& outResult) override;
+    sys_error_t startAutomatic(const OtaManagerStartupConfig_t& startupConfig) override;
+    sys_error_t stopAutomatic() override;
+    bool        isAutomaticRunning() const override;
     sys_error_t executeUpdate() override;
 
     sys_error_t validateCurrentFirmware() override;
@@ -68,22 +74,32 @@ public:
     /**
      * @brief Injects an NVS storage device for recording and inspecting rollback diagnostics.
      *
-     * @param[in] diagMem Pointer to an initialized IHAL_MEM instance.
+     * @param[in] diagMem Pointer to an IHAL_MEM instance.
+     * @return sys_error_t ERROR_SUCCESS if storage initialization succeeds.
      */
-    void setDiagnosticStorage(IHAL_MEM* diagMem);
+    sys_error_t setDiagnosticStorage(IHAL_MEM* diagMem);
 
 private:
+    static void _automaticTaskEntry(void* param);
+    void        _automaticWorker();
     bool        _isTwoStageConditionMet();
     sys_error_t _parseCheckResponse(const std::string& jsonStr, OtaCheckResult& outResult);
     sys_error_t _parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps);
     sys_error_t _sendTelemetryReport(const std::string& statusStr, sys_error_t errorCode);
 
 private:
+    mutable std::recursive_mutex _lifecycleMutex;
     mutable std::recursive_mutex _mutex;
     IOtaService&                 _otaService;
     IHttpClient&                 _httpClient;
+    const uint32_t               _taskStackSize;
+    const UBaseType_t            _taskPriority;
+    std::atomic<TaskHandle_t>    _taskHandle{nullptr};
+    std::atomic<bool>            _stopRequested{false};
+    std::atomic<bool>            _automaticRunning{false};
     OtaManagerOptions_t          _options;
     OtaPlatformHooks_t           _platformHooks;
+    OtaManagerStartupConfig_t    _startupConfig;
     bool                         _isInitialized;
     OtaCheckpointManager*        _checkpointMgr{nullptr};
     IHAL_MEM*                    _diagStorage{nullptr};

@@ -381,6 +381,8 @@ def generate_ota_header(
         "// Policy, Scheduling & Battery Thresholds",
         f'#define OTA_CHECK_INTERVAL_SEC          ((uint32_t){policy.get("check_interval_sec", 86400)}U)',
         f'#define OTA_JITTER_RANGE_SEC            ((uint32_t){policy.get("jitter_range_sec", 1800)}U)',
+        f'#define OTA_RETRY_INTERVAL_SEC          ((uint32_t){policy.get("retry_interval_sec", 300)}U)',
+        f'#define OTA_DEFERRED_RETRY_INTERVAL_SEC ((uint32_t){policy.get("deferred_retry_interval_sec", 900)}U)',
         f'#define OTA_MIN_BATTERY_PERCENT         ((uint8_t){policy.get("min_battery_pct", 80)}U)',
         f'#define OTA_MAINTENANCE_START_HOUR      ((uint8_t){policy.get("allowed_start_hour", 2)}U)',
         f'#define OTA_MAINTENANCE_END_HOUR        ((uint8_t){policy.get("allowed_end_hour", 4)}U)',

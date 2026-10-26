@@ -11,11 +11,15 @@
 #pragma once
 
 #include "System/errorTranslateHandler.h"
+#include <cstdint>
 #include <functional>
 #include <string>
+#include <utility>
+#include <vector>
 
 // Forward declarations
 class IHAL_MEM;
+class OtaCheckpointManager;
 
 /**
  * @brief Diagnostic self-test callback signature executed during provisional boot validation.
@@ -55,24 +59,26 @@ enum class OtaCheckResult : uint8_t
  */
 struct OtaManagerOptions_t
 {
-    std::string gatewayUrl;                   ///< Remote update gateway URL (e.g., https://192.168.0.172:8443)
-    std::string serverCert;                   ///< Base CA trust anchor certificate
-    std::string backupServerCert;             ///< Secondary backup CA trust anchor certificate for rotation
-    std::string apiKey;                       ///< Authorization token key passed via custom headers
-    std::string currentVersion;               ///< Current running application firmware version
-    std::string hardwareType;                 ///< Hardware board layout or module identifier
-    std::string deviceId;                     ///< Unique hardware address or MAC identifier
-    std::string channel;                      ///< Active deployment cohort channel (stable/beta/testing)
-    uint32_t    currentHsvn          = 0;     ///< Hardware Security Version Number
-    uint32_t    baseCheckIntervalSec = 86400; ///< Periodic check baseline (24 hours)
-    uint32_t    jitterRangeSec       = 1800;  ///< Maximum timing offset (30 minutes)
-    uint8_t     minBatteryPct        = 80;    ///< Threshold for stage 2 download
-    uint8_t     allowedStartHour     = 2;     ///< Low traffic window start hour (2 AM)
-    uint8_t     allowedEndHour       = 4;     ///< Low traffic window end hour (4 AM)
-    bool        bypassConditions     = false; ///< Bypasses conditions for local testing
-    std::string rootCaKey;                    ///< Key for primary Root CA
-    std::string rootCaBackupKey;              ///< Key for backup Root CA
-    std::string rollbackDiagKey;              ///< Key for rollback diagnostics
+    std::string gatewayUrl;                     ///< Remote update gateway URL (e.g., https://192.168.0.172:8443)
+    std::string serverCert;                     ///< Base CA trust anchor certificate
+    std::string backupServerCert;               ///< Secondary backup CA trust anchor certificate for rotation
+    std::string apiKey;                         ///< Authorization token key passed via custom headers
+    std::string currentVersion;                 ///< Current running application firmware version
+    std::string hardwareType;                   ///< Hardware board layout or module identifier
+    std::string deviceId;                       ///< Unique hardware address or MAC identifier
+    std::string channel;                        ///< Active deployment cohort channel (stable/beta/testing)
+    uint32_t    currentHsvn            = 0;     ///< Hardware Security Version Number
+    uint32_t    baseCheckIntervalSec   = 86400; ///< Periodic check baseline (24 hours)
+    uint32_t    jitterRangeSec         = 1800;  ///< Maximum timing offset (30 minutes)
+    uint32_t    retryIntervalSec       = 300;   ///< Delay after transient check or update failures
+    uint32_t    deferredUpdateRetrySec = 900;   ///< Delay before retrying an update deferred by safety conditions
+    uint8_t     minBatteryPct          = 80;    ///< Threshold for stage 2 download
+    uint8_t     allowedStartHour       = 2;     ///< Low traffic window start hour (2 AM)
+    uint8_t     allowedEndHour         = 4;     ///< Low traffic window end hour (4 AM)
+    bool        bypassConditions       = false; ///< Bypasses conditions for local testing
+    std::string rootCaKey;                      ///< Key for primary Root CA
+    std::string rootCaBackupKey;                ///< Key for backup Root CA
+    std::string rollbackDiagKey;                ///< Key for rollback diagnostics
 };
 
 /**
@@ -85,6 +91,20 @@ struct OtaPlatformHooks_t
     std::function<int()>      getCurrentLocalHour  = nullptr; ///< Returns local hour (0-23) or -1 if clock is unsynced
     std::function<uint32_t()> getRandomNumber      = nullptr; ///< Returns a 32-bit random integer
     std::function<void()>     rebootSystem         = nullptr; ///< Triggers system soft-reboot
+};
+
+/**
+ * @struct OtaManagerStartupConfig_t
+ * @brief Configuration and platform dependencies consumed by OtaManager when starting its background lifecycle.
+ */
+struct OtaManagerStartupConfig_t
+{
+    OtaManagerOptions_t                                    options;
+    OtaPlatformHooks_t                                     hooks;
+    IHAL_MEM*                                              factoryTrustStorage = nullptr;
+    IHAL_MEM*                                              diagnosticStorage   = nullptr;
+    OtaCheckpointManager*                                  checkpointManager   = nullptr;
+    std::vector<std::pair<std::string, OtaSelfTestHook_t>> selfTests;
 };
 
 /**
@@ -122,6 +142,28 @@ public:
      * @return sys_error_t ERROR_SUCCESS if execution completes, otherwise an error status code.
      */
     virtual sys_error_t checkForUpdates(OtaCheckResult& outResult) = 0;
+
+    /**
+     * @brief Configures the manager dependencies and starts its background OTA lifecycle.
+     *
+     * The manager copies the configuration, initializes its OTA services, loads trust anchors,
+     * registers self-tests, and then starts boot validation and periodic update handling.
+     *
+     * @param[in] startupConfig OTA options, platform hooks, storage dependencies, and self-tests.
+     * @return sys_error_t ERROR_SUCCESS if startup succeeds, otherwise an error code.
+     */
+    virtual sys_error_t startAutomatic(const OtaManagerStartupConfig_t& startupConfig) = 0;
+
+    /**
+     * @brief Requests worker shutdown, interrupts its wait and joins it.
+     *
+     * In-flight HTTP or flash operations finish before this returns.
+     * @return sys_error_t ERROR_SUCCESS when stopped, otherwise an error code.
+     */
+    virtual sys_error_t stopAutomatic() = 0;
+
+    /** @return true while the automatic OTA worker is running. */
+    virtual bool isAutomaticRunning() const = 0;
 
     /**
      * @brief Executes download, partition flash, and signature authentication.
