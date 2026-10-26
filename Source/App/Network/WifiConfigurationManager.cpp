@@ -43,8 +43,8 @@ WifiConfigurationManager::WifiConfigurationManager(IHAL_CPX_WIFI& wifi, const Wi
     , _scanResultCount(0)
     , _status{}
     , _statusMutex(nullptr)
-    , _observer(nullptr)
-    , _observerUserData(nullptr)
+    , _subscribers{}
+    , _subscribersMutex(nullptr)
 {
     if (_credentials.mem != nullptr && (_credentials.ssidKey == nullptr || _credentials.passwordKey == nullptr))
     {
@@ -87,6 +87,12 @@ WifiConfigurationManager::~WifiConfigurationManager()
     {
         vSemaphoreDelete(_statusMutex);
         _statusMutex = nullptr;
+    }
+
+    if (_subscribersMutex != nullptr)
+    {
+        vSemaphoreDelete(_subscribersMutex);
+        _subscribersMutex = nullptr;
     }
 
     delete[] _scanResults;
@@ -136,10 +142,7 @@ sys_error_t WifiConfigurationManager::stop()
 
     if (_eventGroup != nullptr)
     {
-        xEventGroupClearBits(
-            _eventGroup,
-            WIFI_CFG_AP_SETUP_READY | WIFI_CFG_AP_SETUP_FINISH | WIFI_CFG_STA_SETUP_READY | WIFI_CFG_STA_SETUP_FINISH | WIFI_CFG_CREDENTIALS_STORED | WIFI_CFG_SCAN_REQUESTED |
-                WIFI_CFG_SCAN_DONE | WIFI_CFG_CONNECTED_TO_AP | WIFI_CFG_DISCONNECTED_FROM_AP);
+        xEventGroupClearBits(_eventGroup, WIFI_CFG_CREDENTIALS_STORED | WIFI_CFG_SCAN_REQUESTED | WIFI_CFG_SCAN_DONE);
     }
 
     return ERROR_SUCCESS;
@@ -244,10 +247,51 @@ void WifiConfigurationManager::getStatus(WifiMgrStatus& status) const
     }
 }
 
-sys_error_t WifiConfigurationManager::setObserver(WifiMgrStateCb callback, void* user_data)
+sys_error_t WifiConfigurationManager::subscribeEvent(WifiEventCb callback, void* user_data, WifiEventSubscription& subscription)
 {
-    _observer         = callback;
-    _observerUserData = user_data;
+    if (callback == nullptr)
+    {
+        return ERROR_INVALID_ARG;
+    }
+
+    if (xSemaphoreTake(_subscribersMutex, portMAX_DELAY) != pdTRUE)
+    {
+        return ERROR_TIMEOUT;
+    }
+
+    sys_error_t result = ERROR_OUT_OF_MEMORY;
+    for (size_t i = 0; i < kWifiEventMaxSubscribers; ++i)
+    {
+        if (_subscribers[i].callback == nullptr)
+        {
+            _subscribers[i].callback = callback;
+            _subscribers[i].userData = user_data;
+            subscription             = static_cast<WifiEventSubscription>(i + 1); // 0 reserved as "invalid"
+            result                   = ERROR_SUCCESS;
+            break;
+        }
+    }
+
+    xSemaphoreGive(_subscribersMutex);
+    return result;
+}
+
+sys_error_t WifiConfigurationManager::unsubscribeEvent(WifiEventSubscription subscription)
+{
+    if (subscription == 0 || subscription > kWifiEventMaxSubscribers)
+    {
+        return ERROR_INVALID_ARG;
+    }
+
+    if (xSemaphoreTake(_subscribersMutex, portMAX_DELAY) != pdTRUE)
+    {
+        return ERROR_TIMEOUT;
+    }
+
+    _subscribers[subscription - 1].callback = nullptr;
+    _subscribers[subscription - 1].userData = nullptr;
+
+    xSemaphoreGive(_subscribersMutex);
     return ERROR_SUCCESS;
 }
 
@@ -280,7 +324,7 @@ void WifiConfigurationManager::_applyEvent(const hal_wifi_event_t& event)
         case HAL_WIFI_EVENT_STA_GOT_IP:
         {
             _state = WifiMgrState::CONNECTED;
-            xEventGroupSetBits(_eventGroup, WIFI_CFG_CONNECTED_TO_AP);
+            _publishEvent(WifiEvent::CONNECTED);
             break;
         }
 
@@ -290,7 +334,7 @@ void WifiConfigurationManager::_applyEvent(const hal_wifi_event_t& event)
             {
                 _state = WifiMgrState::RECONNECT_WAIT;
             }
-            xEventGroupSetBits(_eventGroup, WIFI_CFG_DISCONNECTED_FROM_AP);
+            _publishEvent(WifiEvent::DISCONNECTED);
             break;
         }
 
@@ -362,9 +406,8 @@ void WifiConfigurationManager::_enterProvisioning()
         xSemaphoreGive(_statusMutex);
     }
 
-    xEventGroupClearBits(_eventGroup, WIFI_CFG_AP_SETUP_FINISH | WIFI_CFG_STA_SETUP_READY | WIFI_CFG_STA_SETUP_FINISH | WIFI_CFG_CONNECTED_TO_AP);
-    xEventGroupSetBits(_eventGroup, WIFI_CFG_AP_SETUP_READY);
     _state = WifiMgrState::PROVISIONING;
+    _publishEvent(WifiEvent::AP_SETUP_READY);
 }
 
 void WifiConfigurationManager::_beginConnect()
@@ -383,8 +426,10 @@ void WifiConfigurationManager::_beginConnect()
     (void)_wifi.start();
 
     _state = WifiMgrState::CONNECTING;
-    xEventGroupClearBits(_eventGroup, WIFI_CFG_AP_SETUP_READY | WIFI_CFG_AP_SETUP_FINISH | WIFI_CFG_CONNECTED_TO_AP | WIFI_CFG_DISCONNECTED_FROM_AP);
-    xEventGroupSetBits(_eventGroup, WIFI_CFG_STA_SETUP_READY);
+
+    // Leaving soft-AP mode (if it was up) and starting the station.
+    _publishEvent(WifiEvent::AP_SETUP_FINISH);
+    _publishEvent(WifiEvent::STA_SETUP_READY);
 
     sys_error_t error = _wifi.connect();
     if (error != ERROR_SUCCESS)
@@ -444,13 +489,31 @@ void WifiConfigurationManager::_publishStatus()
     xSemaphoreGive(_statusMutex);
 }
 
-void WifiConfigurationManager::_notifyObserver()
+void WifiConfigurationManager::_publishEvent(WifiEvent event)
 {
-    if (_observer != nullptr)
+    WifiMgrStatus snapshot;
+    getStatus(snapshot);
+
+    if (xSemaphoreTake(_subscribersMutex, portMAX_DELAY) != pdTRUE)
     {
-        WifiMgrStatus snapshot;
-        getStatus(snapshot);
-        _observer(snapshot, _observerUserData);
+        return;
+    }
+
+    // Snapshot the subscriber list under the mutex, then invoke outside it so
+    // a subscriber may unsubscribe synchronously without deadlocking.
+    WifiEventSubscriber local[kWifiEventMaxSubscribers];
+    for (size_t i = 0; i < kWifiEventMaxSubscribers; ++i)
+    {
+        local[i] = _subscribers[i];
+    }
+    xSemaphoreGive(_subscribersMutex);
+
+    for (size_t i = 0; i < kWifiEventMaxSubscribers; ++i)
+    {
+        if (local[i].callback != nullptr)
+        {
+            local[i].callback(event, snapshot, local[i].userData);
+        }
     }
 }
 
@@ -543,14 +606,12 @@ void WifiConfigurationManager::_worker()
             case WifiMgrState::CONNECTING:
             {
                 _publishStatus();
-                _notifyObserver();
             }
             break;
 
             case WifiMgrState::CONNECTED:
             {
                 _publishStatus();
-                _notifyObserver();
             }
             break;
 

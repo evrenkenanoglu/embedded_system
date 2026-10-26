@@ -23,15 +23,16 @@
 
 /** MACROS ********************************************************************/
 
-#define WIFI_CFG_AP_SETUP_READY       BIT0 /*!< Soft-AP interface is up for provisioning */
-#define WIFI_CFG_AP_SETUP_FINISH      BIT1 /*!< Soft-AP interface shut down (leaving provisioning) */
-#define WIFI_CFG_STA_SETUP_READY      BIT2 /*!< Station interface started */
-#define WIFI_CFG_STA_SETUP_FINISH     BIT3 /*!< Station interface shut down */
-#define WIFI_CFG_CREDENTIALS_STORED   BIT4 /*!< New credentials stored via storeCredentials() */
-#define WIFI_CFG_SCAN_REQUESTED       BIT5 /*!< Scan requested via requestScan() */
-#define WIFI_CFG_SCAN_DONE            BIT6 /*!< Scan finished, results available via getScanResults() */
-#define WIFI_CFG_CONNECTED_TO_AP      BIT7 /*!< Station associated and got IP */
-#define WIFI_CFG_DISCONNECTED_FROM_AP BIT8 /*!< Station lost association */
+/**
+ * @brief Internal worker-task mailboxes (implementation detail, not public API).
+ *
+ * Cross-thread signaling between the public API / HAL callback context and the
+ * manager worker task. State transitions are reported through typed WifiEvent
+ * publications; these bits are only the worker's command/completion queue.
+ */
+#define WIFI_CFG_CREDENTIALS_STORED BIT4 /*!< New credentials stored via storeCredentials() */
+#define WIFI_CFG_SCAN_REQUESTED     BIT5 /*!< Scan requested via requestScan() */
+#define WIFI_CFG_SCAN_DONE          BIT6 /*!< Scan finished, results available via getScanResults() */
 
 /** TYPEDEFS ******************************************************************/
 
@@ -73,11 +74,39 @@ struct WifiMgrStatus
 };
 
 /**
- * @brief Observer for connection-manager state changes
+ * @brief Network events published by WifiConfigurationManager.
+ *
+ * Subscribers receive a serialized notification from the manager worker task;
+ * callbacks must not block and must not call back into the manager.
+ */
+enum class WifiEvent
+{
+    AP_SETUP_READY,   /*!< Soft-AP interface is up (provisioning available) */
+    AP_SETUP_FINISH,  /*!< Soft-AP interface shut down */
+    STA_SETUP_READY,  /*!< Station interface started */
+    STA_SETUP_FINISH, /*!< Station interface shut down */
+    CONNECTED,        /*!< Station associated and got IP */
+    DISCONNECTED,     /*!< Station lost association */
+};
+
+/**
+ * @brief Subscription handle for WifiEvent notifications.
+ *
+ * Opaque token returned by subscribeEvent(); pass it to unsubscribeEvent().
+ */
+typedef uint32_t WifiEventSubscription;
+
+/**
+ * @brief Event subscriber callback
  *
  * Invoked from the manager worker task context; must not block.
  */
-typedef void (*WifiMgrStateCb)(const WifiMgrStatus& status, void* user_data);
+typedef void (*WifiEventCb)(WifiEvent event, const WifiMgrStatus& status, void* user_data);
+
+/**
+ * @brief Max simultaneous event subscribers (fixed, no heap growth at runtime).
+ */
+static constexpr size_t kWifiEventMaxSubscribers = 8;
 
 /**
  * @brief Credentials access policy for the manager
@@ -183,24 +212,25 @@ public:
     void getStatus(WifiMgrStatus& status) const;
 
     /**
-     * @brief Register (or clear) the state-change observer.
+     * @brief Subscribe to manager events.
      *
-     * @param callback Observer callback (nullptr to unregister)
+     * Thread-safe. The callback is invoked serialized from the manager worker
+     * task whenever a subscribed event fires.
+     *
+     * @param callback Subscriber callback (must not be nullptr)
      * @param user_data User context passed back to the callback
-     * @return sys_error_t ERROR_SUCCESS on success
+     * @param subscription Out handle for unsubscribeEvent()
+     * @return sys_error_t ERROR_SUCCESS on success, ERROR_OUT_OF_MEMORY when full
      */
-    sys_error_t setObserver(WifiMgrStateCb callback, void* user_data = nullptr);
+    sys_error_t subscribeEvent(WifiEventCb callback, void* user_data, WifiEventSubscription& subscription);
 
     /**
-     * @brief Get the internal event group handle.
+     * @brief Unsubscribe a previously registered event subscriber.
      *
-     * The bits WIFI_CFG_* are published for FreeRTOS-native consumers
-     * (network services) that prefer event bits over the observer callback.
+     * @param subscription Handle returned by subscribeEvent()
+     * @return sys_error_t ERROR_SUCCESS on success, ERROR_INVALID_ARG when unknown
      */
-    EventGroupHandle_t getEventGroup() const
-    {
-        return _eventGroup;
-    }
+    sys_error_t unsubscribeEvent(WifiEventSubscription subscription);
 
 private:
     /** INTERNAL TYPES ********************************************************/
@@ -217,7 +247,7 @@ private:
     void        _enterProvisioning();
     void        _beginConnect();
     void        _publishStatus();
-    void        _notifyObserver();
+    void        _publishEvent(WifiEvent event);
     void        _clearEventBits(EventBits_t bits);
 
     /** MEMBERS ***************************************************************/
@@ -240,8 +270,15 @@ private:
 
     WifiMgrStatus             _status;
     mutable SemaphoreHandle_t _statusMutex;
-    WifiMgrStateCb            _observer;
-    void*                     _observerUserData;
+
+    struct WifiEventSubscriber
+    {
+        WifiEventCb callback;
+        void*       userData;
+    };
+
+    WifiEventSubscriber _subscribers[kWifiEventMaxSubscribers];
+    SemaphoreHandle_t   _subscribersMutex;
 
     /** CONSTANTS *************************************************************/
 
