@@ -1,15 +1,26 @@
+/** @file       uri_wifiConnect.cpp
+ *  @brief      WiFi credentials provisioning HTTP URI implementation (POST /wifiConnect).
+ *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+ *              Permission to use, reproduce, copy, prepare derivative works,
+ *              modify, distribute, perform, display or sell this software and/or
+ *              its documentation for any purpose is prohibited without the express
+ *              written consent of Evren Kenanoglu.
+ *  @date       26/10/2026
+ */
+
 #include "uri_wifiConnect.hpp"
-#include "Process/Examples/Network/Proc_wifiConfigurationManager.hpp"
+
 #include "cJSON.h"
 
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
-UriWifiConnect::UriWifiConnect(EventGroupHandle_t& wifiConfigEventGroup, IHAL_MEM& memDevice)
-    : HttpUriPost("/wifiConnect", nullptr, this)  // Initialize Uri post for the connect
-    , _wifiConfigEventGroup(wifiConfigEventGroup) // Initialize the event group
-    , _memDevice(memDevice)                       // Initialize the memory device
+#include <cstring>
 
+UriWifiConnect::UriWifiConnect(WifiConfigurationManager& wifiMgr, IHAL_MEM& memDevice)
+    : HttpUriPost("/wifiConnect", nullptr, this) // Initialize Uri post for the connect
+    , _wifiMgr(wifiMgr)                          // Initialize the WiFi manager reference
+    , _memDevice(memDevice)                      // Initialize the memory device
 {
 }
 
@@ -27,7 +38,6 @@ uint16_t UriWifiConnect::handler(const char* req_ptr, size_t req_len, char* resp
     cJSON* json_password = cJSON_GetObjectItemCaseSensitive(json, "password");
 
     cJSON* response = cJSON_CreateObject();
-    char*  response_str;
 
     if (cJSON_IsString(json_ssid) && (json_ssid->valuestring != NULL) && cJSON_IsString(json_password) && (json_password->valuestring != NULL))
     {
@@ -40,34 +50,20 @@ uint16_t UriWifiConnect::handler(const char* req_ptr, size_t req_len, char* resp
         else // SSID and password are not empty
         {
             SYS_LOG_I("Received SSID and password!");
-            std::stringstream ss;
-            ss << "SSID: " << json_ssid->valuestring << std::endl;
-            ss << "Password: " << json_password->valuestring << std::endl;
-            SYS_LOG_I(ss.str());
 
-            std::cout << "WIFI_SSID: " << WIFI_SSID << std::endl;
-            std::cout << "WIFI_PASSWORD: " << WIFI_PASSWORD << std::endl;
+            // Persist through the manager (it also triggers the connect flow);
+            // the URI keeps a memory HAL reference for direct validation needs.
+            sys_error_t error = _wifiMgr.storeCredentials(json_ssid->valuestring, json_password->valuestring);
 
-            // Write the SSID and password to the memory device
-            sys_error_t errorWifi = _memDevice.writeData(WIFI_SSID, (uint8_t*)json_ssid->valuestring, strlen(json_ssid->valuestring) + 1);
-            sys_error_t errorPass = _memDevice.writeData(WIFI_PASSWORD, (uint8_t*)json_password->valuestring, strlen(json_password->valuestring) + 1);
-
-            std::string responseMessage;
-            if (errorWifi != ERROR_SUCCESS || errorPass != ERROR_SUCCESS)
+            if (error != ERROR_SUCCESS)
             {
-                SYS_LOG_E("Storing WiFi and Password Failed!");
-                responseMessage = "Storing WiFi And Password Failed!";
+                SYS_LOG_E("Storing WiFi credentials failed!");
+                cJSON_AddStringToObject(response, "message", "Storing WiFi credentials failed!");
             }
-            else // if writing to memory device operation Success
+            else
             {
-                xEventGroupSetBits(_wifiConfigEventGroup, WIFI_CONFIG_CREDENTIALS_STORED);
-                // Send back the SSID and password
-                responseMessage = "Received SSID and password. Connecting to  ";
-                responseMessage.append(json_ssid->valuestring);
-                responseMessage.append("...");
+                cJSON_AddStringToObject(response, "message", "Received SSID and password. Connecting...");
             }
-
-            cJSON_AddStringToObject(response, "message", responseMessage.c_str());
         }
     }
     else // Error parsing SSID and password
@@ -77,7 +73,7 @@ uint16_t UriWifiConnect::handler(const char* req_ptr, size_t req_len, char* resp
         cJSON_AddStringToObject(response, "message", "Error parsing SSID and password!");
     }
 
-    response_str = cJSON_PrintUnformatted(response);
+    char* response_str = cJSON_PrintUnformatted(response);
 
     // Copy response to resp_buf if provided
     size_t response_len = strlen(response_str);
