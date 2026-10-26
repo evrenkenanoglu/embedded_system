@@ -50,6 +50,8 @@ The client framework is split into distinct abstraction layers to remain platfor
 *   **Interfaces**: `IOtaManager`
 *   **Concrete Controller**: `OtaManager`
 *   **Role**: Manages high-level decisions, such as checking for update manifests, validating system power states, comparing firmware semantic versions (SemVer), evaluating local anti-downgrade (HSVN), and initiating system reboots after success.
+*   **Background lifecycle**: `OtaManager::startAutomatic()` creates and owns its FreeRTOS task, which performs boot validation and the periodic check/defer/update workflow. `stopAutomatic()` notifies and joins the worker, waiting for any in-flight HTTP or flash operation to finish. A future OS abstraction may replace the direct FreeRTOS calls; it is not part of the current implementation.
+*   **Application integration**: The composition root constructs platform drivers and supplies them with OTA options, platform hooks, storage handles, and self-tests in one startup configuration. `OtaManager::startAutomatic()` initializes these dependencies, loads trust anchors, registers the self-tests, and starts the worker. The caller only retains dependency lifetimes and forwards shutdown to `stopAutomatic()`; it does not perform OTA initialization or host the OTA decision loop.
 
 ---
 
@@ -168,7 +170,7 @@ This sequence diagram illustrates a secure dual-phase update cycle where the cli
 ## 4. Key Client-Side Implementation Fixes
 
 ### Exception Safety (`-fno-exceptions`)
-Standard-library components that throw exceptions under memory limits or invalid parsing were removed. 
+Standard-library components that throw exceptions under memory limits or invalid parsing were removed.
 *   **URL Parsing**: Uses non-throwing `std::strtol` with strict `endptr` checking to validate port values.
 *   **Out-Of-Memory Handling**: Structural operations (such as appending HTTP event data chunks to buffers via `std::vector::insert`) execute standard system termination handlers natively if a physical heap allocation failure occurs.
 
