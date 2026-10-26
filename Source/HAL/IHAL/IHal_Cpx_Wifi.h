@@ -1,8 +1,11 @@
-/**
- * @file IHal_Cpx_Wifi.h
- * @brief Platform-independent WiFi Interface for Hardware Abstraction Layer
- *
- * This file contains declarations for the WiFi complex operations interface.
+/** @file       IHal_Cpx_Wifi.h
+ *  @brief      Platform-independent WiFi interface for the Hardware Abstraction Layer.
+ *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+ *              Permission to use, reproduce, copy, prepare derivative works,
+ *              modify, distribute, perform, display or sell this software and/or
+ *              its documentation for any purpose is prohibited without the express
+ *              written consent of Evren Kenanoglu.
+ *  @date       26/10/2026
  */
 
 #ifndef IHAL_CPX_WIFI_H
@@ -21,6 +24,14 @@
 
 #ifndef WIFI_MAC_ADDR_LEN
 #define WIFI_MAC_ADDR_LEN 6
+#endif
+
+#ifndef WIFI_IP_ADDR_STR_LEN
+#define WIFI_IP_ADDR_STR_LEN 16 /*!< "255.255.255.255" + NUL */
+#endif
+
+#ifndef WIFI_COUNTRY_CODE_LEN
+#define WIFI_COUNTRY_CODE_LEN 3
 #endif
 
 /** CONSTANTS *****************************************************************/
@@ -46,39 +57,43 @@ typedef enum
 } hal_wifi_state_t;
 
 // WiFi authentication modes
+// Members prefixed HAL_WIFI_ to avoid collisions with platform-native
+// enums (e.g. ESP-IDF wifi_auth_mode_t WIFI_AUTH_*).
 typedef enum
 {
-    WIFI_AUTH_OPEN = 0,
-    WIFI_AUTH_WEP,
-    WIFI_AUTH_WPA_PSK,
-    WIFI_AUTH_WPA2_PSK,
-    WIFI_AUTH_WPA_WPA2_PSK,
-    WIFI_AUTH_WPA2_ENTERPRISE,
-    WIFI_AUTH_WPA3_PSK,
-    WIFI_AUTH_WPA2_WPA3_PSK,
-    WIFI_AUTH_WAPI_PSK,
-    WIFI_AUTH_OWE,
-    WIFI_AUTH_WPA3_ENT_192,
-    WIFI_AUTH_MAX
+    HAL_WIFI_AUTH_OPEN = 0,
+    HAL_WIFI_AUTH_WEP,
+    HAL_WIFI_AUTH_WPA_PSK,
+    HAL_WIFI_AUTH_WPA2_PSK,
+    HAL_WIFI_AUTH_WPA_WPA2_PSK,
+    HAL_WIFI_AUTH_WPA2_ENTERPRISE,
+    HAL_WIFI_AUTH_WPA3_PSK,
+    HAL_WIFI_AUTH_WPA2_WPA3_PSK,
+    HAL_WIFI_AUTH_WAPI_PSK,
+    HAL_WIFI_AUTH_OWE,
+    HAL_WIFI_AUTH_WPA3_ENT_192,
+    HAL_WIFI_AUTH_MAX
 } hal_wifi_auth_mode_t;
 
 // WiFi event types
+// Members prefixed HAL_WIFI_EVENT_ to avoid collisions with platform-native
+// enums (e.g. ESP-IDF wifi_event_t WIFI_EVENT_*).
 typedef enum
 {
-    WIFI_EVENT_READY = 0,
-    WIFI_EVENT_SCAN_DONE,
-    WIFI_EVENT_STA_START,
-    WIFI_EVENT_STA_STOP,
-    WIFI_EVENT_STA_CONNECTED,
-    WIFI_EVENT_STA_DISCONNECTED,
-    WIFI_EVENT_STA_AUTHMODE_CHANGE,
-    WIFI_EVENT_STA_GOT_IP,
-    WIFI_EVENT_STA_LOST_IP,
-    WIFI_EVENT_AP_START,
-    WIFI_EVENT_AP_STOP,
-    WIFI_EVENT_AP_STA_CONNECTED,
-    WIFI_EVENT_AP_STA_DISCONNECTED,
-    WIFI_EVENT_MAX
+    HAL_WIFI_EVENT_READY = 0,
+    HAL_WIFI_EVENT_SCAN_DONE,
+    HAL_WIFI_EVENT_STA_START,
+    HAL_WIFI_EVENT_STA_STOP,
+    HAL_WIFI_EVENT_STA_CONNECTED,
+    HAL_WIFI_EVENT_STA_DISCONNECTED,
+    HAL_WIFI_EVENT_STA_AUTHMODE_CHANGE,
+    HAL_WIFI_EVENT_STA_GOT_IP,
+    HAL_WIFI_EVENT_STA_LOST_IP,
+    HAL_WIFI_EVENT_AP_START,
+    HAL_WIFI_EVENT_AP_STOP,
+    HAL_WIFI_EVENT_AP_STA_CONNECTED,
+    HAL_WIFI_EVENT_AP_STA_DISCONNECTED,
+    HAL_WIFI_EVENT_MAX
 } hal_wifi_event_type_t;
 
 /**
@@ -98,15 +113,6 @@ typedef enum
     WIFI_CAP_CHANNEL_SWITCH = (1 << 9)  /*!< Dynamic channel switching */
 } hal_wifi_capabilities_t;
 
-// WiFi event bits for event groups
-#define WIFI_CONNECTED_BIT    (1 << 0)
-#define WIFI_DISCONNECTED_BIT (1 << 1)
-#define WIFI_SCAN_DONE_BIT    (1 << 2)
-#define WIFI_STA_STARTED_BIT  (1 << 3)
-#define WIFI_AP_STARTED_BIT   (1 << 4)
-#define WIFI_GOT_IP_BIT       (1 << 5)
-#define WIFI_LOST_IP_BIT      (1 << 6)
-
 /** TYPEDEFS ******************************************************************/
 
 /**
@@ -119,10 +125,10 @@ typedef struct
     bool                 bssid_set;                           /*!< Whether target AP's MAC address is set. */
     uint8_t              bssid[WIFI_MAC_ADDR_LEN];            /*!< MAC address of target AP */
     uint8_t              channel;                             /*!< Channel of target AP. Set to 1~13 to scan starting from the specified channel before connecting to AP */
-    uint16_t             listen_interval;                     /*!< Listen interval for ESP32 station to receive beacon when WIFI_PS_MAX_MODEM is set */
+    uint16_t             listen_interval;                     /*!< Listen interval in beacon periods for power-save operation. 0 = platform default. */
     hal_wifi_auth_mode_t threshold_authmode;                  /*!< The weakest authmode to accept in the scan mode */
-    bool                 pmf_cfg_required;                    /*!< Configuration for Protected Management Frame */
-    bool                 pmf_cfg_capable;                     /*!< Configuration for Protected Management Frame */
+    bool                 pmf_required;                        /*!< Require Protected Management Frame */
+    bool                 pmf_capable;                         /*!< Support Protected Management Frame */
 } hal_wifi_sta_config_t;
 
 /**
@@ -130,16 +136,16 @@ typedef struct
  */
 typedef struct
 {
-    char                 ssid[WIFI_SSID_MAX_LEN + 1];         /*!< SSID of ESP32 soft-AP. */
-    char                 password[WIFI_PASSWORD_MAX_LEN + 1]; /*!< Password of ESP32 soft-AP. */
+    char                 ssid[WIFI_SSID_MAX_LEN + 1];         /*!< SSID of the soft-AP. */
+    char                 password[WIFI_PASSWORD_MAX_LEN + 1]; /*!< Password of the soft-AP. */
     uint8_t              ssid_len;                            /*!< Optional length of SSID field. */
-    uint8_t              channel;                             /*!< Channel of ESP32 soft-AP */
-    hal_wifi_auth_mode_t authmode;                            /*!< Auth mode of ESP32 soft-AP. */
-    uint8_t              ssid_hidden;                         /*!< Broadcast SSID or not */
-    uint8_t              max_connection;                      /*!< Max number of stations allowed to connect in */
-    uint16_t             beacon_interval;                     /*!< Beacon interval which should be multiples of 100. Unit: TU(time unit, 1 TU = 1024 us) */
-    bool                 pmf_cfg_required;                    /*!< Configuration for Protected Management Frame */
-    bool                 pmf_cfg_capable;                     /*!< Configuration for Protected Management Frame */
+    uint8_t              channel;                             /*!< Channel of the soft-AP */
+    hal_wifi_auth_mode_t authmode;                            /*!< Auth mode of the soft-AP. */
+    bool                 ssid_hidden;                         /*!< Broadcast SSID or not */
+    uint8_t              max_connection;                      /*!< Max number of stations allowed to connect */
+    uint16_t             beacon_interval;                     /*!< Beacon interval in TU (1 TU = 1024 us), multiples of 100. 0 = platform default. */
+    bool                 pmf_required;                        /*!< Require Protected Management Frame */
+    bool                 pmf_capable;                         /*!< Support Protected Management Frame */
 } hal_wifi_ap_config_t;
 
 /**
@@ -156,42 +162,52 @@ typedef union
  */
 typedef struct
 {
-    char*    ssid;          /*!< SSID of AP */
-    uint8_t* bssid;         /*!< MAC address of AP */
-    uint8_t  channel;       /*!< Channel, scan the specific channel */
-    bool     show_hidden;   /*!< Enable to scan AP whose SSID is hidden */
-    uint32_t scan_time_min; /*!< Minimum scan time per channel, units: millisecond */
-    uint32_t scan_time_max; /*!< Maximum scan time per channel, units: millisecond */
+    const char*    ssid;             /*!< SSID of AP to scan for (nullptr = scan all) */
+    const uint8_t* bssid;            /*!< MAC address of AP to scan for (nullptr = any) */
+    uint8_t        channel;          /*!< Channel to scan (0 = all channels) */
+    bool           show_hidden;      /*!< Enable to scan AP whose SSID is hidden */
+    uint32_t       scan_time_min_ms; /*!< Minimum scan time per channel in ms (0 = platform default) */
+    uint32_t       scan_time_max_ms; /*!< Maximum scan time per channel in ms (0 = platform default) */
 } hal_wifi_scan_config_t;
 
 /**
  * @brief WiFi access point record
+ *
+ * Generic scan result. Platform-specific details (PHY bitfields, FTM,
+ * antenna diversity, raw cipher suites) are intentionally abstracted;
+ * platforms expose such extras via getCapabilities() or platform_config.
  */
 typedef struct
 {
-    uint8_t              bssid[WIFI_MAC_ADDR_LEN];    /*!< MAC address of AP */
-    char                 ssid[WIFI_SSID_MAX_LEN + 1]; /*!< SSID of AP */
-    uint8_t              primary;                     /*!< Channel of AP */
-    uint8_t              second;                      /*!< Second channel of AP */
-    int8_t               rssi;                        /*!< Signal strength of AP */
-    hal_wifi_auth_mode_t authmode;                    /*!< Authmode of AP */
-    uint32_t             pairwise_cipher;             /*!< Pairwise cipher of AP */
-    uint32_t             group_cipher;                /*!< Group cipher of AP */
-    uint32_t             ant;                         /*!< Antenna used to receive beacon from AP */
-    uint16_t             phy_11b       : 1;           /*!< Bit: 0 flag to identify if 11b mode is enabled or not */
-    uint16_t             phy_11g       : 1;           /*!< Bit: 1 flag to identify if 11g mode is enabled or not */
-    uint16_t             phy_11n       : 1;           /*!< Bit: 2 flag to identify if 11n mode is enabled or not */
-    uint16_t             phy_lr        : 1;           /*!< Bit: 3 flag to identify if low rate is enabled or not */
-    uint16_t             phy_11ax      : 1;           /*!< Bit: 4 flag to identify if 11ax mode is enabled or not */
-    uint16_t             wps           : 1;           /*!< Bit: 5 flag to identify if WPS is supported or not */
-    uint16_t             ftm_responder : 1;           /*!< Bit: 6 flag to identify if FTM is supported in responder mode */
-    uint16_t             ftm_initiator : 1;           /*!< Bit: 7 flag to identify if FTM is supported in initiator mode */
-    uint16_t             reserved      : 8;           /*!< Bit: 8..15 reserved */
-    uint8_t              country[3];                  /*!< Country information of AP */
+    uint8_t              bssid[WIFI_MAC_ADDR_LEN];       /*!< MAC address of AP */
+    char                 ssid[WIFI_SSID_MAX_LEN + 1];    /*!< SSID of AP */
+    uint8_t              primary_channel;                /*!< Primary channel of AP */
+    uint8_t              second_channel;                 /*!< Secondary channel offset of AP (0 = none) */
+    int8_t               rssi;                           /*!< Signal strength of AP */
+    hal_wifi_auth_mode_t authmode;                       /*!< Authmode of AP */
+    bool                 phy_11b;                        /*!< 11b mode supported */
+    bool                 phy_11g;                        /*!< 11g mode supported */
+    bool                 phy_11n;                        /*!< 11n mode supported */
+    bool                 phy_11ax;                       /*!< 11ax mode supported */
+    bool                 wps;                            /*!< WPS supported */
+    uint8_t              country[WIFI_COUNTRY_CODE_LEN]; /*!< Country code of AP */
 } hal_wifi_ap_record_t;
 
 /**
- * @brief WiFi event structure
+ * @brief WiFi IP configuration (dotted-decimal strings, platform independent)
+ */
+typedef struct
+{
+    char ip_address[WIFI_IP_ADDR_STR_LEN]; /*!< IPv4 address */
+    char netmask[WIFI_IP_ADDR_STR_LEN];    /*!< IPv4 netmask */
+    char gateway[WIFI_IP_ADDR_STR_LEN];    /*!< IPv4 gateway */
+} hal_wifi_ip_info_t;
+
+/**
+ * @brief WiFi event payload
+ *
+ * Delivered via the event callback. Only the union member matching the
+ * event_type is valid.
  */
 typedef struct
 {
@@ -202,29 +218,27 @@ typedef struct
     {
         struct
         {
-            char    ssid[33];
-            uint8_t bssid[6];
+            char    ssid[WIFI_SSID_MAX_LEN + 1];
+            uint8_t bssid[WIFI_MAC_ADDR_LEN];
             uint8_t channel;
             int8_t  rssi;
-        } connected;
+        } sta_connected;
 
         struct
         {
-            uint8_t reason;
-        } disconnected;
+            uint8_t reason; /*!< Platform-specific disconnect reason code */
+        } sta_disconnected;
 
         struct
         {
-            uint32_t ip_address;
-            uint32_t netmask;
-            uint32_t gateway;
+            hal_wifi_ip_info_t ip; /*!< IP settings assigned to the station */
         } got_ip;
 
         struct
         {
-            uint8_t mac[6];
-            uint8_t aid;
-        } ap_sta_connected;
+            uint8_t mac[WIFI_MAC_ADDR_LEN]; /*!< MAC of the station joining/leaving the AP */
+            uint8_t aid;                    /*!< Association ID */
+        } ap_sta;
     } data;
 } hal_wifi_event_t;
 
@@ -233,21 +247,35 @@ typedef struct
  */
 typedef struct
 {
-    char                 ssid[33];
-    char                 ip_address[16];
-    char                 gateway[16];
-    char                 netmask[16];
+    char                 ssid[WIFI_SSID_MAX_LEN + 1];
+    hal_wifi_ip_info_t   ip;
     int8_t               rssi;
     uint8_t              channel;
     hal_wifi_auth_mode_t auth_mode;
     hal_wifi_state_t     state;
 } hal_wifi_network_info_t;
 
+/**
+ * @brief WiFi event callback
+ *
+ * Invoked by the implementation when a WiFi event occurs. Depending on the
+ * platform this may run in an interrupt or driver context: the callback must
+ * be short, must not block, and must not call back into the same interface.
+ *
+ * @param event Pointer to the event (valid only for the duration of the call)
+ * @param user_data User context supplied to setEventCallback()
+ */
+typedef void (*hal_wifi_event_cb_t)(const hal_wifi_event_t* event, void* user_data);
+
 /** CLASSES *******************************************************************/
 
 /**
  * @class IHAL_CPX_WIFI
  * @brief Platform-independent WiFi Interface for complex operations
+ *
+ * Event delivery is callback-based only; no RTOS queue, event group or
+ * blocking wait primitives are part of the contract. Synchronous callers can
+ * implement their own waiting on top of the callback or poll getState().
  */
 class IHAL_CPX_WIFI : public IHAL_CPX
 {
@@ -332,28 +360,12 @@ public:
     virtual sys_error_t getNetworkInfo(hal_wifi_network_info_t& info) = 0;
 
     /**
-     * @brief Get WiFi event queue handle
-     * @param event_queue Reference to store event queue handle
-     * @return sys_error_t Error code
-     */
-    virtual sys_error_t getEventQueue(os_queue_handle_t& event_queue) = 0;
-
-    /**
-     * @brief Wait for specific WiFi event
-     * @param event_bits Event bits to wait for
-     * @param timeout_ms Timeout in milliseconds
-     * @param clear_bits Whether to clear bits after receiving
-     * @return sys_error_t Error code
-     */
-    virtual sys_error_t waitForEvent(uint32_t event_bits, uint32_t timeout_ms, bool clear_bits = true) = 0;
-
-    /**
      * @brief Set event callback function
-     * @param callback Callback function for WiFi events
+     * @param callback Callback function for WiFi events (nullptr to unregister)
      * @param user_data User data to pass to callback
      * @return sys_error_t Error code
      */
-    virtual sys_error_t setEventCallback(void (*callback)(const hal_wifi_event_t* event, void* user_data), void* user_data = nullptr) = 0;
+    virtual sys_error_t setEventCallback(hal_wifi_event_cb_t callback, void* user_data = nullptr) = 0;
 
     /**
      * @brief Enable/disable power save mode
@@ -372,7 +384,7 @@ public:
     /**
      * @brief Get MAC address
      * @param interface_type Interface type (STA or AP)
-     * @param mac Buffer to store MAC address (6 bytes)
+     * @param mac Buffer to store MAC address (WIFI_MAC_ADDR_LEN bytes)
      * @return sys_error_t Error code
      */
     virtual sys_error_t getMacAddress(hal_wifi_mode_t interface_type, uint8_t* mac) = 0;
@@ -380,7 +392,7 @@ public:
     /**
      * @brief Set MAC address
      * @param interface_type Interface type (STA or AP)
-     * @param mac MAC address to set (6 bytes)
+     * @param mac MAC address to set (WIFI_MAC_ADDR_LEN bytes)
      * @return sys_error_t Error code
      */
     virtual sys_error_t setMacAddress(hal_wifi_mode_t interface_type, const uint8_t* mac) = 0;
