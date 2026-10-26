@@ -9,6 +9,7 @@ bandit==1.9.4             # via -r Tools/CODE_ANALYSIS/STATIC_CODE_ANALYSIS/requ
 beautifulsoup4==4.15.0    # via -r Source/Library/UI/HTTP/requirements.txt
 bitarray==3.11.0          # via bitstring
 bitstring==4.4.0          # via esptool
+bitstruct==8.24.0         # via detools
 black==26.5.1             # via -r Tools/FORMATTER/requirements.in
 boltons==21.0.0           # via face, glom, semgrep
 bracex==3.0.1             # via wcmatch
@@ -28,6 +29,7 @@ colorama==0.4.6           # via bandit, click, loguru, pytest, rich-click, semgr
 cryptography==50.0.1      # via authlib, esp-idf-nvs-partition-gen, esptool, joserfc, pyjwt, -r Tools/HW_SECURITY/provisioning/requirements.txt, -r Tools/OTA/ota-server/requirements.txt, -r Tools/PKI/requirements.txt
 defusedxml==0.7.1         # via nltk
 delegator-py==0.1.1       # via gitmanager
+detools==0.53.0           # via -r requirements.in
 distlib==0.4.3            # via virtualenv
 distro==1.9.0             # via ruyaml
 dparse==0.6.4             # via safety, safety-schemas
@@ -47,10 +49,12 @@ glom==25.12.0             # via semgrep
 googleapis-common-protos==1.75.3  # via opentelemetry-exporter-otlp-proto-http
 greenlet==3.5.5 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'  # via sqlalchemy
 h11==0.16.0               # via httpcore, uvicorn
+heatshrink2==0.15.0       # via detools
 httpcore==1.0.9           # via httpx
 httptools==0.8.0          # via uvicorn
 httpx==0.28.1             # via mcp, safety
 httpx-sse==0.4.3          # via mcp
+humanfriendly==10.0       # via detools
 identify==2.6.19          # via pre-commit
 idna==3.19                # via anyio, httpx, requests
 importlib-metadata==8.7.1  # via opentelemetry-api
@@ -63,6 +67,7 @@ jsonschema==4.25.1        # via mcp, semgrep
 jsonschema-specifications==2025.9.1  # via jsonschema
 loguru==0.7.3             # via maison
 lxml==6.1.3               # via -r Source/Library/UI/HTTP/requirements.txt
+lz4==4.4.5                # via detools
 maison==2.0.2             # via yamlfix
 markdown-it-py==4.2.0     # via rich
 markupsafe==3.0.3         # via jinja2
@@ -95,10 +100,11 @@ pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementatio
 pydantic==2.13.5          # via fastapi, mcp, pydantic-settings, safety, safety-schemas, yamlfix, -r Tools/AI/AI_Assistant_Runner/requirements.in, -r Tools/OTA/ota-server/requirements.txt
 pydantic-core==2.46.5     # via pydantic
 pydantic-settings==2.15.0  # via mcp, -r Tools/OTA/ota-server/requirements.txt
-pyelftools==0.33          # via esp-idf-panic-decoder
+pyelftools==0.33          # via detools, esp-idf-panic-decoder
 pygments==2.21.0          # via pytest, rich, -r Source/Library/UI/HTTP/requirements.txt
 pyjwt==2.13.0             # via mcp, semgrep
 pyparsing==3.3.2          # via esp-bool-parser, esp-idf-panic-decoder
+pyreadline3==3.5.6 ; sys_platform == 'win32'  # via humanfriendly
 pyserial==3.5             # via esp-pylib, esptool, pytest-embedded-serial
 pytest==9.1.1             # via pytest-embedded, pytest-html, pytest-metadata, -r CI_CD/pipeline/requirements.txt
 pytest-embedded==2.9.3    # via pytest-embedded-idf, pytest-embedded-serial, -r CI_CD/pipeline/requirements.txt
@@ -158,3 +164,4 @@ win32-setctime==1.2.0 ; sys_platform == 'win32'  # via loguru
 wrapt==1.17.3             # via opentelemetry-instrumentation, opentelemetry-instrumentation-threading
 yamlfix==1.19.1           # via -r Tools/FORMATTER/requirements.in
 zipp==4.1.0               # via importlib-metadata
+zstandard==0.25.0         # via detools

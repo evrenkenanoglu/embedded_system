@@ -4,6 +4,7 @@
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
+import shlex
 import sys
 from pathlib import Path
 from invoke import Context, task
@@ -88,41 +89,40 @@ def release(
     build_opts: str = "",
 ) -> None:
     """Canonical OTA Release Lifecycle: Build -> Sign -> 1-Hop Diff -> Sync."""
-    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
     selected_target = _get_target_chip(target)
-    toolchain = get_toolchain()
+    serializer = CommandSerializer(
+        prefix_commands=[CONFIG.venv_activate_cmd],
+        env=CONFIG.env,
+    )
 
-    # Step 1: Compile firmware
     print(
         f"\n[*] [OTA RELEASE: 1/4] Compiling firmware for target '{selected_target}'..."
     )
-    toolchain.build(c, target=selected_target, dry_run=dry_run, opts=build_opts)
+    build_command = ["inv", "es.platform.build", f"--target={selected_target}"]
+    if build_opts:
+        build_command.append(f"--opts={build_opts}")
+    serializer.add(" ".join(shlex.quote(arg) for arg in build_command))
 
-    # Step 2: Sign binary and package into release-catalog
-    print(f"\n[*] [OTA RELEASE: 2/4] Signing binary and packaging catalog entry...")
-    provision_sign(c, dry_run=dry_run)
+    print("\n[*] [OTA RELEASE: 2/4] Signing binary and packaging catalog entry...")
+    serializer.add("inv es.crypto.provision-sign")
 
-    # Step 3: Reconcile 1-hop delta patches via the release-catalog tool task
-    # (Zero raw python script paths — delegated through `inv tools.release-catalog.*`)
     print(
-        f"\n[*] [OTA RELEASE: 3/4] Reconciling 1-hop delta patches via release-catalog..."
+        "\n[*] [OTA RELEASE: 3/4] Reconciling 1-hop delta patches via release-catalog..."
     )
-    c.run(
-        f'"{sys.executable}" -m invoke tools.release-catalog.reconcile',
-        dry=dry_run,
-        pty=(sys.platform != "win32"),
-    )
+    serializer.add("inv tools.release-catalog.reconcile")
 
-    # Step 4: Sync release-catalog to Windows host
     if sync_windows:
-        print(f"\n[*] [OTA RELEASE: 4/4] Syncing release catalog to Windows host...")
-        from embedded_system.Tasks.util import sync_ota_windows
+        print("\n[*] [OTA RELEASE: 4/4] Syncing release catalog to Windows host...")
+        serializer.add("inv es.util.sync-ota-windows")
 
-        sync_ota_windows(c)
+    serializer.run(c, dry_run=dry_run)
 
-    print(
-        "\n[SUCCESS] OTA release compilation, code-signing, delta generation, and sync complete!\n"
-    )
+    if dry_run:
+        print("\n[DRY-RUN] OTA release command sequence validated; no tasks were executed.\n")
+    else:
+        print(
+            "\n[SUCCESS] OTA release compilation, code-signing, delta generation, and sync complete!\n"
+        )
 
 
 @task(

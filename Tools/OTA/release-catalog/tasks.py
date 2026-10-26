@@ -4,6 +4,7 @@
 @note       Completely independent of task-runner and core.
 """
 
+import shutil
 import sys
 from pathlib import Path
 from invoke import Context, task
@@ -30,7 +31,6 @@ def reconcile(
 
     catalog = Path(catalog_dir).resolve() if catalog_dir else tool_dir
 
-    # CRITICAL: Always use sys.executable (never hardcoded 'python')
     cmd = f'"{sys.executable}" "{script_path}" --catalog-dir "{catalog}" --reconcile'
     if opts:
         cmd += f" {opts}"
@@ -73,7 +73,6 @@ def register(
     tool_dir = Path(__file__).resolve().parent
     script_path = tool_dir / "diff_worker.py"
 
-    # CRITICAL: Always use sys.executable (never hardcoded 'python')
     cmd_parts = [f'"{sys.executable}" "{script_path}"']
     if catalog_dir:
         cmd_parts.append(f'--catalog-dir "{Path(catalog_dir).resolve()}"')
@@ -96,3 +95,49 @@ def register(
         cmd_parts.append(f'--project-name "{project_name}"')
 
     c.run(" ".join(cmd_parts), dry=dry_run, pty=(sys.platform != "win32"))
+
+
+@task(
+    help={
+        "catalog_dir": "Path to the release-catalog directory (default: this folder)",
+        "dry_run": "Print files and folders to be removed without deleting",
+    }
+)
+def clean(
+    c: Context,
+    catalog_dir: str = "",
+    dry_run: bool = False,
+) -> None:
+    """Purge all catalog artifacts: manifest.json, binaries, and delta patches."""
+    tool_dir = Path(__file__).resolve().parent
+    catalog = Path(catalog_dir).resolve() if catalog_dir else tool_dir
+
+    file_targets = [
+        catalog / "manifest.json",
+        catalog / "manifest.json.tmp",
+    ]
+
+    dir_targets = [
+        catalog / "binaries",
+        catalog / "patches",
+    ]
+
+    for file_path in file_targets:
+        if file_path.exists():
+            if dry_run:
+                print(f"[DRY-RUN] Would remove file: {file_path}")
+            else:
+                file_path.unlink()
+                print(f"[DELETED] File: {file_path}")
+
+    for dir_path in dir_targets:
+        if dir_path.exists():
+            if dry_run:
+                print(f"[DRY-RUN] Would purge directory: {dir_path}")
+            else:
+                shutil.rmtree(dir_path)
+                dir_path.mkdir(parents=True, exist_ok=True)
+                print(f"[PURGED] Directory: {dir_path}")
+
+    if not dry_run:
+        print(f"[OK] Release catalog cleaned: {catalog}")

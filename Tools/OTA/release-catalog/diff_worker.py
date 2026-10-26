@@ -119,12 +119,12 @@ def reconcile_1hop_patches(catalog_path: Path, manifest: Dict[str, Any]) -> bool
         if not latest_ver or latest_ver not in releases:
             continue
 
-        # Find previous active release in this channel
+        # Find previous active release in this channel (defaults to ch_name and 'active' if missing from release dict)
         channel_releases = [
             v
             for v, r in releases.items()
-            if r.get("channel") == ch_name
-            and r.get("status") == "active"
+            if r.get("channel", ch_name) == ch_name
+            and r.get("status", "active") == "active"
             and v != latest_ver
         ]
         if not channel_releases:
@@ -207,7 +207,10 @@ def register_release(
     stem = re.sub(r"_\d+\.\d+\.\d+$", "", binary_path.stem)
     versioned_filename = f"{stem}_{version}.bin"
     target_binary = binaries_dir / versioned_filename
-    shutil.copy2(binary_path, target_binary)
+
+    # Guard against copying onto itself if source and destination paths match
+    if binary_path.resolve() != target_binary.resolve():
+        shutil.copy2(binary_path, target_binary)
 
     file_size = target_binary.stat().st_size
     sha256_hash = calculate_sha256(target_binary)
@@ -237,9 +240,7 @@ def register_release(
         "patches": manifest.get("releases", {}).get(version, {}).get("patches", {}),
     }
 
-    # 3. Point channel to latest version (must happen before patch reconciliation
-    #    so the reconciler sees the correct latest_ver and generates patches in the
-    #    right direction: prev_ver → latest_ver, stored on latest_rel)
+    # 3. Point channel to latest version
     manifest["channels"][channel] = {
         "latest_version": version,
         "hardware": hardware,
