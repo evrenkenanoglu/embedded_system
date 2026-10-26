@@ -4,43 +4,13 @@
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
-import os
 import sys
 from pathlib import Path
 from invoke import Context, task
-from core import CONFIG, CommandSerializer
+from core import CONFIG
 from core.config_resolver import resolve_to_file
 
-import importlib.util
-
 VALID_PROVISION_STEPS = ("all", "nvs", "sign", "provision")
-
-
-def _get_partition_parser_cls():
-    parser_path = Path(CONFIG.paths.partition_parser_script).resolve()
-    spec = importlib.util.spec_from_file_location("partition_parser", parser_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.PartitionTableParser
-
-
-def _get_execution_env() -> dict:
-    """Constructs environment dictionary with workspace, task-runner, and embedded_system on PYTHONPATH."""
-    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
-    task_runner_dir = workspace_root / "Tools" / "task-runner"
-    embedded_sys_dir = Path(CONFIG.paths.embedded_system_dir).resolve()
-
-    execution_env = dict(CONFIG.env or {})
-    env_paths = [str(workspace_root), str(task_runner_dir), str(embedded_sys_dir)]
-
-    existing_pythonpath = execution_env.get("PYTHONPATH") or os.environ.get(
-        "PYTHONPATH", ""
-    )
-    if existing_pythonpath:
-        env_paths.append(existing_pythonpath)
-
-    execution_env["PYTHONPATH"] = os.pathsep.join(env_paths)
-    return execution_env
 
 
 @task(
@@ -83,6 +53,7 @@ def generate_pki(
     help={
         "port": "Serial port override",
         "baud": "Baud rate override",
+        "config_path": "Path to custom provisioning config file (overrides SSoT)",
         "dry_run": "Print command line without executing",
     }
 )
@@ -90,64 +61,33 @@ def flash_nvs(
     c: Context,
     port: str = "",
     baud: str = "",
+    config_path: str = "",
     dry_run: bool = False,
 ) -> None:
+    """Delegate NVS flashing to the provisioning tool task."""
     workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
-    build_dir = Path(CONFIG.paths.build_dir).resolve()
-    prov_dir = build_dir / "provisioning"
-    partitions_csv = workspace_root / "partitions.csv"
-
-    # Select pre-encrypted or plaintext key binary based on SSoT partition table flags
-    ParserCls = _get_partition_parser_cls()
-    pt_parser = ParserCls(
-        partitions_csv_path=partitions_csv,
-        partition_table_offset=int(str(CONFIG.flash_layout.partition_table_offset), 0),
-        bootloader_offset=int(str(CONFIG.flash_layout.bootloader_offset), 0),
-        app_alignment=int(str(CONFIG.flash_layout.app_alignment), 0),
-        data_alignment=int(str(CONFIG.flash_layout.data_alignment), 0),
-        partition_table_size=int(str(CONFIG.flash_layout.partition_table_size), 0),
+    raw_config = (
+        Path(config_path)
+        if config_path and str(config_path).strip()
+        else Path(getattr(CONFIG.paths, "es_config_provisioning", ""))
     )
+    if not str(raw_config).strip() or str(raw_config) == ".":
+        raise ValueError("No provisioning configuration file specified.")
+    if not raw_config.is_absolute():
+        raw_config = (workspace_root / raw_config).resolve()
 
-    nvs_keys_entry = pt_parser.get_partition("nvs_keys")
-    if nvs_keys_entry.is_encrypted:
-        nvs_keys_bin = prov_dir / "nvs_keys_encrypted.bin"
-    else:
-        nvs_keys_bin = prov_dir / "nvs_keys.bin"
+    resolved_config = resolve_to_file(raw_config, workspace_root=workspace_root)
+    flags = [f'--config-path="{resolved_config}"']
+    if port:
+        flags.append(f'--port="{port}"')
+    if baud:
+        flags.append(f'--baud="{baud}"')
 
-    fctry_bin = prov_dir / "nvs_encrypted.bin"
-
-    if not nvs_keys_bin.exists() or not fctry_bin.exists():
-        print(f"❌ Provisioned binaries not found in {prov_dir}.")
-        print("   Run 'inv es.crypto.provision-nvs' first.")
-        return
-
-    nvs_keys_offset = hex(pt_parser.get_offset("nvs_keys"))
-    fctry_offset = hex(pt_parser.get_offset("fctry"))
-
-    target_port = port or getattr(CONFIG.hardware, "default_port", "/dev/ttyACM0")
-    target_baud = baud or str(getattr(CONFIG.hardware, "flash_baud", 460800))
-    target_chip = str(getattr(CONFIG.target, "chip", "esp32c6")).lower()
-
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print(f" ❯ ⚡ FLASHING FACTORY NVS PARTITIONS ({target_port})")
-    print(f"   nvs_keys ({nvs_keys_offset}) : {nvs_keys_bin.name}")
-    print(f"   fctry    ({fctry_offset}) : {fctry_bin.name}")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=_get_execution_env(),
+    c.run(
+        f'"{sys.executable}" -m invoke tools.provisioning.flash-nvs {" ".join(flags)}',
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-
-    cmd = (
-        f"python -m esptool -p {target_port} -b {target_baud} --chip {target_chip} write_flash "
-        f'{nvs_keys_offset} "{nvs_keys_bin}" '
-        f'{fctry_offset} "{fctry_bin}"'
-    )
-
-    serializer.add(cmd)
-    serializer.run(c, dry_run=dry_run)
-    print("\n✅ Factory NVS partitions flashed successfully!")
 
 
 @task(
@@ -251,15 +191,12 @@ def verify_nvs(c: Context, dry_run: bool = False, config_path: str = "") -> None
         raw_config = (workspace_root / raw_config).resolve()
 
     resolved_config = resolve_to_file(raw_config, workspace_root=workspace_root)
-    verifier_script = Path(CONFIG.paths.provisioning_dir).resolve() / "verify_nvs.py"
-    serializer = CommandSerializer(
-        prefix_commands=[CONFIG.venv_activate_cmd],
-        env=_get_execution_env(),
+    c.run(
+        f'"{sys.executable}" -m invoke tools.provisioning.verify-nvs '
+        f'--config-path="{resolved_config}"',
+        dry=dry_run,
+        pty=(sys.platform != "win32"),
     )
-    serializer.add(
-        f'"{sys.executable}" "{verifier_script}" --config "{resolved_config}"'
-    )
-    serializer.run(c, dry_run=dry_run)
 
 
 @task(
