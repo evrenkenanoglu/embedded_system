@@ -46,8 +46,9 @@ class PipelineEngine:
             return data
         elif isinstance(data, dict):
             return {
-                self._expand_tokens(k, context) if isinstance(k, str) else k:
-                self._expand_tokens(v, context)
+                (
+                    self._expand_tokens(k, context) if isinstance(k, str) else k
+                ): self._expand_tokens(v, context)
                 for k, v in data.items()
             }
         elif isinstance(data, list):
