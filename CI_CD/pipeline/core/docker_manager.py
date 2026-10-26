@@ -95,7 +95,22 @@ class DockerManager:
         if volumes:
             for host_path, cont_path in volumes.items():
                 posix_host = Path(host_path).resolve().as_posix()
-                cmd.extend(["-v", f"{posix_host}:{cont_path}"])
+                target = str(cont_path)
+                mode = ""
+                for suffix in (":ro", ":rw"):
+                    if target.endswith(suffix):
+                        target, mode = target[: -len(suffix)], suffix
+                        break
+                target_path = Path(target)
+                try:
+                    target_relative = target_path.resolve().relative_to(
+                        self.project_root
+                    )
+                except ValueError:
+                    pass
+                else:
+                    target = f"/project/{target_relative.as_posix()}".rstrip("/")
+                cmd.extend(["-v", f"{posix_host}:{target}{mode}"])
 
         # Combine bootstrap preamble with payload command
         preamble = self._build_shell_preamble(

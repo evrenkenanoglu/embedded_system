@@ -45,7 +45,11 @@ class PipelineEngine:
                     data = data.replace(f"{{{match}}}", context[match])
             return data
         elif isinstance(data, dict):
-            return {k: self._expand_tokens(v, context) for k, v in data.items()}
+            return {
+                self._expand_tokens(k, context) if isinstance(k, str) else k:
+                self._expand_tokens(v, context)
+                for k, v in data.items()
+            }
         elif isinstance(data, list):
             return [self._expand_tokens(item, context) for item in data]
         return data
@@ -167,6 +171,7 @@ class PipelineEngine:
                 workdir=workdir,
                 env_scripts=env_scripts,
                 pip_dependencies=pip_deps,
+                volumes=stage.get("volumes", {}),
             )
 
     def _execute_artifact_stage(self, stage: Dict[str, Any]) -> None:
