@@ -233,6 +233,37 @@ def provision_nvs(
 
 @task(
     help={
+        "dry_run": "Print command line without running",
+        "config_path": "Path to custom provisioning config file (overrides SSoT)",
+    }
+)
+def verify_nvs(c: Context, dry_run: bool = False, config_path: str = "") -> None:
+    """Verify generated NVS key and encrypted partition artifacts without device I/O."""
+    workspace_root = Path(CONFIG.paths.workspace_dir).resolve()
+    raw_config = (
+        Path(config_path)
+        if config_path and str(config_path).strip()
+        else Path(getattr(CONFIG.paths, "es_config_provisioning", ""))
+    )
+    if not str(raw_config).strip() or str(raw_config) == ".":
+        raise ValueError("No provisioning configuration file specified.")
+    if not raw_config.is_absolute():
+        raw_config = (workspace_root / raw_config).resolve()
+
+    resolved_config = resolve_to_file(raw_config, workspace_root=workspace_root)
+    verifier_script = Path(CONFIG.paths.provisioning_dir).resolve() / "verify_nvs.py"
+    serializer = CommandSerializer(
+        prefix_commands=[CONFIG.venv_activate_cmd],
+        env=_get_execution_env(),
+    )
+    serializer.add(
+        f'"{sys.executable}" "{verifier_script}" --config "{resolved_config}"'
+    )
+    serializer.run(c, dry_run=dry_run)
+
+
+@task(
+    help={
         "dry_run": "Print command line without executing",
         "config_path": "Config override",
         "opts": "Additional options",
@@ -249,34 +280,34 @@ def provision_sign(
 
 @task(
     help={
-        "virtual": "Execute against software-simulated silicon model (zero hardware risk)",
+        "target_mode": "Execution target: 'virtual' (default, zero risk) or 'hardware' (physical silicon)",
         "simulate": "Simulate flashing without burning eFuses or writing flash",
         "burn_password": "Required passphrase to authorize physical eFuse burns",
         "continuous": "Run in automated continuous fixture loop awaiting device insertion",
         "dry_run": "Print command line without executing",
-        "config": "Config override",
+        "config_path": "Config override",
         "opts": "Additional options",
     }
 )
 def provision_flash(
     c: Context,
-    virtual: bool = False,
+    target_mode: str = "virtual",
     simulate: bool = False,
     burn_password: str = "",
     continuous: bool = False,
     dry_run: bool = False,
-    config: str = "",
+    config_path: str = "",
     opts: str = "",
 ) -> None:
     """Step 3: Burn hardware eFuses and flash encrypted image layout to physical ESP32."""
     provision_hardware(
         c,
         step="provision",
-        virtual=virtual,
+        target_mode=target_mode,
         simulate=simulate,
         burn_password=burn_password,
         continuous=continuous,
         dry_run=dry_run,
-        config=config,
+        config_path=config_path,
         opts=opts,
     )

@@ -27,9 +27,10 @@ from factory.provision_hardware import (
     wait_for_device_disconnection,
 )
 from nvs.partition_nvs_generator import (
-    generate_nvs_keys,
+    ensure_nvs_keys,
     render_template_csv,
     invoke_nvs_partition_gen,
+    write_nvs_keys_partition,
 )
 from signing.hsm_sign_digest import (
     compute_sha256,
@@ -190,6 +191,7 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
 
     rendered_csv = output_dir / f"nvs_{target_name}_rendered.csv"
     nvs_key_file = Path(nvs_cfg["output_key_bin"]).resolve()
+    nvs_keys_partition_file = Path(nvs_cfg["output_key_partition_bin"]).resolve()
     nvs_bin_file = Path(nvs_cfg["output_encrypted_bin"]).resolve()
     project_root = Path(paths_cfg.get("workspace_dir", ".")).resolve()
 
@@ -198,10 +200,11 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
     )
     print(f"[*] Template File    : {template_file}")
 
-    # 1. Generate NVS AES-XTS encryption key if missing
-    if not nvs_key_file.exists():
-        print(f"[*] Generating new NVS key: {nvs_key_file}")
-        generate_nvs_keys(nvs_key_file)
+    # 1. Reuse the key paired with existing artifacts or generate a fresh one.
+    key_size_bytes = int(nvs_cfg["key_size_bytes"])
+    key_bytes = ensure_nvs_keys(nvs_key_file, key_size_bytes)
+    write_nvs_keys_partition(key_bytes, nvs_keys_partition_file, key_size_bytes)
+    print(f"[*] NVS key ready ({key_size_bytes} bytes)")
 
     # 2. Render CSV and compile encrypted NVS partition
     render_template_csv(

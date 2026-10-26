@@ -12,6 +12,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import zlib
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -21,13 +22,44 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from factory.partition_parser import PartitionTableParser
 
 
-def generate_nvs_keys(key_out_path: Path) -> bytes:
-    """Generates a 64-byte AES-XTS key binary for ESP32 NVS encryption."""
-    key_bytes = secrets.token_bytes(64)
+def generate_nvs_keys(
+    key_out_path: Path, key_size_bytes: int, key_bytes: Optional[bytes] = None
+) -> bytes:
+    """Write and return the configured-size NVS key, generating random bytes if needed."""
+    if key_size_bytes <= 0:
+        raise ValueError("NVS encryption key size must be greater than zero")
+    if key_bytes is None:
+        key_bytes = secrets.token_bytes(key_size_bytes)
+    elif len(key_bytes) != key_size_bytes:
+        raise ValueError("Configured NVS key does not match key_size_bytes")
+
     key_out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(key_out_path, "wb") as f:
-        f.write(key_bytes)
+    key_out_path.write_bytes(key_bytes)
     return key_bytes
+
+
+def ensure_nvs_keys(key_path: Path, key_size_bytes: int) -> bytes:
+    """Reuse a valid generated key or create one for a new NVS artifact set."""
+    if key_path.exists():
+        key_bytes = key_path.read_bytes()
+        if len(key_bytes) == key_size_bytes:
+            return key_bytes
+
+    return generate_nvs_keys(key_path, key_size_bytes)
+
+
+def write_nvs_keys_partition(
+    key_bytes: bytes, partition_image_path: Path, key_size_bytes: int
+) -> None:
+    """Create the NVS key partition header (keys, CRC, and erased alignment bytes)."""
+    if len(key_bytes) != key_size_bytes:
+        raise ValueError("NVS encryption key does not match configured key_size_bytes")
+
+    crc = zlib.crc32(key_bytes)
+    partition_image_path.parent.mkdir(parents=True, exist_ok=True)
+    partition_image_path.write_bytes(
+        key_bytes + crc.to_bytes(4, "little") + b"\xff" * 12
+    )
 
 
 def render_template_csv(
@@ -238,6 +270,12 @@ def main() -> int:
         help="Path to NVS encryption key binary",
     )
     parser.add_argument(
+        "--key-size-bytes",
+        type=int,
+        required=False,
+        help="Configured NVS encryption key size in bytes (required when generating a key)",
+    )
+    parser.add_argument(
         "--encrypt",
         action="store_true",
         default=False,
@@ -274,7 +312,13 @@ def main() -> int:
         return 1
 
     if args.encrypt and args.out_key and not args.out_key.exists():
-        generate_nvs_keys(args.out_key)
+        if args.key_size_bytes is None:
+            print(
+                "[ERROR] --key-size-bytes is required when generating an NVS key",
+                file=sys.stderr,
+            )
+            return 1
+        generate_nvs_keys(args.out_key, args.key_size_bytes)
 
     if (
         invoke_nvs_partition_gen(
