@@ -52,7 +52,9 @@ def update_ssot_version(config_path: Path, version: str, version_number: int) ->
     )
 
     config_path.write_text(content, encoding="utf-8")
-    print(f"[*] [SSOT] Updated {config_path.name} -> Version: {version} (Number: {version_number})")
+    print(
+        f"[*] [SSOT] Updated {config_path.name} -> Version: {version} (Number: {version_number})"
+    )
 
 
 def run_command(cmd: str, check: bool = True) -> int:
@@ -60,7 +62,10 @@ def run_command(cmd: str, check: bool = True) -> int:
     print(f"\n[RUN] {cmd}")
     res = subprocess.run(cmd, shell=True, cwd=str(WORKSPACE_ROOT))
     if check and res.returncode != 0:
-        print(f"[FATAL ERROR] Command failed with exit code {res.returncode}: {cmd}", file=sys.stderr)
+        print(
+            f"[FATAL ERROR] Command failed with exit code {res.returncode}: {cmd}",
+            file=sys.stderr,
+        )
         sys.exit(res.returncode)
     return res.returncode
 
@@ -135,7 +140,9 @@ def cmd_update(version: str = "1.0.1", version_number: int = 2) -> None:
     # 2. Run Canonical OTA Release Pipeline (Build -> Sign -> 1-Hop Diff -> Sync)
     run_command("inv es.ota.release")
 
-    print(f"\n✅ Target update v{version} published! Device running baseline will now receive this update over Wi-Fi.")
+    print(
+        f"\n✅ Target update v{version} published! Device running baseline will now receive this update over Wi-Fi."
+    )
 
 
 def cmd_e2e(
@@ -151,7 +158,12 @@ def cmd_e2e(
     print("======================================================================")
 
     # Phase 1: Purge Catalog, Setup, and Flash Baseline
-    cmd_baseline(version=base_ver, version_number=base_num, monitor=False, clean_catalog=clean_catalog)
+    cmd_baseline(
+        version=base_ver,
+        version_number=base_num,
+        monitor=False,
+        clean_catalog=clean_catalog,
+    )
 
     # Phase 2: Stage and Publish New Update
     cmd_update(version=target_ver, version_number=target_num)
@@ -164,48 +176,102 @@ def cmd_e2e(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="OTA Automated Testing & Staging Tool.")
+    parser = argparse.ArgumentParser(
+        description="OTA Automated Testing & Staging Tool."
+    )
     subparsers = parser.add_subparsers(dest="command", help="Target testing action")
 
     # clean
-    subparsers.add_parser("clean", help="Purge release-catalog binaries, patches, and manifest.json.")
+    subparsers.add_parser(
+        "clean", help="Purge release-catalog binaries, patches, and manifest.json."
+    )
 
     # baseline
-    p_base = subparsers.add_parser("baseline", help="Purge catalog, configure, build, flash, and catalog baseline.")
-    p_base.add_argument("--version", type=str, default="1.0.0", help="Baseline SemVer (default: 1.0.0)")
-    p_base.add_argument("--version-number", type=int, default=1, help="Baseline integer (default: 1)")
-    p_base.add_argument("--monitor", action="store_true", help="Open serial monitor after flashing")
-    p_base.add_argument("--no-clean", action="store_true", help="Skip catalog cleaning before baseline setup")
+    p_base = subparsers.add_parser(
+        "baseline", help="Purge catalog, configure, build, flash, and catalog baseline."
+    )
+    p_base.add_argument(
+        "--version", type=str, default="1.0.0", help="Baseline SemVer (default: 1.0.0)"
+    )
+    p_base.add_argument(
+        "--version-number", type=int, default=1, help="Baseline integer (default: 1)"
+    )
+    p_base.add_argument(
+        "--monitor", action="store_true", help="Open serial monitor after flashing"
+    )
+    p_base.add_argument(
+        "--no-clean",
+        action="store_true",
+        help="Skip catalog cleaning before baseline setup",
+    )
 
     # update
-    p_up = subparsers.add_parser("update", help="Stage, compile, sign, diff, and publish target update.")
-    p_up.add_argument("--version", type=str, default="1.0.1", help="Target update SemVer (default: 1.0.1)")
-    p_up.add_argument("--version-number", type=int, default=2, help="Target update integer (default: 2)")
+    p_up = subparsers.add_parser(
+        "update", help="Stage, compile, sign, diff, and publish target update."
+    )
+    p_up.add_argument(
+        "--version",
+        type=str,
+        default="1.0.1",
+        help="Target update SemVer (default: 1.0.1)",
+    )
+    p_up.add_argument(
+        "--version-number",
+        type=int,
+        default=2,
+        help="Target update integer (default: 2)",
+    )
 
     # flash-chain
-    p_chain = subparsers.add_parser("flash-chain", help="Run the full build, provision, flash, and monitor chain.")
-    p_chain.add_argument("--no-monitor", action="store_true", help="Do not launch serial monitor")
+    p_chain = subparsers.add_parser(
+        "flash-chain", help="Run the full build, provision, flash, and monitor chain."
+    )
+    p_chain.add_argument(
+        "--no-monitor", action="store_true", help="Do not launch serial monitor"
+    )
 
     # e2e
-    p_e2e = subparsers.add_parser("e2e", help="Run full lifecycle: clean -> baseline flash -> update release -> monitor.")
+    p_e2e = subparsers.add_parser(
+        "e2e",
+        help="Run full lifecycle: clean -> baseline flash -> update release -> monitor.",
+    )
     p_e2e.add_argument("--base-ver", type=str, default="1.0.0", help="Baseline SemVer")
-    p_e2e.add_argument("--base-num", type=int, default=1, help="Baseline version number")
+    p_e2e.add_argument(
+        "--base-num", type=int, default=1, help="Baseline version number"
+    )
     p_e2e.add_argument("--target-ver", type=str, default="1.0.1", help="Target SemVer")
-    p_e2e.add_argument("--target-num", type=int, default=2, help="Target version number")
-    p_e2e.add_argument("--no-clean", action="store_true", help="Skip catalog cleaning before running test")
+    p_e2e.add_argument(
+        "--target-num", type=int, default=2, help="Target version number"
+    )
+    p_e2e.add_argument(
+        "--no-clean",
+        action="store_true",
+        help="Skip catalog cleaning before running test",
+    )
 
     args = parser.parse_args()
 
     if args.command == "clean":
         cmd_clean()
     elif args.command == "baseline":
-        cmd_baseline(args.version, args.version_number, args.monitor, clean_catalog=not args.no_clean)
+        cmd_baseline(
+            args.version,
+            args.version_number,
+            args.monitor,
+            clean_catalog=not args.no_clean,
+        )
     elif args.command == "update":
         cmd_update(args.version, args.version_number)
     elif args.command == "flash-chain":
         cmd_flash_chain(monitor=not args.no_monitor)
     elif args.command == "e2e":
-        cmd_e2e(args.base_ver, args.base_num, args.target_ver, args.target_num, clean_catalog=not args.no_clean)
+        cmd_e2e(
+            args.base_ver,
+            args.base_num,
+            args.target_ver,
+            args.target_num,
+            clean_catalog=not args.no_clean,
+        )
     else:
         parser.print_help()
         return 1

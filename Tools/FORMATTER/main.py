@@ -12,33 +12,58 @@ from src.format_c_files import format_c_apply, format_c_check
 from src.format_python_files import format_python_apply, format_python_check
 from src.format_yaml_files import format_yaml_apply, format_yaml_check
 from src.format_cmake_files import format_cmake_apply, format_cmake_check
+from src.utils import get_root_dir, load_config
 
 
-def get_git_modified_files() -> List[Path]:
-    """Retrieves all tracked and untracked uncommitted files from git status."""
-    cmd = ["git", "status", "--porcelain"]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if res.returncode != 0:
-        return []
+def get_git_modified_files(
+    workspace_root: Path, scan_dirs: Optional[List[str]] = None
+) -> List[Path]:
+    """Collects changed files from the workspace Git root and configured nested repos."""
+    repo_roots = [workspace_root]
+    for scan_dir in scan_dirs or []:
+        candidate = Path(scan_dir)
+        if not candidate.is_absolute():
+            candidate = workspace_root / candidate
+        candidate = candidate.resolve()
+        if (
+            candidate != workspace_root
+            and candidate.is_dir()
+            and (candidate / ".git").exists()
+        ):
+            repo_roots.append(candidate)
 
     modified_files: List[Path] = []
-    for line in res.stdout.splitlines():
-        if not line.strip():
+    seen_files = set()
+    for repo_root in repo_roots:
+        res = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode != 0:
             continue
-        status = line[:2]
-        path_str = line[3:].strip()
 
-        # Skip deleted files
-        if "D" in status:
-            continue
+        for line in res.stdout.splitlines():
+            if not line.strip():
+                continue
+            status = line[:2]
+            path_str = line[3:].strip()
 
-        # Handle renamed files 'R  old -> new'
-        if " -> " in path_str:
-            path_str = path_str.split(" -> ")[1].strip()
+            if "D" in status:
+                continue
+            if " -> " in path_str:
+                path_str = path_str.split(" -> ")[1].strip()
 
-        p = Path(path_str).resolve()
-        if p.exists() and p.is_file():
-            modified_files.append(p)
+            path = (repo_root / path_str).resolve()
+            if (
+                path.is_file()
+                and path.is_relative_to(workspace_root)
+                and path not in seen_files
+            ):
+                modified_files.append(path)
+                seen_files.add(path)
 
     return modified_files
 
@@ -109,7 +134,10 @@ def main() -> None:
     # Resolve target files if scope is git-constrained
     target_files: Optional[List[Path]] = None
     if args.scope == "changed":
-        target_files = get_git_modified_files()
+        formatter_config = load_config(args.config)
+        workspace_root = get_root_dir(formatter_config, args.config)
+        scan_dirs = formatter_config.get("workspace", {}).get("scan_dirs", [])
+        target_files = get_git_modified_files(workspace_root, scan_dirs)
         print(f"[*] Git scope: {len(target_files)} modified file(s) detected.")
         if not target_files:
             print("✅ No modified files to format.")

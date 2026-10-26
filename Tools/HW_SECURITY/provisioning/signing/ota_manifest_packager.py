@@ -123,9 +123,7 @@ def main() -> int:
 
     manifest_data.setdefault("releases", {})
     existing_patches = (
-        manifest_data.get("releases", {})
-        .get(args.version, {})
-        .get("patches", {})
+        manifest_data.get("releases", {}).get(args.version, {}).get("patches", {})
     )
 
     manifest_data["releases"][args.version] = {

@@ -118,7 +118,9 @@ def release(
     serializer.run(c, dry_run=dry_run)
 
     if dry_run:
-        print("\n[DRY-RUN] OTA release command sequence validated; no tasks were executed.\n")
+        print(
+            "\n[DRY-RUN] OTA release command sequence validated; no tasks were executed.\n"
+        )
     else:
         print(
             "\n[SUCCESS] OTA release compilation, code-signing, delta generation, and sync complete!\n"
