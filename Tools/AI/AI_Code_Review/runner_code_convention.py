@@ -13,7 +13,8 @@ DEFAULT_PROVIDER = "gemini"
 
 DEFAULT_TEMPLATES = [
     "prompts/code_convention_review.md",
-    "C:/WORKSPACE_PERSONAL/PROJECTS/SMART_PLUGS/SW/embedded_system/Documentation/Code_Convention",
+    "../.agents/skills/embedded-cpp-code-conventions/SKILL.md",
+    "../.agents/skills/embedded-hal-architecture/SKILL.md",
 ]
 
 DEFAULT_FILES = [

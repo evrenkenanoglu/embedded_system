@@ -15,7 +15,8 @@ DEFAULT_PROVIDER = "gemini"
 DEFAULT_TEMPLATES = [
     "prompts/cpp_review.md",
     "prompts/general_review.md",
-    "Documentation/Code_Convention/",
+    "../.agents/skills/embedded-cpp-code-conventions/SKILL.md",
+    "../.agents/skills/embedded-hal-architecture/SKILL.md",
 ]
 # ==============================================================================
 
