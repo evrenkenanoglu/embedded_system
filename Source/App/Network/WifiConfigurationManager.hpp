@@ -179,6 +179,25 @@ public:
     sys_error_t storeCredentials(const char* ssid, const char* password);
 
     /**
+     * @brief Apply Wi-Fi credentials received via BLE Matter commissioning.
+     *
+     * Validates the credentials against the Wi-Fi HAL validators, persists
+     * them via the credentials store and triggers a STA connection attempt.
+     * On validation or connection failure the active BLE commissioning
+     * session is NOT torn down; the caller (Matter transport) remains in
+     * control of the BLE lifecycle.
+     *
+     * Thread-safe; may be called from the BLE/Matter task context.
+     *
+     * @param ssid Null-terminated SSID
+     * @param password Null-terminated password
+     * @return sys_error_t ERROR_SUCCESS on accept,
+     *         ERROR_INVALID_ARG on validation failure,
+     *         ERROR_FAIL on persistence failure
+     */
+    sys_error_t applyCommissionedCredentials(const char* ssid, const char* password);
+
+    /**
      * @brief Request a WiFi scan.
      *
      * Thread-safe. The scan runs on the worker task; completion is signalled
