@@ -22,7 +22,7 @@ This skill defines the architecture, dynamic task discovery mechanism, Single So
 | `configs/` | Central SSoT configuration repository (`config_project.yaml` master SSoT + subsystem domain configs: `config_tasks.yaml`, `config_pki.yaml`, `config_provisioning.yaml`, `config_ota_server.yaml`, `config_formatter.yaml`). |
 | `Tools/task-runner/` | Task runner engine containing configuration resolution, dynamic module discovery, command serialization, and built-in workspace tasks (`venv`, `vscode`, `test`). |
 | `Tools/task-runner/core/` | Engine core: `config_loader.py` (multi-pass token resolution & OS environment), `config_resolver.py` (SSoT inheritance & `resolve_to_file`), `serializer.py` (`CommandSerializer`). |
-| `embedded_system/Tasks/` | Domain-specific task modules (`esp32.py`, `crypto.py`, `build_config.py`, `ota.py`, `ci_cd.py`, `deps.py`, `ai.py`, `util.py`, `wsl.py`) and hardware `toolchains/`. |
+| `embedded_system/Tasks/` | Domain-specific task modules (`platform.py`, `crypto.py`, `build_config.py`, `ota.py`, `ci_cd.py`, `deps.py`, `ai.py`, `util.py`, `wsl.py`) and hardware `toolchains/`. |
 
 ---
 

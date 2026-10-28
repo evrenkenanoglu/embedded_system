@@ -36,7 +36,7 @@ The task orchestration system eliminates manual task registration. It relies on 
 1. **Zero Registration**: Developers never touch `tasks.py` or manually write `Collection.add_task()`.
 2. **Sub-Config Auto-Discovery**: `config_loader.py` searches for all `**/config_tasks.yaml` across the workspace (excluding `.git`, `.venv`, and `Tools/task-runner`), deep-merging them into `CONFIG`.
 3. **Namespace Mapping**: Any directory mapped under `task_namespaces` in `config_tasks.yaml` (e.g., `embedded_system: es`) automatically exposes every `.py` file inside its `Tasks/` subfolder as an Invoke sub-collection:
-   - `embedded_system/Tasks/esp32.py` $\rightarrow$ `es.esp32.<task>`
+   - `embedded_system/Tasks/platform.py` $\rightarrow$ `es.platform.<task>`
    - `embedded_system/Tasks/ota.py` $\rightarrow$ `es.ota.<task>`
    - `embedded_system/Tasks/crypto.py` $\rightarrow$ `es.crypto.<task>`
 4. **Tool-Runner Tasks**: Modules in `Tools/task-runner/tasks/` (`test.py`, `venv.py`, `vscode.py`) are mounted directly at the root namespace.
@@ -73,7 +73,7 @@ script = CONFIG.paths.provision_hardware_script
 ## 3. How Tasks Shall Be Added
 
 ### Scenario A: Adding a Task to an Existing Module
-To add a new task to an existing domain (e.g., `ota.py` or `esp32.py`), append the function directly in `embedded_system/Tasks/<module>.py`:
+To add a new task to an existing domain (e.g., `ota.py` or `platform.py`), append the function directly in `embedded_system/Tasks/<module>.py`:
 
 ```python
 from pathlib import Path

@@ -69,8 +69,8 @@ $$\text{Invoke Tasks (Tasks/)} \longrightarrow \text{BaseToolchain (Template/Lif
    * Uses native ESP-IDF v5 `idf.py build merge-bin -o <out_name>` (eliminates `cd build` and manual `esptool.py` calls).
    * Does not source host activation scripts if `/.dockerenv` exists or `IDF_PATH` is already active.
    * Implements ESP-specific methods (`menuconfig`, `erase`, `flash_ota`) directly.
-4. **`embedded_system/Tasks/esp32.py`**:
-   * Thin Invoke CLI adapter. If `--target` or `--port` is empty, resolves values from `CONFIG.esp32.*` in one line.
+4. **`embedded_system/Tasks/platform.py`**:
+   * Platform-agnostic Invoke CLI adapter mounted under `inv es.platform.*`. If `--target` or `--port` is empty, delegates to `IToolchain` hooks and resolves defaults from SSoT in one line.
 
 ---
 

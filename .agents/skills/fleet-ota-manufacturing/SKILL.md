@@ -325,13 +325,13 @@ To adapt this framework to a new silicon target or RTOS, implement the concrete 
 
 Executed once per device to establish the hardware baseline, partition table, and Root CA trust anchors.
 
-| Order | Task                          | Command                       | Purpose                                                                                                           |
-| ----- | ----------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **1** | **Generate SSoT Artifacts**   | `inv es.build-config.all`     | Compiles `partitions.csv`, `sdkconfig.hardware`, and `ota_generated_config.h` from `configs/config_project.yaml`. |
-| **2** | **Compile Baseline Firmware** | `inv es.esp32.build`          | Compiles `bootloader.bin`, `partition-table.bin`, and baseline application (`ota_0`).                             |
-| **3** | **Flash Base Firmware**       | `inv es.esp32.flash`          | Flashes bootloader (`0x0000`), partition table (`0x10000`), and application (`0x50000`).                          |
-| **4** | **Provision Factory Storage** | `inv es.crypto.provision-nvs` | Renders CSV, generates `nvs_keys.bin`, and creates encrypted `fctry` containing Root CA.                          |
-| **5** | **Flash Factory Storage**     | `inv es.crypto.flash-nvs`     | Flashes `nvs_keys.bin` (`0x36000`) and `nvs_encrypted.bin` (`0x37000`).                                           |
+| Order | Task                          | Command                                       | Purpose                                                                                                                                                         |
+| ----- | ----------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Generate SSoT Artifacts**   | `inv es.build-config.all`                     | Compiles `partitions.csv`, `sdkconfig.hardware`, and `ota_generated_config.h` from `configs/config_project.yaml`.                                               |
+| **2** | **Compile Baseline Firmware** | `inv es.platform.build`                       | Compiles `bootloader.bin`, `partition-table.bin`, and baseline application (`ota_0`).                                                                           |
+| **3** | **Flash Base Firmware**       | `inv es.platform.flash`                       | Flashes bootloader, partition table, and application (`ota_0`) to offsets dynamically resolved from `partitions.csv`.                                         |
+| **4** | **Provision Factory Storage** | `inv es.crypto.provision-nvs`                 | Renders CSV, generates `nvs_keys.bin`, and creates encrypted `fctry` containing Root CA.                                                                        |
+| **5** | **Flash Factory Storage**     | `inv es.crypto.flash-nvs`                     | Flashes `nvs_keys.bin` and `nvs_encrypted.bin` to partition offsets dynamically resolved from `partitions.csv`.                                                |
 
 ---
 
@@ -339,13 +339,13 @@ Executed once per device to establish the hardware baseline, partition table, an
 
 Executed each time `project.version` is incremented in `configs/config_project.yaml`.
 
-| Order | Task                               | Command                                    | Purpose                                                                                                                                                         |
-| ----- | ---------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **Regenerate SSoT Headers**        | `inv es.build-config.all`                  | Updates version macros and gateway endpoints in `ota_generated_config.h`.                                                                                       |
-| **2** | **Package & Sign Release**         | `inv es.ota.release`                       | Compiles new binary, computes SHA-256 digest, signs with developer key, generates 1-hop delta patch (`diff_worker.py`), and registers entry in `manifest.json`. |
-| **3** | **Sync Windows Host** *(Optional)* | `inv es.util.sync-ota-windows`             | Mirrors `release-catalog/` and TLS certificates from WSL to Windows host if the server runs natively on Windows.                                                |
-| **4** | **Start Delivery Server**          | `inv es.ota.server`                        | Boots the FastAPI distribution daemon serving `/check`, `/download`, and `/status`.                                                                             |
-| **5** | **Monitor Client Update**          | `inv es.esp32.monitor --opts="--no-reset"` | Attaches serial console without asserting DTR/RTS reset to observe live update and provisional trial boot.                                                      |
+| Order | Task                               | Command                                       | Purpose                                                                                                                                                         |
+| ----- | ---------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Regenerate SSoT Headers**        | `inv es.build-config.all`                     | Updates version macros and gateway endpoints in `ota_generated_config.h`.                                                                                       |
+| **2** | **Package & Sign Release**         | `inv es.ota.release`                          | Compiles new binary, computes SHA-256 digest, signs with developer key, generates 1-hop delta patch (`diff_worker.py`), and registers entry in `manifest.json`. |
+| **3** | **Sync Windows Host** *(Optional)* | `inv es.util.sync-ota-windows`                | Mirrors `release-catalog/` and TLS certificates from WSL to Windows host if the server runs natively on Windows.                                                |
+| **4** | **Start Delivery Server**          | `inv es.ota.server`                           | Boots the FastAPI distribution daemon serving `/check`, `/download`, and `/status`.                                                                             |
+| **5** | **Monitor Client Update**          | `inv es.platform.monitor --opts="--no-reset"` | Attaches serial console without asserting DTR/RTS reset to observe live update and provisional trial boot.                                                      |
 
 ---
 
@@ -353,8 +353,7 @@ Executed each time `project.version` is incremented in `configs/config_project.y
 
 #### Baseline Setup One-Liner
 ```bash
-inv es.build-config.all && inv es.esp32.build && inv es.esp32.flash && inv es.crypto.provision-nvs && inv es.crypto.flash-nvs && inv es.esp32.monitor
-```
+inv es.build-config.all && inv es.platform.build && inv es.platform.flash && inv es.crypto.provision-nvs && inv es.crypto.flash-nvs && inv es.platform.monitor
 
 #### Release Deployment One-Liner
 ```bash

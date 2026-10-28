@@ -1,33 +1,37 @@
 ---
 name: embedded-tool-standardization
-description: Comprehensive standard for designing, scaffolding, and integrating host tools into the task-runner ecosystem. Enforces strict decoupling between dumb CLI engines, basic standalone tool tasks, and SSoT domain orchestrator tasks. Includes historical error registry and post-mortem failure prevention rules.
-version: 4.0.0
+description: Comprehensive standard for designing, scaffolding, auditing, and integrating host tools into the task-runner ecosystem. Enforces strict 3-tier decoupling between dumb CLI engines, basic standalone tool tasks, and SSoT domain orchestrator tasks. Includes historical error registry and continuous autonomous self-healing rules.
+version: 5.0.0
 target_runtime: Python 3.13 / uv / invoke
 target_project: Embedded_IoT_BT_WIFI_Base_Project
 triggers:
   - "create a tool"
+  - "create a host tool"
+  - "implement utility tool"
   - "standardize tool <path>"
+  - "audit tool <path>"
   - "scaffold tool <path>"
   - "bind tool to task runner"
+  - "add new tool to embedded_system/Tools"
   - "fix task runner error"
 ---
 
-# Skill: Embedded Tool Architecture, Scaffolding & Error Prevention
+# Skill: Host Tool Architecture, Standardization & SSoT Orchestration
 
 ## 1. Architectural Mental Model (The 3-Tier Decoupled Flow)
 
-Every tool and task in this ecosystem strictly separates responsibilities into 3 distinct tiers:
+Every host-side utility tool in this ecosystem strictly separates responsibilities into three isolated tiers:
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │ TIER 1: SSoT Domain Task (embedded_system/Tasks/<domain>.py)           │
-│  - System-level orchestrator mounted under `inv es.<domain>.<task>`    │
+│  - System-level orchestrator mounted under `inv es.<domain>.<task>`.   │
 │  - Imports `core.config_resolver.resolve_to_file` and `core.CONFIG`.   │
-│  - Compiles tokens into `build/configs/<tool>.resolved.yaml`.          │
+│  - Compiles SSoT tokens into `build/configs/<tool>.resolved.yaml`.     │
 │  - DELEGATES to the tool's Invoke task via runtime CLI call.           │
 │  - NEVER references or executes raw python script filepaths!           │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ delegates: `inv tools.<tool>.<task>`
+                                    │ delegates: `inv tools.<tool-slug>.<task>`
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │ TIER 2: Colocated Standalone Task (embedded_system/Tools/<TOOL>/tasks.py)│
@@ -35,7 +39,7 @@ Every tool and task in this ecosystem strictly separates responsibilities into 3
 │  - 100% INDEPENDENT: Zero imports from `task-runner` or `core`.        │
 │  - Knows its own script locally: `Path(__file__).parent / "main.py"`.  │
 │  - Invokes `main.py` using `sys.executable` (never hardcoded 'python').│
-│  - Auto-discovered and mounted directly under `tools.<tool-slug>.*`.   │
+│  - Auto-discovered and mounted flat under `tools.<tool-slug>.*`.       │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ executes: `python main.py <config>`
                                     ▼
@@ -51,40 +55,102 @@ Every tool and task in this ecosystem strictly separates responsibilities into 3
 
 ---
 
-## 2. Dynamic Discovery & SSoT Convention Rules
+## 2. The 5 Invariant Pillars & Guardrails
 
-### Rule A: Subsystem Submodule Autonomy (`embedded_system/config_tasks.yaml`)
-Subsystems must declare their own task discovery rules anchored to `{config_dir}` so they work both inside the parent project and when cloned/run standalone:
+Every tool must satisfy the 5 architectural pillars without exception:
 
-```yaml
-# embedded_system/config_tasks.yaml
-paths:
-  embedded_system_dir: '{config_dir}'
-  es_tools_dir: '{embedded_system_dir}/Tools'
-  es_tasks_dir: '{embedded_system_dir}/Tasks'
+| # | Pillar | Location | Standard Requirement |
+| :--- | :--- | :--- | :--- |
+| **P1** | **Unified CLI** | `Tools/<TOOL>/main.py` | Accepts config path argument, uses `parse_known_args()`, decoupled from project `core`. |
+| **P2** | **Colocated Task** | `Tools/<TOOL>/tasks.py` | Basic Invoke wrapper of `main.py`. Auto-discovered. Zero SSoT token resolution. |
+| **P3** | **Standalone Config**| `Tools/<TOOL>/config.example.yaml` | Local default values only. Zero `{tokens}`, zero `base_config`. |
+| **P4** | **Dependencies** | `Tools/<TOOL>/requirements.in` | Direct dependencies declared, compiled to lockfile `requirements.txt` via `uv`. |
+| **P5** | **SSoT Orchestrator**| `embedded_system/Tasks/<tool>.py` | Standard header, `help={...}` dicts, resolves SSoT tokens, delegates to `inv tools.<tool>.<task>`. |
 
-discovery:
-  tasks:
-    - path: '{es_tasks_dir}'
-      namespace: "es"
-      mode: "file"
-      pattern: "*.py"
+### Absolute Prohibitions (Anti-Patterns)
+1. ❌ **NO Hardcoded Script Paths in YAML:** Never register `<tool>_script` or `<tool>_runner_script` in `config_tasks.yaml`. All tools are discovered dynamically by scanning `**/tasks.py`.
+2. ❌ **NO Direct Script Execution from `Tasks/`:** `embedded_system/Tasks/<tool>.py` must never execute `python <path>/main.py`. It resolves SSoT tokens and delegates via `inv tools.<tool-slug>.<task>`.
+3. ❌ **NO SSoT Imports in `Tools/`:** Never import `core`, `CONFIG`, or `core.config_resolver` inside `embedded_system/Tools/<TOOL_NAME>/` or its `tasks.py`.
+4. ❌ **NO Reserved Invoke Parameter Names:** Never name an Invoke task argument `config` (collides with Invoke's global `--config` flag). Always use `config_path`.
+5. ❌ **NO Hardcoded Python Strings:** Never use `f'python "{script}"'`. Always use `f'"{sys.executable}" "{script}"'` to guarantee virtual environment execution on POSIX/WSL.
+6. ❌ **NO Directory Traversal:** `main.py` must never crawl parent directories (`parents[3]`, `.git`). It reads *only* the config path passed to it.
+7. ❌ **NO Greedy CLI Parsing:** Never use `nargs=argparse.REMAINDER`. Always use `parser.parse_known_args()`.
 
-    - path: '{es_tools_dir}'
-      namespace: "tools"
-      mode: "flat"
-      task_filename: "tasks.py"
-```
+### Mandatory Requirements
+1. ✔️ **Subsystem Autonomy (`embedded_system/config_tasks.yaml`):** Subsystems must anchor discovery paths to `{config_dir}` so they resolve identically whether invoked from root or standalone:
+   ```yaml
+   paths:
+     embedded_system_dir: '{config_dir}'
+     es_tools_dir: '{embedded_system_dir}/Tools'
+     es_tasks_dir: '{embedded_system_dir}/Tasks'
 
-### Rule B: Zero Script Paths in YAML
-No file path ending in `.py` (e.g. `*_script`) should ever be registered in `configs/config_tasks.yaml`. All tools are discovered dynamically by scanning `**/tasks.py`.
+   discovery:
+     tasks:
+       - path: '{es_tasks_dir}'
+         namespace: "es"
+         mode: "file"
+         pattern: "*.py"
 
-### Rule C: Stable Flat Tool Namespacing
-Regardless of where a tool is stored on disk (e.g., `Tools/AI/AI_Assistant_Runner/tasks.py` vs `Tools/AI_Assistant_Runner/tasks.py`), it must **always** mount flat under `tools.<tool-slug>.*` (e.g., `tools.ai-assistant-runner.start`). Disk folder nesting (`AI/`, `HW_SECURITY/`) must never leak into the Invoke command name.
+       - path: '{es_tools_dir}'
+         namespace: "tools"
+         mode: "flat"
+         task_filename: "tasks.py"
+   ```
+2. ✔️ **Flat Tool Namespacing:** Regardless of folder depth (e.g. `Tools/AI/AI_Assistant_Runner/`), tools must always mount flat under `tools.<tool-slug>.*`. Intermediate directories are stripped from the CLI command name.
+3. ✔️ **Interactive vs. Batch Process Separation:** For interactive tools (TUI, REPL, chat, serial monitors), pass `pty=(sys.platform != "win32")` in Invoke, and prefer `os.execvpe` on POSIX in `main.py`.
 
 ---
 
-## 3. Production Code Templates
+## 3. Canonical File Tree Specification
+
+```text
+Embedded_IoT_BT_WIFI_Base_Project/
+├── configs/
+│   ├── config_tasks.yaml                       # Root workspace settings (NO tool script paths)
+│   └── config_<tool_name>.yaml                 # SSoT domain configuration
+├── embedded_system/
+│   ├── config_tasks.yaml                       # Subsystem discovery rules (anchored to {config_dir})
+│   ├── Tasks/
+│   │   └── <tool_name>.py                      # Tier 1: SSoT Orchestrator task (resolves tokens, delegates to inv)
+│   └── Tools/
+│       └── <TOOL_NAME>/                        # Tier 2 & 3: Standalone Tool Directory
+│           ├── src/
+│           │   ├── __init__.py
+│           │   └── ...                         # Core business logic / adapters
+│           ├── config.example.yaml             # Standalone local config (NO tokens, NO base_config)
+│           ├── main.py                         # Tier 3: Dumb CLI entry point
+│           ├── tasks.py                        # Tier 2: Colocated basic Invoke task wrapper
+│           ├── requirements.in                 # Unpinned dependencies
+│           ├── requirements.txt                # Lockfile compiled via uv
+│           └── README.md                       # CLI usage & documentation
+```
+
+---
+
+## 4. Tool Archetypes & Migration / Audit Rules
+
+When auditing or scaffolding a tool under `Tools/`:
+
+### Archetype A: Already Structured (e.g., `FORMATTER/`, `AI_Assistant_Runner/`)
+- Has `main.py`, `config.example.yaml`, `requirements.in`.
+- **Action:** Add colocated `tasks.py`, ensure `configs/config_<tool>.yaml` exists, and create `embedded_system/Tasks/<tool>.py`.
+
+### Archetype B: Single Ad-Hoc Script (e.g., `PKI/`, `BUILD_CONFIG/`)
+- Contains a flat script like `generate_pki.py` or `generate_artifacts.py`.
+- **Action:**
+  1. Keep the original script intact.
+  2. Create `main.py` as a wrapper that accepts the config file and invokes the original logic.
+  3. Generate `tasks.py`, `config.example.yaml`, `requirements.in`, and the SSoT task in `Tasks/`.
+
+### Archetype C: Multi-Runner Scripts (e.g., `AI_Code_Review/`, `WSL/`, `HW_SECURITY/`)
+- Contains multiple scripts (`runner_mr.py`, `runner_freertos.py`, etc.).
+- **Action:**
+  1. Create a unified `main.py` with `--mode <mode>` or sub-commands dispatching to runners.
+  2. In `tasks.py`, expose matching `@task` functions for each runner.
+
+---
+
+## 5. Production Code Templates
 
 ### Template 1: Tier 3 — Standalone CLI Engine (`Tools/<TOOL>/main.py`)
 ```python
@@ -107,7 +173,7 @@ def parse_args():
         type=Path,
         help="Path to YAML configuration file",
     )
-    # CRITICAL: Use parse_known_args() so extra flags don't break execution
+    # CRITICAL: Use parse_known_args() so forwarded flags do not break execution
     return parser.parse_known_args()
 
 
@@ -123,13 +189,13 @@ def main():
         with open(config_file, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f) or {}
     except Exception as e:
-        sys.stderr.write(f"Error reading YAML: {e}\n")
+        sys.stderr.write(f"Error reading YAML '{config_file}': {e}\n")
         sys.exit(1)
 
     tool_cfg = config.get("<tool_name>", config)
     print(f"[<TOOL_NAME>] Executing with config: {config_file}")
 
-    # Core business logic execution here
+    # Core engine logic here
     sys.exit(0)
 
 
@@ -189,8 +255,8 @@ def run(
 
 ---
 
-### Template 3: Tier 1 — SSoT Domain Task (`embedded_system/Tasks/<tool>.py`)
-*Canonical header, parameter `config_path` (never `config`), resolves tokens, delegates via Invoke.*
+### Template 3: Tier 1 — SSoT Domain Task (`embedded_system/Tasks/<tool_name>.py`)
+*Canonical header, parameter `config_path` (never `config`), resolves tokens via `resolve_to_file`, delegates via Invoke.*
 
 ```python
 """
@@ -244,9 +310,43 @@ def run(
 
 ---
 
-## 4. Post-Mortem & Error Registry (Crucial for AI Self-Correction)
+### Template 4: Standalone Template (`Tools/<TOOL>/config.example.yaml`)
+```yaml
+# ==============================================================================
+# Standalone Configuration Template for <TOOL_NAME>
+# Usage: python main.py config.example.yaml
+# ==============================================================================
+<tool_name>:
+  output_dir: "output"
+  verbose: true
+```
 
-This section documents real historical bugs, exact error signatures, root causes, and mandatory preventive rules.
+---
+
+### Template 5: SSoT Domain Configuration (`configs/config_<tool_name>.yaml`)
+```yaml
+base_config: config_project.yaml
+
+<tool_name>:
+  output_dir: "{paths.output_dir}/<tool_name>"
+  target_chip: "{target.chip}"
+  verbose: false
+```
+
+---
+
+### Template 6: Dependency Specification (`Tools/<TOOL>/requirements.in`)
+```text
+pyyaml>=6.0.2
+```
+*Lockfile compiled via:*
+```bash
+uv pip compile requirements.in -o requirements.txt
+```
+
+---
+
+## 6. Post-Mortem & Error Registry (Mandatory Self-Correction Rules)
 
 ### Incident 1: Invoke Reserved Global Flag Collision
 - **Error Signature:**
@@ -255,7 +355,7 @@ This section documents real historical bugs, exact error signatures, root causes
   invoke.exceptions.UnknownFileType: Config files of type '' (from file '') are not supported!
   ```
 - **Trigger:** Defining an Invoke task parameter as `config: str = ""` and running `inv <task> --config=`.
-- **Root Cause:** `--config` (or `-f`) is a **reserved global flag in Invoke itself** for loading `invoke.yaml`. When passed an empty string `--config=`, Invoke attempts to parse `""` as an internal config file, fails to detect the extension, and crashes before entering task code.
+- **Root Cause:** `--config` (or `-f`) is a **reserved global flag in Invoke itself** for loading `invoke.yaml`. Passing an empty string crashes Invoke before task execution begins.
 - **Invariant Rule:** **NEVER name an Invoke task parameter `config`. Always use `config_path` or `cfg`.**
 
 ---
@@ -263,11 +363,11 @@ This section documents real historical bugs, exact error signatures, root causes
 ### Incident 2: Path-Dependent Tool Task Disappearance
 - **Error Signature:**
   ```text
-  No idea what 'tools.<tool-name>.generate' is!
+  No idea what 'tools.<tool-name>.run' is!
   ```
-- **Trigger:** Reorganizing a tool on disk (e.g., placing it in `Tools/AI/AI_Assistant_Runner/`) causes the task runner to register `tools.ai.ai_assistant_runner.generate` instead of `tools.ai-assistant-runner.generate`.
-- **Root Cause:** Discoverer recursively split the full directory path (`AI/AI_Assistant_Runner`), creating nested Invoke collections reflecting disk depth rather than tool identity.
-- **Invariant Rule:** Tool discovery must be **flat under `tools`**. The collection name is derived strictly from `path.parent.name` or an explicit `TOOL_NAME` attribute, slugified to kebab-case. Intermediate folders (`AI/`, `HW_SECURITY/`) must be ignored.
+- **Trigger:** Reorganizing a tool on disk (e.g. `Tools/AI/AI_Assistant_Runner/`) causes Invoke to register `tools.ai.ai_assistant_runner.run`.
+- **Root Cause:** Discoverer recursively split the directory path, creating nested collections reflecting folder depth rather than tool identity.
+- **Invariant Rule:** Tool discovery must be **flat under `tools`**. The command is always `tools.<tool-slug>.<task>`, derived strictly from `path.parent.name` or explicit `TOOL_NAME`.
 
 ---
 
@@ -276,16 +376,16 @@ This section documents real historical bugs, exact error signatures, root causes
   ```text
   /bin/bash: line 1: python: command not found (exit code 127)
   ```
-- **Trigger:** Calling `c.run(f'python "{script}" ...')` inside a task on modern Ubuntu/Debian/WSL.
-- **Root Cause:** Modern Linux systems ship with `python3`. The command `python` does not exist in standard subshells unless explicitly symlinked or activated.
-- **Invariant Rule:** **Never hardcode `"python"`. Always use `f'"{sys.executable}" "{script}"'`** to guarantee execution inside the active virtual environment.
+- **Trigger:** Calling `c.run(f'python "{script}" ...')` on modern Linux/WSL.
+- **Root Cause:** Modern distributions ship with `python3`; `python` is unaliased.
+- **Invariant Rule:** **Always use `f'"{sys.executable}" "{script}"'`** to guarantee execution inside the active `.venv`.
 
 ---
 
 ### Incident 4: Subprocess Dropped Enter Keystroke on POSIX
-- **Error Signature:** User types prompt into an interactive CLI/TUI (Copilot, Claude Code, serial monitor) launched via Invoke, but pressing `Enter` fails to submit or does nothing.
-- **Root Cause:** Invoke defaults to `pty=False`, wrapping `stdin` in non-interactive pipes. Node.js/React Ink TUIs require a raw pseudo-terminal (PTY) to register `\r` (Carriage Return). In a pipe, `Enter` sends `\n` and is ignored.
-- **Invariant Rule:** When launching interactive CLI tools via Invoke, **always pass `pty=(sys.platform != "win32")`**. In `main.py`, prefer `os.execvpe` on POSIX to replace the Python wrapper process directly.
+- **Error Signature:** Interactive CLI/TUI tools (chat, serial monitor) drop `Enter` key presses.
+- **Root Cause:** Invoke defaults to `pty=False`. Node.js/React Ink TUIs require raw mode PTY (`\r` vs `\n`).
+- **Invariant Rule:** When launching interactive CLI tools via Invoke, **always pass `pty=(sys.platform != "win32")`**. In `main.py`, prefer `os.execvpe` on POSIX to replace the process wrapper.
 
 ---
 
@@ -294,9 +394,9 @@ This section documents real historical bugs, exact error signatures, root causes
   ```text
   error: unexpected argument '--tool' found
   ```
-- **Trigger:** Running `main.py <config> --tool copilot` when `extra_args` was defined using `nargs=argparse.REMAINDER`.
-- **Root Cause:** In Python's `argparse`, `REMAINDER` greedily consumes all positional and optional flags that follow the first positional argument, passing `--tool` into the child tool instead of `main.py`.
-- **Invariant Rule:** **Never use `nargs=REMAINDER` when forwarding arguments. Always use `parser.parse_known_args()`.**
+- **Trigger:** Running `main.py <config> --tool copilot` when `extra_args` was defined with `nargs=argparse.REMAINDER`.
+- **Root Cause:** `argparse.REMAINDER` greedily consumes all options following the first positional argument.
+- **Invariant Rule:** **Never use `nargs=REMAINDER`. Always use `parser.parse_known_args()`.**
 
 ---
 
@@ -306,9 +406,9 @@ This section documents real historical bugs, exact error signatures, root causes
   NameError: name 'project_root' is not defined
   FileNotFoundError: .../configs/config_project.yaml not found
   ```
-- **Trigger:** `main.py` attempting to detect `.git`, `parents[3]`, or load master project configs.
-- **Root Cause:** Violating the "Dumb Tool" boundary. A tool engine must never know it is part of a larger monorepo.
-- **Invariant Rule:** **`main.py` must accept an already-resolved config path as an argument.** If running standalone, it uses its local `config.example.yaml`. It never crawls parent directories.
+- **Trigger:** `main.py` attempting to detect `.git`, inspect `parents[3]`, or load master project configs.
+- **Root Cause:** Violating the "Dumb Tool" boundary.
+- **Invariant Rule:** **`main.py` accepts only an already-resolved config path.** When running standalone, it uses local `config.example.yaml`. It never crawls parent directories.
 
 ---
 
@@ -318,36 +418,82 @@ This section documents real historical bugs, exact error signatures, root causes
   FileNotFoundError: .../embedded_system/embedded_system/Tasks not found
   ```
 - **Trigger:** Running `cd embedded_system && inv es.ota.release` when `config_tasks.yaml` had `embedded_system_dir: '{workspace_dir}/embedded_system'`.
-- **Root Cause:** When running standalone, `{workspace_dir}` becomes `embedded_system`, leading to double nesting.
-- **Invariant Rule:** Subsystem configs must anchor paths using **`{config_dir}`** (e.g. `embedded_system_dir: '{config_dir}'`), ensuring identical resolution whether running from root or standalone.
+- **Root Cause:** Standalone execution causes `{workspace_dir}` to evaluate to `embedded_system`, creating double nesting.
+- **Invariant Rule:** Subsystem configs must anchor paths using **`{config_dir}`** (e.g. `embedded_system_dir: '{config_dir}'`), guaranteeing identical resolution whether invoked from root or standalone.
 
 ---
 
-## 5. Verification & Self-Correction Checklist
+### Incident 8: Numeric Type Loss via SSoT Token String Expansion
+- **Error Signature:**
+  ```text
+  TypeError: 'str' object cannot be interpreted as an integer
+  ValueError: invalid literal for int() with base 10
+  ```
+- **Trigger:** Reading numeric settings (e.g. `port`, `baud`, `chunk_size_bytes`, `timeout_ms`) from a resolved config in `main.py` without explicit type casting.
+- **Root Cause:** The multi-pass string token interpolator in `config_resolver.py` formats values into `{placeholder}` string tokens. If a tool expects native integer types from raw YAML, it receives a string representation instead.
+- **Invariant Rule:** **Tier 3 tool engines (`main.py`) must explicitly cast numeric and boolean parameters** using `int(tool_cfg.get("port", default))` or explicit validation schemas. Never assume YAML primitive typing survives token expansion.
 
-Before declaring any tool integration complete, execute this 4-step verification:
+---
+
+## 7. Autonomous Self-Healing & Error Recording Protocol
+
+Whenever an AI agent executes, debugs, or modifies host tools and encounters an unexpected runtime error, CLI failure, or regression, it must execute this self-healing loop:
+
+```text
+[ Error Encountered ]
+       │
+       ▼
+1. Diagnose Root Cause (Distinguish symptom from architectural cause)
+       │
+       ▼
+2. Implement Minimal Corrective Fix (Code / Task / Config)
+       │
+       ▼
+3. Verify Fix via Verification Checklist (Section 8)
+       │
+       ▼
+4. RECORD IN POST-MORTEM REGISTRY (Section 6):
+   - Assign next sequential Incident ID (e.g., Incident 9)
+   - Record exact Error Signature
+   - Record exact Trigger Condition
+   - Record Root Cause
+   - Define Permanent Invariant Rule to prevent recurrence
+```
+
+### Self-Recording Invariant:
+* An AI agent **must not** consider an error resolved until it has permanently appended the lesson into **Section 6 (Post-Mortem & Error Registry)** of this skill file.
+* Future AI runs must parse Section 6 prior to proposing or scaffolding tool modifications to prevent repeating known failure patterns.
+
+---
+
+## 8. Verification & Self-Correction Checklist
+
+Before declaring any host tool integration complete, execute this 5-step checklist:
 
 - [ ] **1. Standalone Execution Test:**
   ```bash
   cd embedded_system/Tools/<TOOL_DIR>
   python main.py config.example.yaml
   ```
-  *(Must succeed with zero references to root project configs or `core`).*
+  *(Must execute successfully with zero dependencies on root project configs or `core`).*
 
 - [ ] **2. Tool Task Isolation Test:**
   ```bash
   inv tools.<tool-slug>.run --config=config.example.yaml
   ```
-  *(Must execute via the tool's local `tasks.py` without errors).*
+  *(Must execute via the tool's local `tasks.py`).*
 
 - [ ] **3. Dynamic Auto-Discovery Test:**
   ```bash
   inv --list
   ```
-  *(Verify that `tools.<tool-slug>.<task>` appears under the flat `tools` namespace).*
+  *(Verify that `tools.<tool-slug>.<task>` appears automatically under the flat `tools` namespace).*
 
 - [ ] **4. SSoT Orchestrator Dry-Run Test:**
   ```bash
   inv es.<tool-name>.run --dry-run
   ```
-  *(Verify SSoT tokens compile into `build/configs/` and delegate cleanly via `inv tools.<tool-slug>.*`).*
+  *(Verify that SSoT tokens compile into `build/configs/` and delegate cleanly via `inv tools.<tool-slug>.*`).*
+
+- [ ] **5. Zero Path Registrations:**
+  *(Confirm that `configs/config_tasks.yaml` does NOT contain any hardcoded `*_script` entries).*

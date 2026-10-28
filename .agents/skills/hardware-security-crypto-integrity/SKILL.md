@@ -3,7 +3,7 @@ name: hardware-security-crypto-integrity
 description: >-
   Production-grade specifications, architectural invariants, code conventions,
   and implementation rules for Hardware Security, Secure Boot V2, Flash Encryption,
-  Monotonic Anti-Rollback, and Cryptographic PKI on ESP32-S3 firmware systems.
+  Monotonic Anti-Rollback, and Cryptographic PKI on ESP32-C6 firmware systems.
   Activate when implementing, reviewing, or debugging cryptographic engines,
   OTA security pipelines, eFuse configurations, or provisioning toolchains.
 ---
@@ -19,9 +19,9 @@ This skill defines the mandatory architectural invariants, implementation rules,
 ### A. Hardware Silicon Root of Trust
 * **Permanent Hardware Locks:** In production configurations, Flash Encryption must use Release mode (`CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE=y`). Once enabled, physical UART bootloader decryption and encryption must be disabled.
 * **Key Read/Write Protection:**
-  * `BLOCK_KEY0` (Flash Encryption) must be both write-protected and read-protected (`read_protect_efuse`, `write_protect_efuse`).
-  * `BLOCK_KEY1` (Secure Boot V2) must be write-protected.
-  * Debug interfaces (`DIS_PAD_JTAG`, `DIS_USB_JTAG`, `DIS_DIRECT_BOOT`) must be permanently burned in silicon.
+  * `BLOCK_KEY0` (Flash Encryption, `XTS_AES_128_KEY`) must be both write-protected and read-protected (`read_protect_efuse`, `write_protect_efuse`).
+  * `BLOCK_KEY2` (Secure Boot V2, `SECURE_BOOT_DIGEST1`) must be write-protected and read-enabled.
+  * Debug interfaces (`DIS_PAD_JTAG`, `DIS_USB_JTAG`, `DIS_DIRECT_BOOT`, `DIS_DOWNLOAD_ICACHE`, `DIS_DOWNLOAD_DCACHE`) must be permanently burned in silicon.
 * **No Secret Exposure in SRAM:** Cryptographic hardware accelerators (AES, SHA, DS peripheral) must be used where available. Private keys must not reside in plain static heap memory longer than the immediate cryptographic transaction.
 
 ### B. Monotonic Anti-Rollback (HSVN)
@@ -59,7 +59,7 @@ All C++ code written for this subsystem must strictly adhere to these rules:
 
 | Component | Standard | Notes |
 | :--- | :--- | :--- |
-| **Secure Boot V2** | ECDSA SECP256R1 / RSA-3072 | Enforced by ESP32-S3 ROM bootloader |
+| **Secure Boot V2** | RSA-3072 | Enforced by ESP32-C6 ROM bootloader (`SECURE_BOOT_DIGEST1` in `BLOCK_KEY2`) |
 | **Firmware Signatures** | ECDSA SECP256R1 | Raw IEEE P1363 format ($R \parallel S$, 64 bytes total) |
 | **Digests** | SHA-256 | 32-byte raw binary |
 | **Flash Encryption** | AES-128-XTS | 256-bit key burned to `BLOCK_KEY0` |

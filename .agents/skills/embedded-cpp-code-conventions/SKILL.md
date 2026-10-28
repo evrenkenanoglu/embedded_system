@@ -8,10 +8,11 @@ Use this skill when authoring, refactoring, reviewing, or analyzing C++ firmware
 
 ### File Naming & Header Guards
 - **File Names:** Match the class name exactly in PascalCase (e.g., `HttpsServer.hpp`, `HttpsServer.cpp`).
+  *Exception — HAL drivers:* Use lowercase area prefix + camelCase (e.g., `sys_rtc.hpp`, `sys_rtc.cpp`, `cpx_wifi.cpp`).
 - **Extensions:** `.hpp` for C++ headers, `.cpp` for C++ implementations.
 - **Header Guards:**
-  - Modern C++ / PAL / Application: `#pragma once` at the very top (after file Doxygen block).
-  - Pure C-compatible HAL interfaces (e.g., `ihal.h`): Traditional `#ifndef FILE_NAME_H` guards.
+  - Modern C++ / PAL / Application / Modern HAL: `#pragma once` at the very top (after the file Doxygen block).
+  - Legacy or pure C-compatible HAL interfaces (e.g., `IHal.h`, `IHal_Com_i2c.h`): Traditional `#ifndef FILE_NAME_H` guards.
   Legacy guard format:
   ```cpp
   #ifndef FILE_IHAL_H
@@ -52,16 +53,17 @@ Group `#include` statements in `.cpp` files into 4 distinct blocks separated by 
 
 ## 2. Identifier Naming Conventions
 
-| Entity                 | Casing Style    | Prefix / Suffix   | Rules & Examples                                                                                                                                                                                                                                                                                            |
-| :--------------------- | :-------------- | :---------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Interfaces**         | PascalCase      | `I`-Prefix        | `IHttpServer`, `IHttpUri`. HAL abstract classes may use screaming snake after prefix: `IHAL_IO`, `IHAL_MEM`.                                                                                                                                                                                                |
-| **Concrete Classes**   | PascalCase      | None              | `HttpsServer`, `HttpUri`, `OtaService`. **Exception — HAL drivers:** file, class, and interface names under `Source/HAL/` follow the lowercase area-prefix taxonomy (`io_gpio`, `com_i2c`, `cpx_wifi`, `mem_nvs`, `sys_wdt`, `IHal_<Area>_<Device>.h`); see `embedded-hal-architecture/SKILL.md` section 2. |
-| **Public Methods**     | camelCase       | None              | Must start lowercase: `init()`, `registerUri()`, `sendWsMessage()`.                                                                                                                                                                                                                                         |
-| **Private Methods**    | camelCase       | Single `_` prefix | `_populate_config()`, `_handle_event()`, `_cleanBuffers()`.                                                                                                                                                                                                                                                 |
-| **Private Members**    | camelCase       | Single `_` prefix | `_server`, `_sslConfig`, `_started`, `_semaphore`.                                                                                                                                                                                                                                                          |
-| **Local Variables**    | camelCase       | None              | `maxClients`, `platformUri`. *Exception:* Match SDK naming for raw descriptors (`clientId_sockfd`).                                                                                                                                                                                                         |
-| **Parameters**         | camelCase       | None              | `options`, `payload`, `timeoutMs`. No Hungarian notation.                                                                                                                                                                                                                                                   |
-| **Macros & Constants** | SCREAMING_SNAKE | None              | `HAL_INITIALIZED`, `ENABLE_SYS_LOG_D`, `ERROR_SUCCESS`.                                                                                                                                                                                                                                                     |
+| Entity                   | Casing Style                 | Prefix / Suffix    | Rules & Examples                                                                                                                                                                                                               |
+| :----------------------- | :--------------------------- | :----------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Interfaces (General)** | PascalCase                   | `I`-Prefix         | `IHttpServer`, `IHttpUri`, `ISntpClient`.                                                                                                                                                                                      |
+| **Interfaces (HAL)**     | PascalCase                   | `IHal_` or `IHAL_` | Modern HAL interfaces: `IHal_<Area>_<Device>` (e.g., `IHal_Sys_Rtc`, `IHal_Cpx_Ble`, `IHal_Mem_Ota`). Base and legacy HAL interfaces: Screaming snake after prefix: `IHAL_IO`, `IHAL_MEM`, `IHAL_CPX_WIFI`.                    |
+| **Concrete Classes**     | PascalCase                   | None               | `HttpsServer`, `HttpUri`, `OtaService`, `Serv_sntp`. **Exception — HAL drivers:** follow the lowercase area-prefix taxonomy (`io_gpio`, `com_i2c`, `cpx_wifi`, `mem_nvs`, `sys_wdt`, `sys_rtc`, `sys_resetReason`, `sys_rng`). |
+| **Public Methods**       | camelCase                    | None               | Must start lowercase: `init()`, `registerUri()`, `sendWsMessage()`.                                                                                                                                                            |
+| **Private Methods**      | camelCase                    | Single `_` prefix  | `_populateConfig()`, `_handleEvent()`, `_lock()`.                                                                                                                                                                              |
+| **Private Members**      | camelCase                    | Single `_` prefix  | `_server`, `_sslConfig`, `_started`, `_mutex`.                                                                                                                                                                                 |
+| **Local Variables**      | camelCase                    | None               | `maxClients`, `platformUri`. *Exception:* Match SDK naming for raw descriptors (`clientId_sockfd`).                                                                                                                            |
+| **Parameters**           | camelCase                    | None               | `options`, `payload`, `timeoutMs`. No Hungarian notation.                                                                                                                                                                      |
+| **Macros & Constants**   | SCREAMING_SNAKE / kCamelCase | None / `k` prefix  | Macros: `HAL_INITIALIZED`, `ENABLE_SYS_LOG_D`, `ERROR_SUCCESS`. File-local constants: `constexpr uint32_t kMutexTimeoutMs = 100U;`.                                                                                            |
 
 ---
 
@@ -91,21 +93,20 @@ Group `#include` statements in `.cpp` files into 4 distinct blocks separated by 
   ```
 
 ### Source File Section Separator Blocks
-In `.cpp` files (and legacy `.h` files), partition content using uppercase section comment blocks:
+Partition `.cpp` implementation files using uppercase section comment blocks. Modern platform implementations standardise on the compact 3-asterisk format:
+
 ```cpp
-/** INCLUDES ******************************************************************/
+/*** INCLUDES ***/
 
-/** CONSTANTS *****************************************************************/
+/*** CONSTANTS ***/
 
-/** TYPEDEFS ******************************************************************/
+/*** TYPEDEFS ***/
 
-/** MACROS ********************************************************************/
+/*** MACROS ***/
 
-/** VARIABLES *****************************************************************/
+/*** LOCAL FUNCTIONS ***/
 
-/** LOCAL FUNCTIONS ***********************************************************/
-
-/** FUNCTIONS *****************************************************************/
+/*** FUNCTIONS ***/
 ```
 
 ---
@@ -117,44 +118,30 @@ In `.cpp` files (and legacy `.h` files), partition content using uppercase secti
 
 ### Error Macro Reference
 
-| Macro                                               | Evaluated Expression | Action on Error                                               | Recommended Use Case                                         |
-| :-------------------------------------------------- | :------------------- | :------------------------------------------------------------ | :----------------------------------------------------------- |
-| `RETURN_ON_ERROR(expr, ...)`                        | `sys_error_t`        | Runs cleanup (`...`), returns evaluated error code.           | Calling internal operations returning `sys_error_t`.         |
-| `RETURN_ON_ERROR_WITH_LOG(expr, msg, ...)`          | `sys_error_t`        | Logs file/line, code, and `msg`. Runs cleanup, returns error. | Bubbling up internal operational failures with log context.  |
-| `ON_ERROR_WITH_LOG(expr, msg)`                      | `sys_error_t`        | Logs file/line, code, and `msg`. **Does not return**.         | Non-fatal steps where execution must continue.               |
-| `RETURN_IF_ERROR(expr, errCode, ...)`               | Boolean condition    | If `true`, runs cleanup (`...`), returns `errCode`.           | Pointer checks (`ptr == nullptr`) or raw SDK non-zero codes. |
-| `RETURN_IF_ERROR_WITH_LOG(expr, errCode, msg, ...)` | Boolean condition    | If `true`, logs `msg`, runs cleanup, returns `errCode`.       | Validation checks requiring explicit warning/error logs.     |
-| `BREAK_ON_ERROR(expr)`                              | Boolean condition    | If `true`, breaks out of containing loop.                     | Batch processing loops and byte stream iteration.            |
+| Macro                                               | Evaluated Expression | Action on Error                                                                                              | Recommended Use Case                                                                                                       |
+| :-------------------------------------------------- | :------------------- | :----------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| `RETURN_ON_ERROR(expr, ...)`                        | `sys_error_t`        | If `expr != ERROR_SUCCESS`, runs cleanup (`...`), returns error.                                             | Calling functions that return `sys_error_t`.                                                                               |
+| `RETURN_ON_ERROR_WITH_LOG(expr, msg, ...)`          | `sys_error_t`        | If `expr != ERROR_SUCCESS`, logs `msg`, cleans up, returns error.                                            | Bubbling up internal operational failures with log context.                                                                |
+| `ON_ERROR_WITH_LOG(expr, msg)`                      | `sys_error_t`        | Logs file/line, code, and `msg`. **Does not return**.                                                        | Non-fatal steps where execution must continue.                                                                             |
+| `RETURN_IF_ERROR(cond, errCode, ...)`               | Boolean condition    | **Assertion/Precondition:** If `cond` is **`false`** (check fails), runs cleanup (`...`), returns `errCode`. | Pointer validity (`ptr != nullptr`), state assertions (`_initialized == HAL_INITIALIZED`), mutex locks (`_lock(timeout)`). |
+| `RETURN_IF_ERROR_WITH_LOG(cond, errCode, msg, ...)` | Boolean condition    | If `cond` is **`false`**, logs `msg`, runs cleanup, returns `errCode`.                                       | Invariant and precondition checks requiring explicit warning/error logs.                                                   |
+| `BREAK_ON_ERROR(expr)`                              | Boolean condition    | If `expr` is `false`, breaks out of containing loop.                                                         | Batch processing loops and byte stream iteration.                                                                          |
 
-### Evaluating Return Codes Safely
-Always cast the output of an evaluated expression inside the standard return macros if the expression type is not implicitly `sys_error_t` (e.g. raw SDK return codes passed to `RETURN_IF_ERROR`).
+### Precondition Assertion Formatting (`RETURN_IF_ERROR`)
+`RETURN_IF_ERROR(condition, errCode)` checks that the condition is **satisfied/true**. It triggers and returns `errCode` when the condition is **violated/false**:
 
-### Multi-Line Macro Invocation Formatting
-When macro calls span multiple lines, each parameter must sit on its own line documented with right-aligned comments:
 ```cpp
-RETURN_IF_ERROR(
-    (length < min_header_size),                                                                                                 // Expression
-    ERROR_INVALID_ARG,                                                                                                          // Error code
-    SYS_LOG_E("First write chunk size too small for header validation: %zu bytes (min required: %zu)", length, min_header_size) // Error message
-);
-```
+// Pointer null-check (asserts outputBuffer is NOT null)
+RETURN_IF_ERROR(outputBuffer != nullptr, ERROR_NULL_POINTER);
 
-The same right-aligned comment discipline applies to log-coupled SDK-error translation:
-```cpp
-RETURN_IF_ERROR(
-    (err != ESP_OK),                                                         // Expression
-    TRANSLATE_ERROR(err),                                                    // Error code
-    SYS_LOG_E("esp_ota_begin failed: %s (0x%x)", ERROR_MESSAGE(err), err)    // Error message / Log
-);
-```
+// Numeric range check (asserts length is positive)
+RETURN_IF_ERROR(length > 0U, ERROR_INVALID_ARG);
 
-### State Cleanup via Variadic Arguments (`__VA_ARGS__`)
-```cpp
-RETURN_ON_ERROR(
-    _prepare_request(method, path, headers, body, body_len),    // Expression
-    SYS_LOG_E("Failed to prepare request!");                    // Log Message
-    _active_response_buf = nullptr;                             // Inline cleanup
-);
+// Lifecycle check (asserts driver is initialized)
+RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
+
+// Mutex acquisition (asserts lock succeeded)
+RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
 ```
 
 ---
@@ -162,24 +149,23 @@ RETURN_ON_ERROR(
 ## 5. Resource Management, RAII & Memory Safety
 
 ### Rule of Five & Ownership
-Classes wrapping physical peripherals, comms channels, or hardware driver handles (`HttpsClient`, `HttpsServer`, `mem_ota`, etc.) must enforce **unique ownership**; copying and moving these classes is prohibited to prevent duplicate deletions and dangling hardware handles. Destructors must call the corresponding deinitialization or stop routine (`deInit()`, `stop()`, `disconnect()`) to ensure graceful resource release when going out of scope:
+Classes wrapping physical peripherals, comms channels, or hardware driver handles (`sys_rtc`, `sys_rng`, `sys_resetReason`, `Serv_sntp`, `mem_ota`, `HttpsServer`, etc.) must enforce **unique ownership**; copying and moving these classes is prohibited to prevent duplicate deletions and dangling hardware handles. Destructors must call the corresponding deinitialization or stop routine (`deInit()`, `stop()`, `disconnect()`) to ensure graceful resource release when going out of scope:
 ```cpp
-class HttpsServer : public IHttpServer
+class sys_rtc : public IHal_Sys_Rtc
 {
 public:
-    explicit HttpsServer(const HttpServerStartOptions_t& options);
-    ~HttpsServer() override;
+    sys_rtc();
+    ~sys_rtc() override;
 
     // Block copy semantics
-    HttpsServer(const HttpsServer&) = delete;
-    HttpsServer& operator=(const HttpsServer&) = delete;
+    sys_rtc(const sys_rtc&) = delete;
+    sys_rtc& operator=(const sys_rtc&) = delete;
 
-    // Block move semantics (unless explicitly required and designed)
-    HttpsServer(HttpsServer&&) = delete;
-    HttpsServer& operator=(HttpsServer&&) = delete;
+    // Block move semantics
+    sys_rtc(sys_rtc&&) = delete;
+    sys_rtc& operator=(sys_rtc&&) = delete;
 };
 ```
-- **Destructors:** Must call corresponding deinitialization or stop routines (`deInit()`, `stop()`, `disconnect()`).
 
 ### Deterministic Heap Management (No-Throw)
 - Embedded dynamic allocations must be deterministic: never allow exceptions to fire.
@@ -192,17 +178,12 @@ public:
       SYS_LOG_E("Out of memory - Buffer allocation failed!");
       return ERROR_NO_MEM;
   }
-  // buf is automatically freed when it goes out of scope
   ```
 
 ### Memory Alignment & Strict Aliasing (No `reinterpret_cast`)
-- **Prohibition:** Never cast raw byte buffers (`uint8_t*`) directly to struct pointers via `reinterpret_cast`. This violates strict aliasing rules and triggers unaligned memory bus errors on 32-bit architectures (Xtensa / RISC-V).
-- **Rationale:** Copying into a stack-allocated struct ensures the structure is correctly aligned to word boundaries.
+- **Prohibition:** Never cast raw byte buffers (`uint8_t*`) directly to struct pointers via `reinterpret_cast`.
 - **Rule:** Copy data into an aligned, stack-allocated struct via `std::memcpy`:
   ```cpp
-  // AVOID: const esp_app_desc_t* desc = reinterpret_cast<const esp_app_desc_t*>(raw_buffer);
-
-  // CORRECT:
   esp_app_desc_t app_info;
   std::memcpy(&app_info, raw_buffer + offset, sizeof(esp_app_desc_t));
   ```
@@ -221,31 +202,14 @@ public:
 | `SYS_LOG_D(...)` | **DEBUG** | Developer      | High-frequency diagnostics, payload dumps, byte counts. Stripped in production.          |
 
 ### Module Debug Filtering
-Debug logging (`SYS_LOG_D`) is stripped at compile-time by default to prevent high-frequency debug logs from consuming flash space or CPU cycles in production. To enable it for a specific `.cpp` file, define `ENABLE_SYS_LOG_D` **before** including `LogHandler.h`:
+To enable debug logging for a specific `.cpp` file, define `ENABLE_SYS_LOG_D` **before** including `LogHandler.h`:
 ```cpp
-#include "mem_ota.hpp"
-#include "esp_image_format.h"
-
-// Enable debug logs for this translation unit only
 #define ENABLE_SYS_LOG_D
+
+/*** INCLUDES ***/
+#include "sys_rtc.hpp"
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
-```
-
-### Logging Performance Rules
-- **No `std::string` Concatenation:** Do not use `+` or `std::to_string()` inside `SYS_LOG_D(...)`. Use standard `printf` format specifiers so zero CPU cycles are spent when debug logging is disabled.
-- **Portability:** Use standard C99 `PRI` macros for integers (e.g., `PRIu32`, `PRIx32`).
-- **Zero Logging in ISR:** Never call `SYS_LOG_*` or `printf` inside an ISR. Standard logging is blocking and relies on thread-unsafe printf locks (non-reentrant).
-
-```cpp
-// BAD: CPU cycles are wasted on string allocation even if DEBUG logs are disabled
-SYS_LOG_D("Socket FD: " + std::to_string(sockfd));
-
-// GOOD: Zero allocation; optimized away at compile time if DEBUG is disabled
-SYS_LOG_D("Socket FD: %d", sockfd);
-
-// GOOD: Portably formatting hardware addresses/registers
-SYS_LOG_I("Writing to partition subtype %d at offset 0x%" PRIx32, subtype, address);
 ```
 
 ---
@@ -253,17 +217,26 @@ SYS_LOG_I("Writing to partition subtype %d at offset 0x%" PRIx32, subtype, addre
 ## 7. Concurrency & ESP-IDF Integration
 
 ### FreeRTOS Synchronization
-- **Prefer scoped RAII locks** for semaphore/mutex ownership wherever possible, rather than manual release routines on error exit blocks.
-- Protect shared member variables across tasks using FreeRTOS semaphores or mutexes. When multiple tasks access or modify class member variables (arrays, state flags, socket buffers), access must be serialized with a FreeRTOS semaphore or mutex to prevent lockouts and deadlocks on critical shared resources.
-- Guarantee that mutexes are released along every early-exit and error path:
+- **Bounded Lock Timeouts:** Mutexes must always take a finite timeout (e.g., `pdMS_TO_TICKS(kMutexTimeoutMs)`), never `portMAX_DELAY`, to prevent deadlocks:
   ```cpp
-  if (xSemaphoreTake(_semaphore, portMAX_DELAY) != pdTRUE)
+  constexpr uint32_t kMutexTimeoutMs = 100U;
+
+  bool sys_rtc::_lock(TickType_t timeoutMs)
   {
-      return ERROR_TIMEOUT;
+      if (_mutex == nullptr)
+      {
+          return false;
+      }
+      return xSemaphoreTake(_mutex, pdMS_TO_TICKS(timeoutMs)) == pdTRUE;
   }
-  _registeredUris.push_back(static_cast<HttpUri*>(&uri));
-  xSemaphoreGive(_semaphore);
-  return ERROR_SUCCESS;
+
+  void sys_rtc::_unlock()
+  {
+      if (_mutex != nullptr)
+      {
+          (void)xSemaphoreGive(_mutex);
+      }
+  }
   ```
 
 ### Interrupt Service Routine (ISR) Hard Constraints
@@ -273,43 +246,9 @@ SYS_LOG_I("Writing to partition subtype %d at offset 0x%" PRIx32, subtype, addre
 - ✔️ **`FromISR` APIs Only:** Use only FreeRTOS functions suffixed with `FromISR` (e.g., `xQueueSendFromISR`, `xSemaphoreGiveFromISR`).
 - ✔️ **Context Switching:** Always pass `BaseType_t *pxHigherPriorityTaskWoken` to `FromISR` calls and yield if unblocked.
 
-### SDK Callback Context Isolation
-Callbacks registered to ESP-IDF drivers or protocol stacks (HTTP events, Wi-Fi events, mTLS handshakes) execute inside the underlying SDK task thread (e.g. the `httpd` task), **not** the application task. Any class member modified inside such a callback requires a mutex or `std::atomic`; pass data to the application thread via thread-safe queues instead of direct member access.
-```cpp
-void HttpsServer::https_server_user_callback(esp_https_server_user_cb_arg_t* user_cb)
-{
-    // This callback is executed inside the 'httpd' task thread context, NOT the application thread.
-    switch (user_cb->user_cb_state)
-    {
-        case HTTPD_SSL_USER_CB_SESS_CREATE:
-            // Modifying any member variable here requires a thread-safe atomic or mutex lock.
-            break;
-        default:
-            break;
-    }
-}
-```
-
-### Multi-Threaded Callbacks
-Callbacks from ESP-IDF protocol stacks (HTTP events, Wi-Fi events, mTLS handshakes) run in the **SDK driver task context**, not the application task. Any state updated inside an SDK callback must be protected using a mutex or `std::atomic`.
-
-### Task Parameterization
-Never hardcode task stack sizes or priorities in `.cpp` files; hardcoding can lead to stack overflows or priority inversion. Expose them via startup configuration structures (e.g., `options.task_stack_size`, `options.task_priority`), allowing them to be tuned based on the application's overall memory map.
-```cpp
-sys_error_t HttpsServer::populate_config(const HttpServerStartOptions_t& options, httpd_ssl_config_t& sslConfig)
-{
-    // Expose stack and priority options instead of hardcoding values
-    sslConfig.httpd.stack_size       = options.task_stack_size;
-    sslConfig.httpd.task_priority    = options.task_priority;
-    sslConfig.httpd.max_open_sockets = options.max_connections;
-
-    return ERROR_SUCCESS;
-}
-```
-
 ---
 
-## 8. Doxygen Documentation Standard
+## 8. Doxygen Documentation & In-Body Procedural Flow
 
 ### 1. File-Level Header (Top of `.hpp`, `.cpp`, `.h`)
 Must precede all `#pragma once` and `#include` directives:
@@ -321,6 +260,7 @@ Must precede all `#pragma once` and `#include` directives:
  *              modify, distribute, perform, display or sell this software and/or
  *              its documentation for any purpose is prohibited without the express
  *              written consent of Evren Kenanoglu.
+ *  @author     Evren Kenanoglu
  *  @date       DD/MM/YYYY
  */
 ```
@@ -357,30 +297,54 @@ class ClassName
  */
 virtual sys_error_t deInit(uint32_t timeout_ms, uint32_t* status_out) = 0;
 ```
-*Note on `override`:* Concrete implementations of an interface method in `.hpp` using the `override` specifier do **not** require duplicated Doxygen comments if the base interface is already documented.
+*Note on `override`:* Concrete implementations in `.hpp` using `override` do **not** require duplicated Doxygen comments if the base interface is already documented.
 
-### 4. In-Body Function Flow Documentation (`///` vs `//`)
-- **`///` (Triple-Slash):** Document high-level execution steps, milestones, or state transitions inside a function body. Doxygen extracts and appends these to the public **In-Body Description** section. Align `///` comments with the code indentation. Markdown syntax is supported.
-- **`//` (Double-Slash):** Reserved strictly for private developer notes, register workarounds, and internal implementation details. Ignored by Doxygen.
+---
 
+### 4. In-Body Procedure Flow (`///`) vs. Private Developer Notes (`//`)
+
+Functions with procedural flows, multiple milestones, state transitions, or validation sequences must differentiate between **exported procedural documentation** and **private developer comments**:
+
+#### A. Exported Procedural Steps: `///` (Triple-Slash)
+- **Purpose:** Directly describes the procedural steps, actions, and milestones of the function.
+- **Export Behavior:** Doxygen extracts `///` comments directly into the generated documentation under the function's **Detailed In-Body Description**.
+- **Rules:**
+  - Must align with current code indentation.
+  - Do **not** clutter comments with `###`, `Step 1:`, or `STEP X` prefixes. Write concise, direct descriptions of the procedure.
+  - Standard Doxygen commands (`@note`, `@warning`) can be used if additional context is needed.
+
+#### B. Private Developer Notes: `//` (Double-Slash)
+- **Purpose:** Reserved strictly for private notes, low-level register workarounds, debug hints, and inline scratchpad notes.
+- **Export Behavior:** Intentionally **ignored** by Doxygen; will never appear in exported documentation.
+
+#### In-Body Flow Example:
 ```cpp
-sys_error_t executeTransaction(const uint8_t* payload, size_t len)
+sys_error_t sys_rtc::setTime(time_t epochSeconds, uint32_t fractionalUs)
 {
-    // Dev note: Allocating on stack to guarantee zero heap fragmentation (Ignored by Doxygen)
-    uint8_t buffer[128];
+    /// Validate initialization state and fractional microsecond bounds.
+    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR(fractionalUs <= kFractionalUsMax, ERROR_INVALID_ARG);
 
-    /// Validates parameters against static buffer constraints.
-    if (len > sizeof(buffer))
+    /// Acquire the serialization mutex to serialize access across concurrent tasks.
+    RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+
+    // Hardware note: settimeofday expects struct timeval with microseconds (Ignored by Doxygen)
+    struct timeval tv;
+    tv.tv_sec  = epochSeconds;
+    tv.tv_usec = static_cast<suseconds_t>(fractionalUs);
+
+    /// Commit the wall-clock timestamp to the POSIX system time base.
+    if (settimeofday(&tv, nullptr) != 0)
     {
-        return ERROR_INVALID_ARG;
+        _unlock();
+        SYS_LOG_E("sys_rtc: settimeofday failed (errno=%d)", errno);
+        return ERROR_WRITE_FAILED;
     }
 
-    /// @note Cryptographic hardware must be initialized prior to execution.
-    /// Encrypts raw data directly within the local stack memory block.
-    sys_error_t err = crypto_encrypt(payload, buffer, len);
-    if (err != ERROR_SUCCESS) return err;
+    /// Release the synchronization mutex.
+    _unlock();
 
-    /// ### Step 3: Dispatch Payload
-    return network_send(buffer, len);
+    SYS_LOG_I("sys_rtc: time set to %lld.%06lu s", static_cast<long long>(epochSeconds), static_cast<unsigned long>(fractionalUs));
+    return ERROR_SUCCESS;
 }
 ```
