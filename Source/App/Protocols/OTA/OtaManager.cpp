@@ -9,6 +9,8 @@
  */
 
 #include "App/Protocols/OTA/OtaManager.hpp"
+#include "HAL/IHAL/IHal_Sys_ResetReason.h"
+#include "HAL/IHAL/IHal_Sys_Rng.h"
 #include "cJSON.h"
 #include "swConfig/ota_generated_config.h"
 
@@ -126,9 +128,11 @@ sys_error_t OtaManager::deInit()
     }
 
     _selfTests.clear();
-    _checkpointMgr = nullptr;
-    _diagStorage   = nullptr;
-    _startupConfig = {};
+    _checkpointMgr     = nullptr;
+    _diagStorage       = nullptr;
+    _rngDriver         = nullptr;
+    _resetReasonDriver = nullptr;
+    _startupConfig     = {};
     return ERROR_SUCCESS;
 }
 
@@ -136,14 +140,26 @@ uint32_t OtaManager::calculateNextCheckInterval() const
 {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    if (_options.jitterRangeSec == 0 || !_platformHooks.getRandomNumber)
+    if (_options.jitterRangeSec == 0 || (!_platformHooks.getRandomNumber && _rngDriver == nullptr))
     {
         return std::max<uint32_t>(1, _options.baseCheckIntervalSec);
     }
 
     const uint64_t jitterWindow = static_cast<uint64_t>(_options.jitterRangeSec) * 2U;
-    const int64_t  offset       = static_cast<int64_t>(_platformHooks.getRandomNumber() % jitterWindow) - _options.jitterRangeSec;
-    const int64_t  interval     = static_cast<int64_t>(_options.baseCheckIntervalSec) + offset;
+    uint32_t       rawRandom    = 0U;
+
+    if (_rngDriver != nullptr)
+    {
+        // Prefer the injected hardware TRNG: bias-free jitter without SDK coupling.
+        rawRandom = _rngDriver->getRandomRange(0U, static_cast<uint32_t>(jitterWindow) - 1U);
+    }
+    else
+    {
+        rawRandom = _platformHooks.getRandomNumber() % static_cast<uint32_t>(jitterWindow);
+    }
+
+    const int64_t offset   = static_cast<int64_t>(rawRandom) - _options.jitterRangeSec;
+    const int64_t interval = static_cast<int64_t>(_options.baseCheckIntervalSec) + offset;
 
     const int64_t clampedInterval = std::max<int64_t>(1, std::min<int64_t>(interval, std::numeric_limits<uint32_t>::max()));
     return static_cast<uint32_t>(clampedInterval);
@@ -287,6 +303,9 @@ sys_error_t OtaManager::startAutomatic(const OtaManagerStartupConfig_t& startupC
     {
         return err;
     }
+
+    _rngDriver         = _startupConfig.rngDriver;
+    _resetReasonDriver = _startupConfig.resetReasonDriver;
 
     setCheckpointManager(_startupConfig.checkpointManager);
     err = setDiagnosticStorage(_startupConfig.diagnosticStorage);
@@ -845,6 +864,33 @@ sys_error_t OtaManager::validateCurrentFirmware()
     }
 
     SYS_LOG_W("Provisional boot detected (PendingVerify). Executing self-test diagnostic suite...");
+
+    /// Phase 4 self-healing: an abnormal silicon reset (panic, watchdog, brownout,
+    /// CPU lock-up) during a trial boot aborts validation before self-tests run.
+    if (_resetReasonDriver != nullptr && _resetReasonDriver->isAbnormalReset())
+    {
+        const char* reasonStr = _resetReasonDriver->getResetReasonString();
+        SYS_LOG_E("Abnormal reset detected (%s) during PendingVerify trial boot. Recording diagnostic and initiating rollback!", reasonStr);
+
+        if (_diagStorage != nullptr)
+        {
+            OtaRollbackDiagnostic_t diag{};
+            std::strncpy(diag.failedVersion, _options.currentVersion.c_str(), sizeof(diag.failedVersion) - 1);
+            diag.failureReasonCode = ERROR_FAIL;
+            std::strncpy(diag.failedTestName, reasonStr, sizeof(diag.failedTestName) - 1);
+            diag.timestampUtc = 0;
+
+            const auto*  diagBytes = reinterpret_cast<const uint8_t*>(&diag);
+            const size_t diagLen   = offsetof(OtaRollbackDiagnostic_t, crc32);
+            diag.crc32             = Crc32::calculate(diagBytes, diagLen);
+
+            _diagStorage->writeData("ota_rollback", reinterpret_cast<const uint8_t*>(&diag), sizeof(diag));
+        }
+
+        _sendTelemetryReport("rollback", ERROR_FAIL);
+        _otaService.markAppInvalid(); /// Triggers immediate reboot and bootloader rollback
+        return ERROR_FAIL;
+    }
 
     for (const auto& test : _selfTests)
     {

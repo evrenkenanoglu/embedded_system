@@ -104,6 +104,8 @@ struct OtaManagerStartupConfig_t
     IHAL_MEM*                                              factoryTrustStorage = nullptr;
     IHAL_MEM*                                              diagnosticStorage   = nullptr;
     OtaCheckpointManager*                                  checkpointManager   = nullptr;
+    class IHal_Sys_Rng*                                    rngDriver           = nullptr; ///< Optional hardware TRNG for jitter (falls back to hooks.getRandomNumber)
+    class IHal_Sys_ResetReason*                            resetReasonDriver   = nullptr; ///< Optional silicon reset diagnostics for self-healing rollback
     std::vector<std::pair<std::string, OtaSelfTestHook_t>> selfTests;
 };
 

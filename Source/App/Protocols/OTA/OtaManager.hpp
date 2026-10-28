@@ -103,6 +103,8 @@ private:
     bool                         _isInitialized;
     OtaCheckpointManager*        _checkpointMgr{nullptr};
     IHAL_MEM*                    _diagStorage{nullptr};
+    IHal_Sys_Rng*                _rngDriver{nullptr};
+    IHal_Sys_ResetReason*        _resetReasonDriver{nullptr};
 
     // Transient target context
     bool        _updatePending;
