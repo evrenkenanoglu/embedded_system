@@ -11,16 +11,24 @@
 
 #define ENABLE_SYS_LOG_D
 
-/*** INCLUDES ***/
+/** INCLUDES ******************************************************************/
 #include "sys_resetReason.hpp"
+
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
 #include "System/error_macros.h"
 
 #include <esp_system.h>
-/*** INCLUDES ***/
 
-/*** LOCAL FUNCTIONS ***/
+/** CONSTANTS *****************************************************************/
+
+/** TYPEDEFS ******************************************************************/
+
+/** MACROS ********************************************************************/
+
+/** VARIABLES *****************************************************************/
+
+/** LOCAL FUNCTIONS ***********************************************************/
 namespace
 {
     /**
@@ -90,9 +98,8 @@ namespace
         }
     }
 } // namespace
-/*** LOCAL FUNCTIONS ***/
 
-/*** FUNCTIONS ***/
+/** FUNCTIONS *****************************************************************/
 sys_resetReason::sys_resetReason()
     : _initialized(HAL_UNINITIALIZED)
 {
@@ -107,12 +114,14 @@ sys_error_t sys_resetReason::init(void* params)
 {
     (void)params;
 
+    /// Check whether the diagnostics driver is already initialized.
     if (_initialized == HAL_INITIALIZED)
     {
         SYS_LOG_W("sys_resetReason: already initialized");
         return ERROR_SUCCESS;
     }
 
+    /// Mark driver as initialized and log decoded boot vector.
     _initialized = HAL_INITIALIZED;
     SYS_LOG_I("sys_resetReason: initialized (reason=%s)", resetReasonToString(getResetReason()));
     return ERROR_SUCCESS;
@@ -120,6 +129,7 @@ sys_error_t sys_resetReason::init(void* params)
 
 sys_error_t sys_resetReason::feed()
 {
+    /// Validate driver initialization state.
     RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
 
     // The reset reason is latched by the silicon at power-up; no periodic
@@ -129,11 +139,13 @@ sys_error_t sys_resetReason::feed()
 
 sys_error_t sys_resetReason::deInit()
 {
+    /// Return early if already deinitialized.
     if (_initialized != HAL_INITIALIZED)
     {
         return ERROR_SUCCESS;
     }
 
+    /// Reset initialized lifecycle flag.
     _initialized = HAL_UNINITIALIZED;
     SYS_LOG_D("sys_resetReason: de-initialized");
     return ERROR_SUCCESS;
@@ -141,21 +153,25 @@ sys_error_t sys_resetReason::deInit()
 
 hal_reset_reason_t sys_resetReason::getResetReason()
 {
+    /// Return unknown vector if driver has not been initialized.
     if (_initialized != HAL_INITIALIZED)
     {
         return hal_reset_reason_t::UNKNOWN;
     }
 
+    /// Read raw silicon reset register via ESP-IDF and map to HAL classification.
     return translateResetReason(esp_reset_reason());
 }
 
 const char* sys_resetReason::getResetReasonString()
 {
+    /// Convert decoded reset reason enum to human-readable string.
     return resetReasonToString(getResetReason());
 }
 
 bool sys_resetReason::isAbnormalReset()
 {
+    /// Classify whether the latched reset reason indicates an abnormal crash or brownout.
     switch (getResetReason())
     {
         case hal_reset_reason_t::PANIC_CRASH:
@@ -168,4 +184,3 @@ bool sys_resetReason::isAbnormalReset()
             return false;
     }
 }
-/*** FUNCTIONS ***/

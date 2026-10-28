@@ -1,5 +1,15 @@
-#ifndef FILE_IHAL_COM_I2C_H
-#define FILE_IHAL_COM_I2C_H
+/** @file       IHal_Com_i2c.h
+ *  @brief      Hardware Abstraction Layer interface for I2C communication operations.
+ *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+ *              Permission to use, reproduce, copy, prepare derivative works,
+ *              modify, distribute, perform, display or sell this software and/or
+ *              its documentation for any purpose is prohibited without the express
+ *              written consent of Evren Kenanoglu.
+ *  @author     Evren Kenanoglu
+ *  @date       28/10/2026
+ */
+
+#pragma once
 
 #include "IHal.h"
 
@@ -8,6 +18,7 @@
 /** CONSTANTS *****************************************************************/
 
 /** TYPEDEFS ******************************************************************/
+
 // Platform-independent I2C mode enumeration
 typedef enum
 {
@@ -33,12 +44,6 @@ typedef struct
     bool     open_drain;    // Configure as open-drain (useful for I2C)
 } hal_i2c_gpio_config_t;
 
-/** MACROS ********************************************************************/
-
-/** VARIABLES *****************************************************************/
-
-/** FUNCTIONS *****************************************************************/
-
 // Updated platform-independent I2C configuration
 typedef struct
 {
@@ -53,12 +58,18 @@ typedef struct
     const void* platform_config; // Pointer to platform-specific configuration
 } hal_com_i2c_config_t;
 
+/** MACROS ********************************************************************/
+
+/** VARIABLES *****************************************************************/
+
+/** FUNCTIONS *****************************************************************/
+
 /**
  * @class IHAL_COM_I2C
  * @brief Interface for Hardware Abstraction Layer (HAL) I2C communication operations.
  */
 class IHAL_COM_I2C : public IHAL_COM
 {
+public:
+    virtual ~IHAL_COM_I2C() = default;
 };
-
-#endif // FILE_IHAL_COM_I2C_H

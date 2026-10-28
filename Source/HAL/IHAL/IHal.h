@@ -304,6 +304,4 @@ public:
 
 /** FUNCTIONS *****************************************************************/
 
-#undef INTERFACE // Should not let this roam free
-
 #endif // FILE_IHAL_H

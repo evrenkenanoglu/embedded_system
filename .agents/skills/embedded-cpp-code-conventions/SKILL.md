@@ -93,20 +93,21 @@ Group `#include` statements in `.cpp` files into 4 distinct blocks separated by 
   ```
 
 ### Source File Section Separator Blocks
-Partition `.cpp` implementation files using uppercase section comment blocks. Modern platform implementations standardise on the compact 3-asterisk format:
-
+In `.cpp` files (and legacy `.h` files), partition content using uppercase section comment blocks:
 ```cpp
-/*** INCLUDES ***/
+/** INCLUDES ******************************************************************/
 
-/*** CONSTANTS ***/
+/** CONSTANTS *****************************************************************/
 
-/*** TYPEDEFS ***/
+/** TYPEDEFS ******************************************************************/
 
-/*** MACROS ***/
+/** MACROS ********************************************************************/
 
-/*** LOCAL FUNCTIONS ***/
+/** VARIABLES *****************************************************************/
 
-/*** FUNCTIONS ***/
+/** LOCAL FUNCTIONS ***********************************************************/
+
+/** FUNCTIONS *****************************************************************/
 ```
 
 ---

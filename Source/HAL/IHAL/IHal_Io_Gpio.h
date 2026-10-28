@@ -1,8 +1,20 @@
-#ifndef FILE_IHAL_IO_GPIO_H
-#define FILE_IHAL_IO_GPIO_H
+/** @file       IHal_Io_Gpio.h
+ *  @brief      Hardware Abstraction Layer interface for General Purpose I/O (GPIO) operations.
+ *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
+ *              Permission to use, reproduce, copy, prepare derivative works,
+ *              modify, distribute, perform, display or sell this software and/or
+ *              its documentation for any purpose is prohibited without the express
+ *              written consent of Evren Kenanoglu.
+ *  @author     Evren Kenanoglu
+ *  @date       28/10/2026
+ */
+
+#pragma once
 
 #include "IHal.h"
 #include "System/system.h"
+
+#include <cstdint>
 
 #define IHAL_GPIO_EVENT_QUEUE_LENGTH 4
 
@@ -192,26 +204,8 @@ public:
      */
     virtual bool hasCapability(uint32_t capability) const = 0;
 
-    // /**
-    //  * @brief Get GPIO configuration as a HAL configuration structure
-    //  * @param config Pointer to gpio_hal_config_t structure to store current configuration
-    //  * @return sys_error_t Error code
-    //  */
-    // virtual sys_error_t getConfiguration(gpio_hal_config_t* config) const = 0;
-
-    // /**
-    //  * @brief Set GPIO configuration from a HAL configuration structure
-    //  * @param config Pointer to gpio_hal_config_t structure containing new configuration
-    //  * @return sys_error_t Error code
-    //  */
-    // virtual sys_error_t setConfiguration(const gpio_hal_config_t* config) = 0;
-
     /**
      * @brief Virtual destructor
      */
     virtual ~IHAL_IO_GPIO() = default;
 };
-
-#undef INTERFACE // Should not let this roam free
-
-#endif // FILE_IHAL_IO_GPIO_H
