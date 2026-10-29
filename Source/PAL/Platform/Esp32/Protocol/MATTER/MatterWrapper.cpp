@@ -514,6 +514,24 @@ sys_error_t MatterWrapper::addDevice(IMatterDevice& device)
         }
         break;
 
+        case MatterTypes::Device::TEMPERATURE_SENSOR_DEVICE:
+        {
+            // Configure Temperature Sensor (0x0402 Temperature Measurement)
+            temperature_sensor::config_t config               = {};
+            config.temperature_measurement.measured_value     = static_cast<int16_t>(0);     // Initial value 0.00 degrees Celsius
+            config.temperature_measurement.min_measured_value = static_cast<int16_t>(-2000); // -20.00 degrees Celsius
+            config.temperature_measurement.max_measured_value = static_cast<int16_t>(10000); // 100.00 degrees Celsius
+
+            // Create the endpoint and register priv_data
+            ep_handle = temperature_sensor::create(_node_handle, &config, ENDPOINT_FLAG_NONE, priv_data);
+
+            // Set device cluster_id
+            device.setClusterId(chip::app::Clusters::TemperatureMeasurement::Id);
+            // Set attribute_id
+            device.setAttributeId(chip::app::Clusters::TemperatureMeasurement::Attributes::MeasuredValue::Id);
+        }
+        break;
+
             // Add other cases (Sensors, Dimmers) here...
 
         default:
