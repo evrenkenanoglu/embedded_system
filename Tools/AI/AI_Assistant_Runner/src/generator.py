@@ -3,6 +3,7 @@
 @brief      Multi-provider standalone script generator for AI assistants.
 """
 
+import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Type
@@ -22,6 +23,38 @@ def get_platform_label() -> str:
     except Exception:
         pass
     return "Linux/POSIX"
+
+
+def _api_key_env_lines(adapter: BaseAdapter, shell: str) -> List[str]:
+    if adapter.provider.get("native", False) or adapter.has_inline_api_key():
+        return []
+    source_vars = adapter.api_key_env_vars()
+    if not adapter.api_key_target_vars or not source_vars:
+        return []
+
+    if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) for name in source_vars):
+        raise ValueError(
+            "API key environment variable names must be valid identifiers."
+        )
+
+    lines = []
+    for index, source_var in enumerate(source_vars):
+        if shell == "bash":
+            prefix = "if" if index == 0 else "elif"
+            lines.append(f'{prefix} [[ -n "${{{source_var}:-}}" ]]; then')
+            lines.extend(
+                f'  export {target_var}="${source_var}"'
+                for target_var in adapter.api_key_target_vars
+            )
+        else:
+            prefix = "if" if index == 0 else "} elseif"
+            lines.append(f"{prefix} ($env:{source_var}) {{")
+            lines.extend(
+                f"    $env:{target_var} = $env:{source_var}"
+                for target_var in adapter.api_key_target_vars
+            )
+    lines.append("fi" if shell == "bash" else "}")
+    return lines
 
 
 def _build_bash_script(
@@ -45,6 +78,7 @@ def _build_bash_script(
     for k, v in env_vars.items():
         escaped_v = v.replace('"', '\\"')
         lines.append(f'export {k}="{escaped_v}"')
+    lines.extend(_api_key_env_lines(adapter, "bash"))
 
     binary = adapter.get_binary()
     args_str = " ".join(f'"{a}"' if " " in a else a for a in adapter.get_args())
@@ -73,6 +107,7 @@ def _build_powershell_script(
     for k, v in env_vars.items():
         escaped_v = v.replace('"', '`"')
         lines.append(f'$env:{k} = "{escaped_v}"')
+    lines.extend(_api_key_env_lines(adapter, "powershell"))
 
     binary = adapter.get_binary()
     args_str = " ".join(f'"{a}"' if " " in a else a for a in adapter.get_args())
@@ -83,12 +118,16 @@ def _build_powershell_script(
 
 def _format_quick_run(project_root: Path, file_path: Path, fmt: str) -> str:
     try:
-        rel_path = file_path.relative_to(project_root)
+        rel_path = file_path.resolve().relative_to(project_root.resolve())
         posix_rel = rel_path.as_posix()
         win_rel = str(rel_path).replace("/", "\\")
     except ValueError:
-        posix_rel = file_path.as_posix()
-        win_rel = str(file_path).replace("/", "\\")
+        absolute_path = file_path.resolve()
+        posix_rel = absolute_path.as_posix()
+        win_rel = str(absolute_path).replace("/", "\\")
+        if fmt in ("sh", "bash"):
+            return f'cd "{project_root}" && "{posix_rel}"'
+        return f'cd "{project_root}" ; & "{win_rel}"'
 
     if fmt in ("sh", "bash"):
         return f'cd "{project_root}" && "./{posix_rel}"'
