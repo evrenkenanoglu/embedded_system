@@ -10,7 +10,14 @@ from invoke import Context, task
 
 TOOL_NAME = "build-config"
 
-VALID_TARGETS = ("all", "partitions", "sdkconfig", "version", "ota_header")
+VALID_TARGETS = (
+    "all",
+    "partitions",
+    "sdkconfig",
+    "version",
+    "ota_header",
+    "time_header",
+)
 
 
 @task(

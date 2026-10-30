@@ -86,6 +86,17 @@ def ota_header(c: Context, dry_run: bool = False, config_path: str = "") -> None
 
 
 @task(
+    help={
+        "dry_run": "Print execution command without running",
+        "config_path": "Path to custom project config (defaults to configs/config_project.yaml)",
+    }
+)
+def time_header(c: Context, dry_run: bool = False, config_path: str = "") -> None:
+    """Generate main/swConfig/time_generated_config.h from Master SSoT."""
+    _run_generator(c, "time_header", dry_run=dry_run, config_override=config_path)
+
+
+@task(
     name="all",
     default=True,
     help={
@@ -94,5 +105,5 @@ def ota_header(c: Context, dry_run: bool = False, config_path: str = "") -> None
     },
 )
 def generate(c: Context, dry_run: bool = False, config_path: str = "") -> None:
-    """Generate partitions.csv, sdkconfig.hardware, project_version.cmake, and ota_generated_config.h."""
+    """Generate partitions.csv, sdkconfig.hardware, project_version.cmake, ota_generated_config.h, and time_generated_config.h."""
     _run_generator(c, "all", dry_run=dry_run, config_override=config_path)

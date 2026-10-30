@@ -38,7 +38,7 @@ embedded_system/Source/HAL/
   no implementation state. This is the only HAL layer that applications, processes,
   and PAL protocols may depend on.
   - **Foundational Base Interfaces (`IHal.h`):** `IHAL_IO`, `IHAL_COM`, `IHAL_MEM`, `IHAL_CPX`, `IHAL_SYS`.
-  - **Specialized Interfaces:** `IHal_Sys_Rtc.h`, `IHal_Sys_ResetReason.h`, `IHal_Sys_Rng.h`, `IHal_Sys_Wdt.h`, `IHal_Cpx_Ble.h`, `IHal_Mem_Ota.h`.
+  - **Specialized Interfaces:** `IHal_Io_Adc.h`, `IHal_Sys_Rtc.h`, `IHal_Sys_ResetReason.h`, `IHal_Sys_Rng.h`, `IHal_Sys_Wdt.h`, `IHal_Cpx_Ble.h`, `IHal_Mem_Ota.h`.
   - *Note on `IHal_Mem_Ota`:* Manages dual-bank bootloader slot lifecycles, hash verification, and provisional trial states. It is a specialized standalone interface that does not inherit from generic byte-addressable `IHAL_MEM`.
 - **`Common/`** — Concrete drivers portable across platforms. May depend on
   `IHAL/` and `System/` but must not include platform SDK headers.
@@ -50,6 +50,12 @@ embedded_system/Source/HAL/
 $$\text{Application/Process} \longrightarrow \text{IHAL} \longrightarrow \text{Common} \longrightarrow \text{Platform/SDK}$$
 Nothing in `IHAL/` may include from `Common/`, `Platform/`, or any platform SDK.
 
+### Generic Peripheral Interfaces and Consumers
+- Model reusable hardware capabilities in `IHAL/`, not the use case of the first consumer. For example, `IHal_Io_Adc` represents ADC unit/channel configuration, raw samples, and calibrated voltage conversion; it must not be a temperature-sensor-specific ADC contract.
+- Keep ADC configuration platform-neutral. Platform implementations may reject unsupported units, resolutions, attenuation, or calibration with the appropriate error rather than leaking SDK types into the interface.
+- Keep consumer policy such as sample averaging, filtering, thresholds, and physical-unit conversion in the consuming sensor or process.
+- Inject hardware interfaces into consumers by reference or another explicit non-owning contract. The composition root owns initialization, deinitialization, and lifetime ordering of the concrete hardware driver; a consumer must not tear down an injected peripheral it does not own.
+
 ---
 
 ## 2. Driver & Interface Naming Taxonomy
@@ -58,7 +64,7 @@ File, class, and interface names encode the HAL area via a lowercase type prefix
 
 | Prefix | Area                                  | Specialized Interface Header | Interface Class Name                                             | ESP32 Platform Implementation      |
 | :----- | :------------------------------------ | :--------------------------- | :--------------------------------------------------------------- | :--------------------------------- |
-| `io_`  | Digital/analogue I/O                  | `IHal_Io_Gpio.h`             | `IHAL_IO_GPIO` *(legacy)*                                        | `io_gpio`                          |
+| `io_`  | Digital/analogue I/O                  | `IHal_Io_Gpio.h`<br>`IHal_Io_Adc.h` | `IHAL_IO_GPIO` *(legacy)*<br>`IHal_Io_Adc` *(modern)* | `io_gpio`<br>`io_adc` |
 | `com_` | Communication buses                   | `IHal_Com_i2c.h`             | `IHAL_COM_I2C` *(legacy)*                                        | `com_i2c`                          |
 | `cpx_` | Complex peripherals / wireless stacks | `IHal_Cpx_Ble.h`             | `IHal_Cpx_Ble` *(modern)*<br>`IHAL_CPX_WIFI` *(legacy)*           | `cpx_ble`<br>`cpx_wifi`            |
 | `mem_` | Memory and persistence                | `IHal_Mem_Ota.h`             | `IHal_Mem_Ota` *(standalone)*                                    | `mem_nvs`, `mem_ota`               |
