@@ -14,6 +14,7 @@
 #include "BleGattProtocol.hpp"
 
 #include "System/LogHandler.h"
+#include "System/error_macros.h"
 
 /** CONSTANTS *****************************************************************/
 
@@ -60,23 +61,26 @@ sys_error_t BleGattProtocol::init()
     if (!_profilesRegistered && _serviceCount > 0U)
     {
         /// Register the validated profiles while the HAL is initialized but before it starts.
-        const sys_error_t status = _bleHal.registerGattServices(_services, _serviceCount);
-        if (status != ERROR_SUCCESS)
-        {
-            const sys_error_t detachStatus = _bleHal.setEventCallback(nullptr);
-            if (detachStatus != ERROR_SUCCESS)
-            {
-                _initialized = true;
-                SYS_LOG_E("BleGattProtocol: failed to roll back event callback (%d)", static_cast<int>(detachStatus));
-            }
-            return status;
-        }
+        RETURN_ON_ERROR(
+            _bleHal.registerGattServices(_services, _serviceCount), // Expression
+            _rollbackEventCallback()                                // Cleanup
+        );
     }
 
     /// Commit initialized state only after callback attachment and profile registration succeed.
     _profilesRegistered = true;
     _initialized        = true;
     return ERROR_SUCCESS;
+}
+
+void BleGattProtocol::_rollbackEventCallback()
+{
+    const sys_error_t detachStatus = _bleHal.setEventCallback(nullptr);
+    if (detachStatus != ERROR_SUCCESS)
+    {
+        _initialized = true;
+        SYS_LOG_E("BleGattProtocol: failed to roll back event callback (%d)", static_cast<int>(detachStatus));
+    }
 }
 
 sys_error_t BleGattProtocol::deInit()

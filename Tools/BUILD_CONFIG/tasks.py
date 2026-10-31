@@ -17,6 +17,7 @@ VALID_TARGETS = (
     "version",
     "ota_header",
     "time_header",
+    "ble_header",
 )
 
 

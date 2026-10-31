@@ -27,6 +27,8 @@
 class IBleGattProtocol
 {
 public:
+    virtual ~IBleGattProtocol() = default;
+
     /**
      * @brief Register the configured GATT profiles and attach to BLE events.
      *
@@ -49,11 +51,10 @@ public:
      *
      * Must be called before init(). Event payload pointers are valid only
      * during the callback.
+     *
      * @param[in] callback Callback to receive events; nullptr disables forwarding.
      * @param[in] userData Opaque context passed to the callback.
      * @return ERROR_SUCCESS on success, otherwise an error status.
      */
     virtual sys_error_t setEventCallback(hal_ble_event_cb_t callback, void* userData = nullptr) = 0;
-
-    virtual ~IBleGattProtocol() = default;
 };

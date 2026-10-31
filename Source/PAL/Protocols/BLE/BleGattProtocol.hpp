@@ -55,6 +55,7 @@ public:
 private:
     static void _halEventThunk(hal_ble_event_type_t event, const hal_ble_event_data_t& eventData, void* userData);
     static bool _isUuidValid(const hal_ble_uuid_t& uuid);
+    void        _rollbackEventCallback();
     sys_error_t _validateProfiles() const;
 
     IHal_Cpx_Ble&                 _bleHal;
