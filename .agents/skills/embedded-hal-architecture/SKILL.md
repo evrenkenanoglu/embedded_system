@@ -55,6 +55,7 @@ Nothing in `IHAL/` may include from `Common/`, `Platform/`, or any platform SDK.
 - Keep ADC configuration platform-neutral. Platform implementations may reject unsupported units, resolutions, attenuation, or calibration with the appropriate error rather than leaking SDK types into the interface.
 - Keep consumer policy such as sample averaging, filtering, thresholds, and physical-unit conversion in the consuming sensor or process.
 - Inject hardware interfaces into consumers by reference or another explicit non-owning contract. The composition root owns initialization, deinitialization, and lifetime ordering of the concrete hardware driver; a consumer must not tear down an injected peripheral it does not own.
+- Single-owner peripheral drivers need not add internal mutexes by default. Document the single-owner/external-serialization contract; add internal synchronization only when the interface explicitly promises concurrent access or there are multiple independent callers that require it.
 
 ---
 
@@ -90,6 +91,7 @@ File, class, and interface names encode the HAL area via a lowercase type prefix
 - An `IHAL/` interface declares the complete public contract: lifecycle (`init`/`deInit`), operational methods, and asynchronous event callbacks — fully documented with Doxygen.
 - Platform implementations document only deviations or hardware-specific nuances; methods marked `override` do not duplicate base-interface Doxygen.
 - New capabilities are added to the interface **first**, then implemented per platform. Never expose platform-only types through an `IHAL/` header.
+- Platform drivers that acquire resources in multiple initialization stages use a shared cleanup routine for partial-init failures and `deInit()`. Cleanup returns and logs failures explicitly and retains handles whose release failed so teardown can be retried.
 - Platform-specific extensions that are not part of the portable contract (e.g., `cpx_credentialsManager`) live beside the platform drivers under `Platform/<Name>/` and are not promoted to `IHAL/` until a second consumer or platform requires them.
 
 ---

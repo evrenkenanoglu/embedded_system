@@ -11,6 +11,12 @@ public:
     sys_error_t init() override;
     sys_error_t start() override;
     sys_error_t addDevice(IMatterDevice& device) override;
+    sys_error_t setEventCallback(MatterStackEventCallback callback, void* userData = nullptr) override;
+
+    /**
+     * @brief Forward a native ESP-Matter lifecycle event to the platform-independent callback.
+     */
+    void dispatchEvent(MatterStackEvent event);
 
     // Internal: Routes generic ESP events to specific C++ objects
     static esp_err_t onAttributeCallback(
@@ -23,5 +29,8 @@ public:
 
 private:
     MatterWrapper();
-    esp_matter::node_t* _node_handle;
+    esp_matter::node_t*      _node_handle;
+    MatterStackEventCallback _eventCallback;
+    void*                    _eventUserData;
+    bool                     _started;
 };

@@ -81,6 +81,18 @@ Group `#include` statements in `.cpp` files into 4 distinct blocks separated by 
       }
   };
   ```
+- **Function Signatures:** Always declare and define functions on a single line, regardless of parameter count. Never split the parameter list across lines:
+  ```cpp
+  // Avoid
+  virtual sys_error_t sendNotification(
+      hal_ble_connection_id_t connectionId,
+      std::uint16_t valueHandle,
+      const std::uint8_t* data,
+      std::size_t dataLength) = 0;
+
+  // Preferred
+  virtual sys_error_t sendNotification(hal_ble_connection_id_t connectionId, std::uint16_t valueHandle, const std::uint8_t* data, std::size_t dataLength) = 0;
+  ```
 - **File-Scope Helpers:** Encapsulate non-member helpers and converters in an anonymous namespace within the `.cpp` file:
   ```cpp
   namespace
@@ -119,31 +131,74 @@ In `.cpp` files (and legacy `.h` files), partition content using uppercase secti
 
 ### Error Macro Reference
 
-| Macro                                               | Evaluated Expression | Action on Error                                                                                              | Recommended Use Case                                                                                                       |
-| :-------------------------------------------------- | :------------------- | :----------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
-| `RETURN_ON_ERROR(expr, ...)`                        | `sys_error_t`        | If `expr != ERROR_SUCCESS`, runs cleanup (`...`), returns error.                                             | Calling functions that return `sys_error_t`.                                                                               |
-| `RETURN_ON_ERROR_WITH_LOG(expr, msg, ...)`          | `sys_error_t`        | If `expr != ERROR_SUCCESS`, logs `msg`, cleans up, returns error.                                            | Bubbling up internal operational failures with log context.                                                                |
-| `ON_ERROR_WITH_LOG(expr, msg)`                      | `sys_error_t`        | Logs file/line, code, and `msg`. **Does not return**.                                                        | Non-fatal steps where execution must continue.                                                                             |
-| `RETURN_IF_ERROR(cond, errCode, ...)`               | Boolean condition    | **Assertion/Precondition:** If `cond` is **`false`** (check fails), runs cleanup (`...`), returns `errCode`. | Pointer validity (`ptr != nullptr`), state assertions (`_initialized == HAL_INITIALIZED`), mutex locks (`_lock(timeout)`). |
-| `RETURN_IF_ERROR_WITH_LOG(cond, errCode, msg, ...)` | Boolean condition    | If `cond` is **`false`**, logs `msg`, runs cleanup, returns `errCode`.                                       | Invariant and precondition checks requiring explicit warning/error logs.                                                   |
-| `BREAK_ON_ERROR(expr)`                              | Boolean condition    | If `expr` is `false`, breaks out of containing loop.                                                         | Batch processing loops and byte stream iteration.                                                                          |
+| Macro                                               | Evaluated Expression | Action on Error                                                                          | Recommended Use Case                                                           |
+| :-------------------------------------------------- | :------------------- | :--------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------- |
+| `RETURN_ON_ERROR(expr, ...)`                        | `sys_error_t`        | If `expr != ERROR_SUCCESS`, runs cleanup (`...`), returns error.                         | Calling functions that return `sys_error_t`.                                   |
+| `RETURN_ON_ERROR_WITH_LOG(expr, msg, ...)`          | `sys_error_t`        | If `expr != ERROR_SUCCESS`, logs `msg`, cleans up, returns error.                        | Bubbling up internal operational failures with log context.                    |
+| `ON_ERROR_WITH_LOG(expr, msg)`                      | `sys_error_t`        | Logs file/line, code, and `msg`. **Does not return**.                                    | Non-fatal steps where execution must continue.                                 |
+| `RETURN_IF_ERROR(cond, errCode, ...)`               | Expression           | If `cond` is **`true`** (an error is detected), runs cleanup (`...`), returns `errCode`. | Pointer validity, state assertions, mutex locks, and other failure conditions. |
+| `RETURN_IF_ERROR_WITH_LOG(cond, errCode, msg, ...)` | Expression           | If `cond` is **`true`**, logs `msg`, runs cleanup, returns `errCode`.                    | Error conditions requiring explicit warning/error logs.                        |
+| `BREAK_ON_ERROR(expr)`                              | Boolean condition    | If `expr` is `false`, breaks out of containing loop.                                     | Batch processing loops and byte stream iteration.                              |
 
-### Precondition Assertion Formatting (`RETURN_IF_ERROR`)
-`RETURN_IF_ERROR(condition, errCode)` checks that the condition is **satisfied/true**. It triggers and returns `errCode` when the condition is **violated/false**:
+### Error-Predicate Formatting (`RETURN_IF_ERROR`)
+The macro implementation returns when its first argument evaluates **true**. Pass the error condition, not the success predicate, and wrap it in parentheses, including single-line calls:
 
 ```cpp
-// Pointer null-check (asserts outputBuffer is NOT null)
-RETURN_IF_ERROR(outputBuffer != nullptr, ERROR_NULL_POINTER);
+// Pointer null-check
+RETURN_IF_ERROR((outputBuffer == nullptr), ERROR_NULL_POINTER);
 
-// Numeric range check (asserts length is positive)
-RETURN_IF_ERROR(length > 0U, ERROR_INVALID_ARG);
+// Numeric range check
+RETURN_IF_ERROR((length == 0U), ERROR_INVALID_ARG);
 
-// Lifecycle check (asserts driver is initialized)
-RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
+// Lifecycle check
+RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
 
-// Mutex acquisition (asserts lock succeeded)
-RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+// Mutex acquisition
+RETURN_IF_ERROR((!_lock(kMutexTimeoutMs)), ERROR_DEVICE_BUSY);
 ```
+
+### Prefer Error Macros over Manual Error Blocks
+Do not hand-write `if (failure) { cleanup; return err; }` blocks. Use the macro that matches the failure type, passing the cleanup as the last argument. Keep a manual `if` only for success early-returns and non-error predicates.
+```cpp
+// Avoid
+if (settimeofday(&tv, nullptr) != 0)
+{
+    _unlock();
+    return ERROR_WRITE_FAILED;
+}
+
+// Preferred
+RETURN_IF_ERROR(
+    (settimeofday(&tv, nullptr) != 0),                           // Expression
+    ERROR_WRITE_FAILED,                                          // Error Code
+    SYS_LOG_E("sys_rtc: settimeofday failed (errno=%d)", errno), // Log Message
+    _unlock()                                                    // Cleanup
+);
+```
+
+### Multi-Line Macro Formatting
+When a macro call carries a log or cleanup argument, put one argument per line and label every argument with a trailing comment: `// Expression`, `// Error Code`, `// Log Message`, `// Cleanup`. `RETURN_ON_ERROR` has no error-code argument, so it uses only `// Expression`, `// Log Message`, and `// Cleanup`. Single-line form is kept for bare checks with no log or cleanup:
+```cpp
+RETURN_ON_ERROR(
+    (_generateKeys()),                        // Expression
+    SYS_LOG_E("Generation sequence failed."), // Log Message
+    xSemaphoreGive(_mutex)                    // Cleanup
+);
+
+RETURN_IF_ERROR(
+    (!_lock(kMutexTimeoutMs)), // Expression
+    ERROR_DEVICE_BUSY,         // Error Code
+    _unlock()                  // Cleanup
+);
+
+RETURN_IF_ERROR_WITH_LOG(
+    (_initialized != HAL_INITIALIZED),     // Expression
+    ERROR_NOT_INITIALIZED,                 // Error Code
+    "Driver is not initialized",           // Log Message
+    _unlock()                              // Cleanup
+);
+```
+`RETURN_ON_ERROR` exposes the returned status as `err` to its log and cleanup arguments.
 
 ---
 
@@ -323,11 +378,11 @@ Functions with procedural flows, multiple milestones, state transitions, or vali
 sys_error_t sys_rtc::setTime(time_t epochSeconds, uint32_t fractionalUs)
 {
     /// Validate initialization state and fractional microsecond bounds.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
-    RETURN_IF_ERROR(fractionalUs <= kFractionalUsMax, ERROR_INVALID_ARG);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((fractionalUs > kFractionalUsMax), ERROR_INVALID_ARG);
 
     /// Acquire the serialization mutex to serialize access across concurrent tasks.
-    RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+    RETURN_IF_ERROR((!_lock(kMutexTimeoutMs)), ERROR_DEVICE_BUSY);
 
     // Hardware note: settimeofday expects struct timeval with microseconds (Ignored by Doxygen)
     struct timeval tv;
@@ -335,12 +390,12 @@ sys_error_t sys_rtc::setTime(time_t epochSeconds, uint32_t fractionalUs)
     tv.tv_usec = static_cast<suseconds_t>(fractionalUs);
 
     /// Commit the wall-clock timestamp to the POSIX system time base.
-    if (settimeofday(&tv, nullptr) != 0)
-    {
-        _unlock();
-        SYS_LOG_E("sys_rtc: settimeofday failed (errno=%d)", errno);
-        return ERROR_WRITE_FAILED;
-    }
+    RETURN_IF_ERROR(
+        (settimeofday(&tv, nullptr) != 0),                           // Expression
+        ERROR_WRITE_FAILED,                                          // Error Code
+        SYS_LOG_E("sys_rtc: settimeofday failed (errno=%d)", errno), // Log Message
+        _unlock()                                                    // Cleanup
+    );
 
     /// Release the synchronization mutex.
     _unlock();

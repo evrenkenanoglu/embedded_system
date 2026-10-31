@@ -452,19 +452,4 @@ const char* hal_wifi_state_to_string(hal_wifi_state_t state);
  */
 const char* hal_wifi_mode_to_string(hal_wifi_mode_t mode);
 
-/**
- * @brief Validate SSID
- * @param ssid SSID to validate
- * @return bool True if valid, false otherwise
- */
-bool hal_wifi_validate_ssid(const char* ssid);
-
-/**
- * @brief Validate password for given auth mode
- * @param password Password to validate
- * @param auth_mode Authentication mode
- * @return bool True if valid, false otherwise
- */
-bool hal_wifi_validate_password(const char* password, hal_wifi_auth_mode_t auth_mode);
-
 #endif // IHAL_CPX_WIFI_H

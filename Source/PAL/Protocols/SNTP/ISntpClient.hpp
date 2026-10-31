@@ -22,7 +22,7 @@ enum class sntp_sync_status_t : uint8_t
 {
     RESET = 0,   /*!< No synchronization performed (or status cleared) */
     IN_PROGRESS, /*!< A synchronization attempt is currently running */
-    COMPLETED    /*!< Wall-clock time has been synchronized at least once */
+    COMPLETED    /*!< The current or most recent synchronization attempt completed */
 };
 
 /**

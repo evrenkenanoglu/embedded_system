@@ -27,24 +27,11 @@ enum class hal_temp_sensor_state_t : uint8_t
 };
 
 /**
- * @brief Supported attenuation selections for an ADC temperature sensor.
- */
-enum class hal_temp_sensor_attenuation_t : uint8_t
-{
-    DB_0   = 0, ///< 0 dB attenuation
-    DB_2_5 = 1, ///< 2.5 dB attenuation
-    DB_6   = 2, ///< 6 dB attenuation
-    DB_12  = 3  ///< 12 dB attenuation
-};
-
-/**
  * @brief Platform-independent configuration for a temperature sensing device.
  */
 typedef struct
 {
-    uint8_t                       adc_channel;  ///< ADC channel index the sensor is wired to
-    uint32_t                      sample_count; ///< Number of samples averaged per reading
-    hal_temp_sensor_attenuation_t attenuation;  ///< ADC attenuation selection
+    uint32_t sample_count; ///< Number of ADC samples averaged per reading
 } hal_temp_sensor_config_t;
 
 /**
@@ -62,6 +49,16 @@ typedef struct
 class IHal_Sensor_Temperature : public IHAL_IO
 {
 public:
+    /**
+     * @brief Initialize the temperature sensor with a typed configuration.
+     *
+     * @param[in] config Temperature-sensor acquisition settings.
+     *
+     * @return sys_error_t ERROR_SUCCESS on success, otherwise an initialization
+     *         or argument error.
+     */
+    virtual sys_error_t init(const hal_temp_sensor_config_t& config) = 0;
+
     /**
      * @brief Reads the sensor output as a calibrated voltage in millivolts.
      *

@@ -14,6 +14,8 @@
 #include "PAL/Protocols/SNTP/ISntpClient.hpp"
 #include "System/system.h"
 
+#include <atomic>
+
 struct timeval; // forward declaration: SDK sync-notification callback argument
 
 /**
@@ -25,6 +27,10 @@ struct timeval; // forward declaration: SDK sync-notification callback argument
  * Synchronization status notifications are translated from the SDK callback
  * (soft-IRQ/TCPIP context) and forwarded to the user callback without
  * blocking or allocating.
+ *
+ * @note Thread-Safety: init/deInit/start/stop/triggerSync must be called from a
+ *       single owner task. The SDK notification path only reads atomics and takes
+ *       the bounded callback mutex.
  */
 class Serv_sntp : public ISntpClient
 {
@@ -49,12 +55,11 @@ private:
     static void _sdkSyncNotificationTrampoline(struct timeval* tv);
     void        _onSdkSyncNotification();
 
-    sntp_client_config_t        _config;
-    uint8_t                     _initialized;
-    uint8_t                     _running;
-    volatile bool               _synced;
-    volatile sntp_sync_status_t _status;
-    sntp_sync_cb_t              _callback;
-    void*                       _callbackUserData;
-    SemaphoreHandle_t           _mutex;
+    sntp_client_config_t            _config;
+    uint8_t                         _initialized;
+    uint8_t                         _running;
+    std::atomic<sntp_sync_status_t> _status;
+    sntp_sync_cb_t                  _callback;
+    void*                           _callbackUserData;
+    SemaphoreHandle_t               _mutex;
 };

@@ -361,34 +361,47 @@ esp_err_t MatterWrapper::identificationCallback(identification::callback_type_t 
 
 static void app_event_cb(const ChipDeviceEvent* event, intptr_t arg)
 {
+    (void)arg;
+    if (event == nullptr)
+    {
+        return;
+    }
+
     switch (event->Type)
     {
         case chip::DeviceLayer::DeviceEventType::kInterfaceIpAddressChanged:
             SYS_LOG_I("Interface IP Address Changed");
+            MatterWrapper::get().dispatchEvent(MatterStackEvent::IP_ADDRESS_CHANGED);
             break;
 
         case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
             SYS_LOG_I("Commissioning complete");
+            MatterWrapper::get().dispatchEvent(MatterStackEvent::COMMISSIONING_COMPLETE);
             break;
 
         case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:
             SYS_LOG_I("Commissioning failed, fail safe timer expired");
+            MatterWrapper::get().dispatchEvent(MatterStackEvent::COMMISSIONING_FAILED);
             break;
 
         case chip::DeviceLayer::DeviceEventType::kCommissioningSessionStarted:
             SYS_LOG_I("Commissioning session started");
+            MatterWrapper::get().dispatchEvent(MatterStackEvent::COMMISSIONING_SESSION_STARTED);
             break;
 
         case chip::DeviceLayer::DeviceEventType::kCommissioningSessionStopped:
             SYS_LOG_I("Commissioning session stopped");
+            MatterWrapper::get().dispatchEvent(MatterStackEvent::COMMISSIONING_SESSION_STOPPED);
             break;
 
         case chip::DeviceLayer::DeviceEventType::kCommissioningWindowOpened:
             SYS_LOG_I("Commissioning window opened");
+            MatterWrapper::get().dispatchEvent(MatterStackEvent::COMMISSIONING_WINDOW_OPENED);
             break;
 
         case chip::DeviceLayer::DeviceEventType::kCommissioningWindowClosed:
             SYS_LOG_I("Commissioning window closed");
+            MatterWrapper::get().dispatchEvent(MatterStackEvent::COMMISSIONING_WINDOW_CLOSED);
             break;
 
         case chip::DeviceLayer::DeviceEventType::kBindingsChangedViaCluster:
@@ -434,6 +447,9 @@ static void app_event_cb(const ChipDeviceEvent* event, intptr_t arg)
 
 MatterWrapper::MatterWrapper()
     : _node_handle(nullptr)
+    , _eventCallback(nullptr)
+    , _eventUserData(nullptr)
+    , _started(false)
 {
 }
 
@@ -459,10 +475,29 @@ sys_error_t MatterWrapper::init()
 
 sys_error_t MatterWrapper::start()
 {
+    RETURN_IF_ERROR(_started, ERROR_INVALID_STATE, SYS_LOG_E("ESP Matter already started"));
     RETURN_IF_ERROR(esp_matter::start(app_event_cb) != ESP_OK, ERROR_FAIL, SYS_LOG_E("Failed to start ESP Matter"));
 
+    _started = true;
     SYS_LOG_I("Matter Stack Started");
     return ERROR_SUCCESS;
+}
+
+sys_error_t MatterWrapper::setEventCallback(MatterStackEventCallback callback, void* userData)
+{
+    RETURN_IF_ERROR(_started, ERROR_INVALID_STATE, SYS_LOG_E("Matter event callback must be registered before start"));
+
+    _eventCallback = callback;
+    _eventUserData = userData;
+    return ERROR_SUCCESS;
+}
+
+void MatterWrapper::dispatchEvent(MatterStackEvent event)
+{
+    if (_eventCallback != nullptr)
+    {
+        _eventCallback(event, _eventUserData);
+    }
 }
 
 sys_error_t MatterWrapper::addDevice(IMatterDevice& device)

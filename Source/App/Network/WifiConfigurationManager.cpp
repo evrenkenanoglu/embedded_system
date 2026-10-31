@@ -198,39 +198,6 @@ sys_error_t WifiConfigurationManager::storeCredentials(const char* ssid, const c
     return ERROR_SUCCESS;
 }
 
-sys_error_t WifiConfigurationManager::applyCommissionedCredentials(const char* ssid, const char* password)
-{
-    RETURN_IF_ERROR(
-        (ssid == nullptr || password == nullptr || ssid[0] == '\0'), // Expression
-        ERROR_INVALID_ARG,                                           // Error code
-        SYS_LOG_E("applyCommissionedCredentials: invalid arguments") // Error message
-    );
-
-    RETURN_IF_ERROR(
-        (!hal_wifi_validate_ssid(ssid)),                                  // Expression
-        ERROR_INVALID_ARG,                                                // Error code
-        SYS_LOG_E("applyCommissionedCredentials: SSID validation failed") // Error message
-    );
-
-    RETURN_IF_ERROR(
-        (!hal_wifi_validate_password(password, HAL_WIFI_AUTH_WPA2_PSK)),      // Expression
-        ERROR_INVALID_ARG,                                                    // Error code
-        SYS_LOG_E("applyCommissionedCredentials: password validation failed") // Error message
-    );
-
-    if (_credentials.mem != nullptr)
-    {
-        RETURN_IF_ERROR(
-            (_persistCredentials(ssid, password) != ERROR_SUCCESS), // Expression
-            ERROR_FAIL,                                             // Error code
-            SYS_LOG_E("Failed to persist commissioned credentials") // Error message
-        );
-    }
-
-    xEventGroupSetBits(_eventGroup, WIFI_CFG_CREDENTIALS_STORED);
-    return ERROR_SUCCESS;
-}
-
 sys_error_t WifiConfigurationManager::requestScan(bool block)
 {
     xEventGroupClearBits(_eventGroup, WIFI_CFG_SCAN_DONE);

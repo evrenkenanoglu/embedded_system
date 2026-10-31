@@ -9,8 +9,7 @@
  *  @date       27/10/2026
  */
 
-#ifndef Proc_TimeSync_HPP
-#define Proc_TimeSync_HPP
+#pragma once
 
 #include "HAL/IHAL/IHal_Cpx_Wifi.h"
 #include "HAL/IHAL/IHal_Sys_Rtc.h"
@@ -18,6 +17,8 @@
 #include "PAL/Protocols/SNTP/ISntpClient.hpp"
 #include "Process/Process.hpp"
 #include "System/system.h"
+
+#include <atomic>
 
 /**
  * @class Proc_TimeSync
@@ -29,6 +30,10 @@
  * exponential backoff: T_retry = min(R_base * 2^n, R_max). The task loop never
  * returns; lifecycle follows IProcess (init/start/stop/pause/resume) and the
  * optional watchdog is fed on every sleep cycle.
+ *
+ * @note Thread-Safety: notifyNetworkEvent() may be called from the Wi-Fi event
+ *       context (it uses an EventGroup and atomics). start/stop/pause/resume,
+ *       setTiming() and setTimezone() must be called from a single owner task.
  */
 class Proc_TimeSync : public Process
 {
@@ -71,14 +76,17 @@ public:
      * @param[in] retryIntervalSec      Base retry delay (R_base) on failure.
      * @param[in] maxRetryBackoffSec    Backoff ceiling (R_max).
      * @param[in] syncTimeoutMs         Max wait for one sync attempt to complete.
+     * @return sys_error_t ERROR_SUCCESS if applied, ERROR_INVALID_STATE if running.
      */
-    void setTiming(uint32_t syncIntervalSec, uint32_t retryIntervalSec, uint32_t maxRetryBackoffSec, uint32_t syncTimeoutMs);
+    sys_error_t setTiming(uint32_t syncIntervalSec, uint32_t retryIntervalSec, uint32_t maxRetryBackoffSec, uint32_t syncTimeoutMs);
 
     /**
      * @brief Set the POSIX TZ applied to the RTC after a successful sync.
      * @param[in] tzString POSIX TZ string (e.g. "CET-1CEST,M3.5.0,M10.5.0/3"), nullptr = no change.
+     * @return sys_error_t ERROR_SUCCESS if applied, ERROR_INVALID_ARG for an oversized string,
+     *                     or ERROR_INVALID_STATE if running.
      */
-    void setTimezone(const char* tzString);
+    sys_error_t setTimezone(const char* tzString);
 
 private:
     static void _workerTrampoline(void* param);
@@ -94,13 +102,11 @@ private:
 
     TaskHandle_t       _xHandle;
     EventGroupHandle_t _eventGroup;
-    SemaphoreHandle_t  _mutex;
+    std::atomic<bool>  _networkUp;
 
-    uint32_t    _syncIntervalSec;
-    uint32_t    _retryIntervalSec;
-    uint32_t    _maxRetryBackoffSec;
-    uint32_t    _syncTimeoutMs;
-    const char* _tzString;
+    uint32_t _syncIntervalSec;
+    uint32_t _retryIntervalSec;
+    uint32_t _maxRetryBackoffSec;
+    uint32_t _syncTimeoutMs;
+    char     _tzString[64];
 };
-
-#endif /* Proc_TimeSync_HPP */

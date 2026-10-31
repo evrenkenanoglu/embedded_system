@@ -1,5 +1,5 @@
 /** @file       sensor_ntc.hpp
- *  @brief      ESP32 platform implementation of IHal_Sensor_Temperature (NTC thermistor via ADC).
+ *  @brief      Platform-independent NTC thermistor implementation of IHal_Sensor_Temperature.
  *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
  *              Permission to use, reproduce, copy, prepare derivative works,
  *              modify, distribute, perform, display or sell this software and/or
@@ -11,27 +11,24 @@
 
 #pragma once
 
+#include "HAL/IHAL/IHal_Io_Adc.h"
 #include "HAL/IHAL/IHal_Sensor_Temperature.h"
-#include "System/system.h"
 
 /**
  * @class sensor_ntc
- * @brief ESP32 implementation of IHal_Sensor_Temperature for an NTC thermistor.
+ * @brief NTC thermistor implementation of IHal_Sensor_Temperature.
  *
- * Backed by the ESP-IDF ADC One-Shot driver with eFuse curve-fitting
- * calibration. Each acquisition multi-samples the configured channel, averages
- * the raw ticks, converts them to calibrated millivolts and classifies the
- * electrical health of the sensor path (open/short detection).
+ * Uses an externally configured IHal_Io_Adc for raw samples and calibration.
+ * This class averages NTC readings and classifies the electrical health of the
+ * sensor path (open/short detection), but does not own the ADC lifecycle.
  *
- * @note Thread-Safety: Reads, state access, and deinitialization are serialized
- *       through an internal FreeRTOS mutex. Initialization and deinitialization
- *       must not race with each other; destruction requires that callers have
- *       stopped invoking methods on this object.
+ * @note Thread-Safety: This driver is not internally synchronized. Its owner
+ *       must serialize initialization, reads, state access, and deinitialization.
  */
 class sensor_ntc : public IHal_Sensor_Temperature
 {
 public:
-    sensor_ntc();
+    explicit sensor_ntc(IHal_Io_Adc& adc);
     ~sensor_ntc() override;
 
     sensor_ntc(const sensor_ntc&)            = delete;
@@ -40,6 +37,7 @@ public:
     sensor_ntc& operator=(sensor_ntc&&)      = delete;
 
     sys_error_t init(void* params = nullptr) override;
+    sys_error_t init(const hal_temp_sensor_config_t& config) override;
     void        get(void* data) override;
     sys_error_t set(void* data) override;
     sys_error_t deInit() override;
@@ -48,13 +46,8 @@ public:
     hal_temp_sensor_state_t getSensorState() override;
 
 private:
-    bool _lock(TickType_t timeoutMs);
-    void _unlock();
-
     uint8_t                  _initialized;
-    SemaphoreHandle_t        _mutex;
-    void*                    _adcUnit; ///< ADC oneshot unit handle (adc_oneshot_unit_handle_t)
-    void*                    _adcCali; ///< ADC calibration handle (adc_cali_handle_t)
+    IHal_Io_Adc&             _adc;
     hal_temp_sensor_config_t _config;
     hal_temp_sensor_state_t  _state;
 };

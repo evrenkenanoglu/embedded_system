@@ -1,6 +1,3 @@
-Here is the complete, fully updated **`sys_rtc.cpp`** matching all codebase conventions (80-column section separator banners, Sandwich Rule include ordering, in-body procedural `///` comments, private `//` notes, and robust error assertions):
-
-```cpp
 /** @file       sys_rtc.cpp
  *  @brief      ESP32 platform implementation of IHal_Sys_Rtc (system wall-clock & RTC).
  *  @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
@@ -104,7 +101,7 @@ sys_error_t sys_rtc::init(void* params)
     if (_mutex == nullptr)
     {
         _mutex = xSemaphoreCreateMutex();
-        RETURN_IF_ERROR(_mutex != nullptr, ERROR_OUT_OF_MEMORY);
+        RETURN_IF_ERROR((_mutex == nullptr), ERROR_OUT_OF_MEMORY);
     }
 
     /// Mark driver state as initialized and log startup parameters.
@@ -116,7 +113,7 @@ sys_error_t sys_rtc::init(void* params)
 sys_error_t sys_rtc::feed()
 {
     /// Validate driver initialization state.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
 
     // The ESP32 system clock requires no periodic hardware feed; calibration of
     // the selected clock source, when requested, is handled by the RTC driver.
@@ -147,11 +144,11 @@ sys_error_t sys_rtc::deInit()
 sys_error_t sys_rtc::setTime(time_t epochSeconds, uint32_t fractionalUs)
 {
     /// Validate initialization state and fractional microsecond bounds.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
-    RETURN_IF_ERROR(fractionalUs <= kFractionalUsMax, ERROR_INVALID_ARG);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((fractionalUs > kFractionalUsMax), ERROR_INVALID_ARG);
 
     /// Acquire serialization mutex before updating system clock.
-    RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+    RETURN_IF_ERROR((!_lock(kMutexTimeoutMs)), ERROR_DEVICE_BUSY);
 
     // Hardware note: settimeofday expects struct timeval with microseconds (Ignored by Doxygen)
     struct timeval tv;
@@ -159,12 +156,12 @@ sys_error_t sys_rtc::setTime(time_t epochSeconds, uint32_t fractionalUs)
     tv.tv_usec = static_cast<suseconds_t>(fractionalUs);
 
     /// Commit the wall-clock timestamp to the POSIX system time base.
-    if (settimeofday(&tv, nullptr) != 0)
-    {
-        _unlock();
-        SYS_LOG_E("sys_rtc: settimeofday failed (errno=%d)", errno);
-        return ERROR_WRITE_FAILED;
-    }
+    RETURN_IF_ERROR(
+        (settimeofday(&tv, nullptr) != 0),                           // Expression
+        ERROR_WRITE_FAILED,                                          // Error Code
+        SYS_LOG_E("sys_rtc: settimeofday failed (errno=%d)", errno), // Log Message
+        _unlock()                                                    // Cleanup
+    );
 
     /// Release serialization mutex.
     _unlock();
@@ -175,16 +172,16 @@ sys_error_t sys_rtc::setTime(time_t epochSeconds, uint32_t fractionalUs)
 sys_error_t sys_rtc::getTime(time_t& epochSeconds, uint32_t* fractionalUs)
 {
     /// Validate initialization state and acquire serialization mutex.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
-    RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((!_lock(kMutexTimeoutMs)), ERROR_DEVICE_BUSY);
 
     /// Read current timestamp from POSIX clock.
     struct timeval tv;
-    if (gettimeofday(&tv, nullptr) != 0)
-    {
-        _unlock();
-        return ERROR_READ_FAILED;
-    }
+    RETURN_IF_ERROR(
+        (gettimeofday(&tv, nullptr) != 0), // Expression
+        ERROR_READ_FAILED,                 // Error Code
+        _unlock()                          // Cleanup
+    );
 
     /// Populate output epoch seconds and optional fractional microseconds.
     epochSeconds = tv.tv_sec;
@@ -208,18 +205,25 @@ uint64_t sys_rtc::getMonotonicTimeUs()
 sys_error_t sys_rtc::setTimezone(const char* tzString)
 {
     /// Validate initialization state, timezone string pointer, and buffer capacity.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
-    RETURN_IF_ERROR(tzString != nullptr, ERROR_NULL_POINTER);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((tzString == nullptr), ERROR_NULL_POINTER);
 
     const size_t len = std::strlen(tzString);
-    RETURN_IF_ERROR(len < sizeof(_tzString), ERROR_INVALID_ARG);
+    RETURN_IF_ERROR((len >= sizeof(_tzString)), ERROR_INVALID_ARG);
 
     /// Acquire serialization mutex before updating environment variables.
-    RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+    RETURN_IF_ERROR((!_lock(kMutexTimeoutMs)), ERROR_DEVICE_BUSY);
 
-    /// Store timezone string, update TZ environment variable, and apply tzset.
+    /// Update the process timezone and report environment allocation failures.
+    RETURN_IF_ERROR(
+        (setenv("TZ", tzString, 1) != 0),                                             // Expression
+        ERROR_WRITE_FAILED,                                                           // Error Code
+        SYS_LOG_E("sys_rtc: setenv failed while setting timezone (errno=%d)", errno), // Log Message
+        _unlock()                                                                     // Cleanup
+    );
+
+    /// Store the configured timezone and apply it to local-time conversions.
     std::memcpy(_tzString, tzString, len + 1U);
-    (void)setenv("TZ", _tzString, 1);
     tzset();
 
     /// Release serialization mutex.
@@ -231,20 +235,20 @@ sys_error_t sys_rtc::setTimezone(const char* tzString)
 sys_error_t sys_rtc::getTimezone(char* tzBuffer, size_t maxLen)
 {
     /// Validate initialization state, output buffer pointer, and length constraint.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
-    RETURN_IF_ERROR(tzBuffer != nullptr, ERROR_NULL_POINTER);
-    RETURN_IF_ERROR(maxLen > 0U, ERROR_INVALID_ARG);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((tzBuffer == nullptr), ERROR_NULL_POINTER);
+    RETURN_IF_ERROR((maxLen == 0U), ERROR_INVALID_ARG);
 
     /// Acquire serialization mutex.
-    RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+    RETURN_IF_ERROR((!_lock(kMutexTimeoutMs)), ERROR_DEVICE_BUSY);
 
     /// Verify output buffer capacity accommodates stored timezone string with NUL terminator.
     const size_t len = std::strlen(_tzString);
-    if (len + 1U > maxLen)
-    {
-        _unlock();
-        return ERROR_BUFFER_OVERFLOW;
-    }
+    RETURN_IF_ERROR(
+        (len + 1U > maxLen),   // Expression
+        ERROR_BUFFER_OVERFLOW, // Error Code
+        _unlock()              // Cleanup
+    );
 
     /// Copy timezone string to destination buffer.
     std::memcpy(tzBuffer, _tzString, len + 1U);
@@ -272,4 +276,3 @@ bool sys_rtc::isTimeSet()
     /// Verify timestamp exceeds minimum plausible real-time epoch threshold.
     return epochSeconds >= kMinPlausibleEpoch;
 }
-```

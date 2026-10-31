@@ -9,8 +9,7 @@
  *  @date       27/10/2026
  */
 
-#ifndef TimeManager_HPP
-#define TimeManager_HPP
+#pragma once
 
 #include "HAL/IHAL/IHal_Sys_Rtc.h"
 #include "PAL/Protocols/SNTP/ISntpClient.hpp"
@@ -25,6 +24,9 @@
  * timestamp, are we inside a maintenance window, is an X.509 validity period
  * currently valid. All trust decisions fail closed when time is not
  * synchronized (ERROR_INVALID_STATE / false).
+ *
+ * @note Thread-Safety: methods are const and only read the RTC and SNTP client;
+ *       thread safety is inherited from those collaborators.
  */
 class TimeManager
 {
@@ -57,6 +59,13 @@ public:
     sys_error_t getIso8601String(char* buffer, size_t maxLen) const;
 
     /**
+     * @brief Get the current local hour of day.
+     * @param[out] hour Local hour in the range 0..23.
+     * @return sys_error_t ERROR_SUCCESS on success, ERROR_INVALID_STATE when unsynchronized.
+     */
+    sys_error_t getLocalHour(uint8_t& hour) const;
+
+    /**
      * @brief Check whether the current local hour lies within a maintenance window.
      *
      * Supports wrap-around windows (e.g. start=23, end=03 spans midnight).
@@ -82,5 +91,3 @@ private:
     IHal_Sys_Rtc& _sysRtc;
     ISntpClient&  _sntpClient;
 };
-
-#endif /* TimeManager_HPP */
