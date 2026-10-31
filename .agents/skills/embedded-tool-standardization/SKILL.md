@@ -497,3 +497,7 @@ Before declaring any host tool integration complete, execute this 5-step checkli
 
 - [ ] **5. Zero Path Registrations:**
   *(Confirm that `configs/config_tasks.yaml` does NOT contain any hardcoded `*_script` entries).*
+
+## Error Registry Maintenance
+
+Before host-tool work, review the post-mortem entries in Section 6. Record each verified, reusable mistake discovered during the task there before considering the work complete, including symptom, root cause, and prevention. Do not record speculation, transient output, or secrets.

@@ -54,6 +54,7 @@ Nothing in `IHAL/` may include from `Common/`, `Platform/`, or any platform SDK.
 - Model reusable hardware capabilities in `IHAL/`, not the use case of the first consumer. For example, `IHal_Io_Adc` represents ADC unit/channel configuration, raw samples, and calibrated voltage conversion; it must not be a temperature-sensor-specific ADC contract.
 - Keep ADC configuration platform-neutral. Platform implementations may reject unsupported units, resolutions, attenuation, or calibration with the appropriate error rather than leaking SDK types into the interface.
 - Keep consumer policy such as sample averaging, filtering, thresholds, and physical-unit conversion in the consuming sensor or process.
+- Concrete sensor drivers that depend only on platform-independent IHAL contracts and `System/` belong in `Common/`; reserve `Platform/<Name>/` for implementations that directly require that platform's SDK or hardware APIs.
 - Inject hardware interfaces into consumers by reference or another explicit non-owning contract. The composition root owns initialization, deinitialization, and lifetime ordering of the concrete hardware driver; a consumer must not tear down an injected peripheral it does not own.
 - Single-owner peripheral drivers need not add internal mutexes by default. Document the single-owner/external-serialization contract; add internal synchronization only when the interface explicitly promises concurrent access or there are multiple independent callers that require it.
 
@@ -113,3 +114,9 @@ The tree currently contains known deviations. They are **documented technical de
 8. **Macro Artifacts:** `#undef INTERFACE` artifacts exist at the end of `IHal.h` and `IHal_Io_Gpio.h`.
 9. **Enum Style Split:** Legacy C `typedef enum { ... } name_t` (in `IHal_Cpx_Wifi.h`, `IHal_Com_i2c.h`) vs modern C++ scoped `enum class name_t : uint8_t` (in `IHal_Cpx_Ble.h`, `IHal_Io_Gpio.h`, `IHal_Sys_ResetReason.h`, `IHal_Sys_Rtc.h`).
 10. **System Header Inclusions:** `System/system.h` uses legacy C headers `<stdio.h>` / `<string.h>` instead of `<cstdio>` / `<cstring>`.
+
+## Error Registry
+
+Before HAL work, review this registry and related failure notes in the C++ conventions skill. Record verified, reusable mistakes found during the task before considering the work complete. Each entry must capture the symptom, root cause, and a preventive rule; use `ERR-NNN` IDs scoped to this file. Do not record speculation, transient output, or secrets.
+
+- **ERR-001 — Platform-independent sensor placed under a platform directory:** `sensor_ntc` was initially located under `Platform/ESP32` despite depending on portable HAL contracts rather than ESP32 APIs. Choose `Common/` versus `Platform/` from the implementation's actual dependencies, not the hardware being measured.

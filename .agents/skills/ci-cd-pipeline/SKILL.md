@@ -55,3 +55,7 @@ Use this skill when changing or debugging repository-root `CI_CD/` configuration
 | Checkout fails with GitHub username/auth prompt | Pipeline's source-control stage cannot authenticate to the configured remote | Configure the approved Git credential mechanism; do not embed tokens in YAML or shell commands. |
 | Build succeeds but OTA history/deltas disappear | Release catalog was not persisted between clean checkouts | Bind the canonical catalog path across runs and ensure it is writable by the release process. |
 | HIL tests cannot access a device | Wrong port, missing permissions, or hardware unavailable | Resolve the configured platform port and obtain hardware readiness before running flash/test stages. |
+
+## Error Registry
+
+Review the known failure patterns above before pipeline work. When a verified, reusable mistake is found, record its symptom, root cause, and preventive rule in that table before considering the task complete. Do not record speculation, transient output, or secrets.

@@ -137,3 +137,7 @@ def my_task(c: Context, dry_run: bool = False, opts: str = "") -> None:
      my_subproject: sub
    ```
 4. All tasks will be auto-discovered and mapped under `inv sub.<module_name>.<task_name>`.
+
+## Error Registry
+
+Before automation work, review this registry and any related failure notes in applicable skills. Record verified, reusable mistakes found during the task before considering the work complete. Each entry must capture the symptom, root cause, and a preventive rule; use `ERR-NNN` IDs scoped to this file. Do not record speculation, transient output, or secrets. If no incident has been recorded yet, add the first entry here.

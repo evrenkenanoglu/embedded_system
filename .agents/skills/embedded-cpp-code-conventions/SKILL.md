@@ -404,3 +404,9 @@ sys_error_t sys_rtc::setTime(time_t epochSeconds, uint32_t fractionalUs)
     return ERROR_SUCCESS;
 }
 ```
+
+## Error Registry
+
+Before C++ implementation work, review this registry and related failure notes in applicable skills. Record verified, reusable mistakes found during the task before considering the work complete. Each entry must capture the symptom, root cause, and a preventive rule; use `ERR-NNN` IDs scoped to this file. Do not record speculation, transient output, or secrets.
+
+- **ERR-001 — Macro-local error variable shadowing:** Passing an outer variable named `err` as the expression to `ON_ERROR_WITH_LOG` caused shadowing and misleading unused/uninitialized diagnostics because the macro declares its own `err`. Pass the fallible call directly to the macro instead of storing it in a same-named local first.

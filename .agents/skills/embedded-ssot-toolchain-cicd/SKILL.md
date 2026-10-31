@@ -137,3 +137,7 @@ Before running or committing changes:
 | **ERR-013** | `/{workspace_dir}/.venv/bin/activate: No such file or directory` | `config_loader.py` passed unexpanded `{workspace_dir}` string into `_resolve_paths()`. | Expand all `{workspace_dir}` tokens across the entire config before converting paths to `Path`. |
 | **ERR-014** | `KeyError: 'firmware_dir'` in provisioning `main.py` | `config_provisioning.yaml` paths section omitted `firmware_dir`. | Explicitly map `firmware_dir: "{paths.build_dir}"` in `config_provisioning.yaml`. |
 | **ERR-015** | `TypeError: 'str' object cannot be interpreted as an integer` | Token expansion converted numeric values to strings before tool ingestion. | Tools must explicitly cast numeric parameters with `int()` (e.g. `key_size_bytes`, `port`). |
+
+## Error Registry Maintenance
+
+Review the mistakes log above before SSoT, toolchain, or CI/CD work. Record each verified, reusable mistake discovered during the task there before considering the work complete, including symptom, root cause, and prevention. Do not record speculation, transient output, or secrets.

@@ -75,3 +75,7 @@ Before marking any security task complete:
 2. **Dry-Run Validation:** Python provisioning scripts must execute without error using `--dry-run` and `--simulate`.
 3. **eFuse Verification:** Confirm all eFuse modifications are guarded against accidental execution on real silicon when `force_burn: false`.
 4. **Signature Failure Assertions:** Unit tests must assert that modifying any single bit in the binary payload or signature results in `ERROR_AUTH_FAILED`.
+
+## Error Registry
+
+Before hardware security or cryptography work, review this registry and any related failure notes in applicable skills. Record verified, reusable mistakes found during the task before considering the work complete. Each entry must capture the symptom, root cause, and a preventive rule; use `ERR-NNN` IDs scoped to this file. Do not record speculation, transient output, or secrets. If no incident has been recorded yet, add the first entry here.

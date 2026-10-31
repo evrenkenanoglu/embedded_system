@@ -360,3 +360,7 @@ inv es.build-config.all && inv es.platform.build && inv es.platform.flash && inv
 inv es.build-config.all && inv es.ota.release && inv es.util.sync-ota-windows
 ```
 ```
+
+## Error Registry
+
+Before fleet OTA work, review the solved failure modes in Section 7. Record each verified, reusable mistake discovered during the task there before considering the work complete, including symptom, root cause, and prevention. Do not record speculation, transient output, or secrets.
