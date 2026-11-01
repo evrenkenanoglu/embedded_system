@@ -18,7 +18,7 @@
 #include "swConfig/ble_generated_config.h"
 
 #include <esp_err.h>
-#include <esp_nimble_hci.h>
+#include <esp_random.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <host/ble_att.h>
@@ -40,6 +40,13 @@
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
 #include <store/config/ble_store_config.h>
+
+extern "C" void ble_store_config_init(void);
+
+#if CONFIG_BT_NIMBLE_LEGACY_VHCI_ENABLE && CONFIG_BT_CONTROLLER_ENABLED
+/// esp_nimble_hci.h is only on the include path with the legacy VHCI transport (for example ESP32, ESP32-S3, ESP32-C3).
+#include <esp_nimble_hci.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -126,6 +133,7 @@ namespace
         bool                     active{false};
         hal_ble_connection_id_t  connectionId{HAL_BLE_INVALID_CONNECTION_ID};
         hal_ble_pairing_action_t action{hal_ble_pairing_action_t::NONE};
+        std::uint32_t            passkey{0U};
     };
 
     /** VARIABLES *****************************************************************/
@@ -450,7 +458,7 @@ namespace
         eventData.gattStatus = translateGattStatus(status);
     }
 
-    void addPendingPairing(hal_ble_connection_id_t connectionId, hal_ble_pairing_action_t action)
+    void addPendingPairing(hal_ble_connection_id_t connectionId, hal_ble_pairing_action_t action, std::uint32_t passkey)
     {
         portENTER_CRITICAL(&s_bleStateMux);
         for (pending_pairing_t& pairing : s_pendingPairings)
@@ -460,13 +468,14 @@ namespace
                 pairing.active       = true;
                 pairing.connectionId = connectionId;
                 pairing.action       = action;
+                pairing.passkey      = passkey;
                 break;
             }
         }
         portEXIT_CRITICAL(&s_bleStateMux);
     }
 
-    bool getPendingPairing(hal_ble_connection_id_t connectionId, hal_ble_pairing_action_t& action)
+    bool getPendingPairing(hal_ble_connection_id_t connectionId, hal_ble_pairing_action_t& action, std::uint32_t& passkey)
     {
         bool found = false;
         portENTER_CRITICAL(&s_bleStateMux);
@@ -474,8 +483,9 @@ namespace
         {
             if (pairing.active && pairing.connectionId == connectionId)
             {
-                action = pairing.action;
-                found  = true;
+                action  = pairing.action;
+                passkey = pairing.passkey;
+                found   = true;
                 break;
             }
         }
@@ -493,6 +503,7 @@ namespace
                 pairing.active       = false;
                 pairing.connectionId = HAL_BLE_INVALID_CONNECTION_ID;
                 pairing.action       = hal_ble_pairing_action_t::NONE;
+                pairing.passkey      = 0U;
             }
         }
         portEXIT_CRITICAL(&s_bleStateMux);
@@ -639,6 +650,7 @@ sys_error_t cpx_ble::init(void* params)
 
     /// Initialize the controller transport and NimBLE host, releasing partial resources on failure.
     s_instance = this;
+#if CONFIG_BT_NIMBLE_LEGACY_VHCI_ENABLE && CONFIG_BT_CONTROLLER_ENABLED
     if (!s_hciInitialized)
     {
         const esp_err_t hciStatus = esp_nimble_hci_init();
@@ -649,6 +661,7 @@ sys_error_t cpx_ble::init(void* params)
         );
         s_hciInitialized = true;
     }
+#endif
 
     const esp_err_t portStatus = nimble_port_init();
     RETURN_IF_ERROR((portStatus != ESP_OK),      // Expression
@@ -784,12 +797,14 @@ sys_error_t cpx_ble::deInit()
     _eventCallback = nullptr;
     _eventUserData = nullptr;
 
+#if CONFIG_BT_NIMBLE_LEGACY_VHCI_ENABLE && CONFIG_BT_CONTROLLER_ENABLED
     if (s_hciInitialized)
     {
         const esp_err_t hciStatus = esp_nimble_hci_deinit();
         RETURN_IF_ERROR((hciStatus != ESP_OK), TRANSLATE_ERROR(hciStatus));
         s_hciInitialized = false;
     }
+#endif
 
     if (s_instance == this && !s_nimblePortInitialized && !s_hciInitialized)
     {
@@ -847,12 +862,12 @@ sys_error_t cpx_ble::startScan(const hal_ble_scan_config_t& config)
     RETURN_IF_ERROR((!_scanState.compare_exchange_strong(expectedState, procedure_state_t::STARTING)), ERROR_INVALID_STATE);
 
     ble_gap_disc_params scanParams{};
-    scanParams.itvl             = millisecondsTo625MicrosecondUnits(config.intervalMs);
-    scanParams.window           = millisecondsTo625MicrosecondUnits(config.windowMs);
-    scanParams.filter_policy    = BLE_HCI_SCAN_FILT_NO_WL;
-    scanParams.limited          = 0U;
-    scanParams.passive          = config.active ? 0U : 1U;
-    scanParams.filterDuplicates = config.filterDuplicates ? 1U : 0U;
+    scanParams.itvl              = millisecondsTo625MicrosecondUnits(config.intervalMs);
+    scanParams.window            = millisecondsTo625MicrosecondUnits(config.windowMs);
+    scanParams.filter_policy     = BLE_HCI_SCAN_FILT_NO_WL;
+    scanParams.limited           = 0U;
+    scanParams.passive           = config.active ? 0U : 1U;
+    scanParams.filter_duplicates = config.filterDuplicates ? 1U : 0U;
 
     const std::int32_t durationMs =
         (config.durationMs == 0U)
@@ -1059,19 +1074,20 @@ sys_error_t cpx_ble::respondToPairing(hal_ble_connection_id_t connectionId, bool
     RETURN_IF_ERROR((!_hostSynced.load()), ERROR_NOT_INITIALIZED);
     RETURN_IF_ERROR((connectionId == HAL_BLE_INVALID_CONNECTION_ID), ERROR_INVALID_ARG);
 
-    hal_ble_pairing_action_t action = hal_ble_pairing_action_t::NONE;
-    RETURN_IF_ERROR((!getPendingPairing(connectionId, action)), ERROR_INVALID_STATE);
+    hal_ble_pairing_action_t action           = hal_ble_pairing_action_t::NONE;
+    std::uint32_t            displayedPasskey = 0U;
+    RETURN_IF_ERROR((!getPendingPairing(connectionId, action, displayedPasskey)), ERROR_INVALID_STATE);
     if (!accept)
     {
         clearPendingPairing(connectionId);
         return translateNimbleError(ble_gap_terminate(connectionId, BLE_ERR_AUTH_FAIL));
     }
 
-    if (action == hal_ble_pairing_action_t::INPUT_PASSKEY || action == hal_ble_pairing_action_t::DISPLAY_PASSKEY)
+    if (action == hal_ble_pairing_action_t::INPUT_PASSKEY)
     {
         RETURN_IF_ERROR((passkey > 999999U), ERROR_INVALID_ARG);
     }
-    else if (action != hal_ble_pairing_action_t::NUMERIC_COMPARISON)
+    else if (action != hal_ble_pairing_action_t::DISPLAY_PASSKEY && action != hal_ble_pairing_action_t::NUMERIC_COMPARISON)
     {
         return ERROR_NOT_SUPPORTED;
     }
@@ -1080,9 +1096,12 @@ sys_error_t cpx_ble::respondToPairing(hal_ble_connection_id_t connectionId, bool
     switch (action)
     {
         case hal_ble_pairing_action_t::INPUT_PASSKEY:
-        case hal_ble_pairing_action_t::DISPLAY_PASSKEY:
-            securityInput.action  = (action == hal_ble_pairing_action_t::INPUT_PASSKEY) ? BLE_SM_IOACT_INPUT : BLE_SM_IOACT_DISP;
+            securityInput.action  = BLE_SM_IOACT_INPUT;
             securityInput.passkey = passkey;
+            break;
+        case hal_ble_pairing_action_t::DISPLAY_PASSKEY:
+            securityInput.action  = BLE_SM_IOACT_DISP;
+            securityInput.passkey = displayedPasskey;
             break;
         case hal_ble_pairing_action_t::NUMERIC_COMPARISON:
             securityInput.action        = BLE_SM_IOACT_NUMCMP;
@@ -1610,6 +1629,7 @@ void cpx_ble::_onHostReset(int reason)
             pairing.active       = false;
             pairing.connectionId = HAL_BLE_INVALID_CONNECTION_ID;
             pairing.action       = hal_ble_pairing_action_t::NONE;
+            pairing.passkey      = 0U;
         }
         for (client_operation_t& operation : s_clientOperations)
         {
@@ -1790,12 +1810,14 @@ int cpx_ble::_gapEventHandler(struct ble_gap_event* event, void* arg)
 
         case BLE_GAP_EVENT_PASSKEY_ACTION:
         {
-            eventData.connectionId = event->passkey.conn_handle;
+            eventData.connectionId       = event->passkey.conn_handle;
+            std::uint32_t pairingPasskey = 0U;
             switch (event->passkey.params.action)
             {
                 case BLE_SM_IOACT_DISP:
                     eventData.pairingAction = hal_ble_pairing_action_t::DISPLAY_PASSKEY;
-                    eventData.passkey       = event->passkey.params.passkey;
+                    pairingPasskey          = esp_random() % 1000000U;
+                    eventData.passkey       = pairingPasskey;
                     break;
                 case BLE_SM_IOACT_INPUT:
                     eventData.pairingAction = hal_ble_pairing_action_t::INPUT_PASSKEY;
@@ -1811,7 +1833,7 @@ int cpx_ble::_gapEventHandler(struct ble_gap_event* event, void* arg)
                     eventData.pairingAction = hal_ble_pairing_action_t::NONE;
                     break;
             }
-            addPendingPairing(eventData.connectionId, eventData.pairingAction);
+            addPendingPairing(eventData.connectionId, eventData.pairingAction, pairingPasskey);
             driver->_emitEvent(hal_ble_event_type_t::PASSKEY_ACTION, eventData);
             return 0;
         }
@@ -1925,8 +1947,8 @@ int cpx_ble::_serviceDiscoveryCallback(std::uint16_t connectionHandle, const str
         return 0;
     }
 
-    eventData.startHandle = service->startHandle;
-    eventData.endHandle   = service->endHandle;
+    eventData.startHandle = service->start_handle;
+    eventData.endHandle   = service->end_handle;
     convertUuid(service->uuid, eventData.uuid);
     operation->owner->_emitEvent(hal_ble_event_type_t::GATT_SERVICE_DISCOVERED, eventData);
     return 0;
@@ -1982,7 +2004,7 @@ int cpx_ble::_characteristicDiscoveryCallback(std::uint16_t connectionHandle, co
     return 0;
 }
 
-int cpx_ble::_descriptorDiscoveryCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, const struct ble_gatt_dsc* descriptor, void* arg)
+int cpx_ble::_descriptorDiscoveryCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, std::uint16_t, const struct ble_gatt_dsc* descriptor, void* arg)
 {
     /// Correlate descriptor results with the pending request and release its slot on completion.
     client_operation_t* const operation = static_cast<client_operation_t*>(arg);

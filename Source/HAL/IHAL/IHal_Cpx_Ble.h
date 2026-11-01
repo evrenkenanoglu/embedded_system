@@ -136,7 +136,8 @@ enum class hal_ble_event_operation_t : std::uint8_t
     SUBSCRIBE,
     NOTIFY,
     INDICATE,
-    SECURITY
+    SECURITY,
+    DESCRIPTOR_DISCOVERY
 };
 
 enum class hal_ble_gatt_status_t : std::uint8_t

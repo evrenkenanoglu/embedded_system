@@ -107,9 +107,10 @@ private:
     static int  _gattAccessHandler(std::uint16_t connectionHandle, std::uint16_t attributeHandle, struct ble_gatt_access_ctxt* context, void* arg);
     static int  _serviceDiscoveryCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, const struct ble_gatt_svc* service, void* arg);
     static int  _characteristicDiscoveryCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, const struct ble_gatt_chr* characteristic, void* arg);
-    static int  _descriptorDiscoveryCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, const struct ble_gatt_dsc* descriptor, void* arg);
-    static int  _readCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, struct ble_gatt_attr* attribute, void* arg);
-    static int  _writeCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, struct ble_gatt_attr* attribute, void* arg);
+    static int  _descriptorDiscoveryCallback(
+        std::uint16_t connectionHandle, const struct ble_gatt_error* error, std::uint16_t characteristicValueHandle, const struct ble_gatt_dsc* descriptor, void* arg);
+    static int _readCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, struct ble_gatt_attr* attribute, void* arg);
+    static int _writeCallback(std::uint16_t connectionHandle, const struct ble_gatt_error* error, struct ble_gatt_attr* attribute, void* arg);
 
     sys_error_t _validateConfig(const hal_ble_config_t& config) const;
     void        _emitEvent(hal_ble_event_type_t event, const hal_ble_event_data_t& eventData);
