@@ -1,7 +1,11 @@
-import config
+import argparse
+import os
 import re
 import subprocess
+
 import qrcode
+
+import config
 
 
 def run_command(cmd):
@@ -37,7 +41,55 @@ def printQRCodeWithWebsite(qr_code_payload):
     print(f"QR CODE: {website}{qr_code_payload}")
 
 
-def main():
+def _integer(value):
+    try:
+        parsed = int(value, 16 if value.lower().startswith("0x") else 10)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be an integer") from error
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must not be negative")
+    return parsed
+
+
+def _discriminator(value):
+    parsed = _integer(value)
+    if parsed > 0x0FFF:
+        raise argparse.ArgumentTypeError("must fit in 12 bits (0..4095)")
+    return parsed
+
+
+def _setup_pin_code(value):
+    parsed = _integer(value)
+    invalid_codes = {digit * 11111111 for digit in range(1, 10)} | {
+        12345678,
+        87654321,
+        20202021,
+    }
+    if parsed == 0 or parsed > 99999998 or parsed in invalid_codes:
+        raise argparse.ArgumentTypeError("must be a valid Matter setup passcode")
+    return parsed
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Generate per-device Matter onboarding codes."
+    )
+    parser.add_argument(
+        "--discriminator",
+        type=_discriminator,
+        default=os.environ.get("MATTER_DISCRIMINATOR"),
+        required=os.environ.get("MATTER_DISCRIMINATOR") is None,
+        help="per-device 12-bit discriminator (or MATTER_DISCRIMINATOR)",
+    )
+    parser.add_argument(
+        "--setup-pin-code",
+        type=_setup_pin_code,
+        default=os.environ.get("MATTER_SETUP_PIN_CODE"),
+        required=os.environ.get("MATTER_SETUP_PIN_CODE") is None,
+        help="per-device Matter setup passcode (or MATTER_SETUP_PIN_CODE)",
+    )
+    args = parser.parse_args(argv)
+
     print(f"--- Generating Matter Codes for PID {config.PRODUCT_ID} ---")
 
     # 1. Generate QR Code
@@ -46,9 +98,9 @@ def main():
         "payload",
         "generate-qrcode",
         "--discriminator",
-        str(config.DISCRIMINATOR),
+        str(args.discriminator),
         "--setup-pin-code",
-        str(config.SETUP_PIN_CODE),
+        str(args.setup_pin_code),
         "--vendor-id",
         str(config.VENDOR_ID),
         "--product-id",
@@ -71,9 +123,9 @@ def main():
         "payload",
         "generate-manualcode",
         "--discriminator",
-        str(config.DISCRIMINATOR),
+        str(args.discriminator),
         "--setup-pin-code",
-        str(config.SETUP_PIN_CODE),
+        str(args.setup_pin_code),
         "--version",
         str(config.VERSION),
         "--commissioning-mode",
@@ -90,9 +142,9 @@ def main():
         "payload",
         "generate-manualcode",
         "--discriminator",
-        str(config.DISCRIMINATOR),
+        str(args.discriminator),
         "--setup-pin-code",
-        str(config.SETUP_PIN_CODE),
+        str(args.setup_pin_code),
         "--vendor-id",
         str(config.VENDOR_ID),
         "--product-id",

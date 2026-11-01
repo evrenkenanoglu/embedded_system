@@ -3,17 +3,6 @@
 
 # Matter Setup Parameters
 
-# --- Commissioning Credentials ---
-# The 12-bit discriminator (0-4095).
-# This allows multiple devices to advertise simultaneously without conflict.
-# IMPORTANT: Must match 'idf.py menuconfig' -> CHIP Device Layer -> Device Identification -> Default Discriminator
-DISCRIMINATOR = 3840
-
-# The 27-bit setup passcode (00000001-99999998).
-# This acts as the password for the initial connection.
-# IMPORTANT: Must match 'idf.py menuconfig' -> CHIP Device Layer -> Device Identification -> Default Setup Passcode
-SETUP_PIN_CODE = 20202021
-
 # --- Device Identity ---
 # Vendor ID (VID). 0xFFF1 is for "Test Vendor".
 # For a pro product, you must acquire a VID from the CSA (Connectivity Standards Alliance).
