@@ -1,4 +1,5 @@
 import os
+import re
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -7,6 +8,8 @@ API_KEY_FALLBACK_ENV_VARS = (
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
 )
+
+PROVIDER_ARGUMENT_TOKEN = re.compile(r"\{ai_assistant\.provider\.([\w.-]+)\}")
 
 
 class BaseAdapter(ABC):
@@ -80,9 +83,27 @@ class BaseAdapter(ABC):
         return self.tool_config.get("binary") or self.default_binary
 
     def get_args(self) -> List[str]:
+        def replace_provider_value(match: re.Match[str]) -> str:
+            path = match.group(1).split(".")
+            value = self.provider
+            for key in path:
+                if not isinstance(value, dict) or key not in value:
+                    token = match.group(0)
+                    raise ValueError(
+                        f"Unknown provider argument token '{token}' for "
+                        f"provider '{self.provider_name}'."
+                    )
+                value = value[key]
+            if isinstance(value, (dict, list)):
+                raise ValueError(
+                    f"Provider argument token '{match.group(0)}' must resolve to a scalar."
+                )
+            return "" if value is None else str(value)
+
         raw_args = self.tool_config.get("args", [])
-        model = self.provider.get("model", "")
-        return [arg.replace("{ai_assistant.provider.model}", model) for arg in raw_args]
+        return [
+            PROVIDER_ARGUMENT_TOKEN.sub(replace_provider_value, arg) for arg in raw_args
+        ]
 
     @abstractmethod
     def configure_env(self, env: dict) -> dict:
