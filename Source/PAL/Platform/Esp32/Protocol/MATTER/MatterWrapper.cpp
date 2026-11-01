@@ -485,15 +485,17 @@ sys_error_t MatterWrapper::start()
 
 sys_error_t MatterWrapper::setEventCallback(MatterStackEventCallback callback, void* userData)
 {
-    RETURN_IF_ERROR(_started, ERROR_INVALID_STATE, SYS_LOG_E("Matter event callback must be registered before start"));
+    std::lock_guard<std::mutex> callbackLock(_eventCallbackMutex);
+    RETURN_IF_ERROR((_started && callback != nullptr), ERROR_INVALID_STATE, SYS_LOG_E("Matter event callback must be registered before start"));
 
     _eventCallback = callback;
-    _eventUserData = userData;
+    _eventUserData = (callback == nullptr) ? nullptr : userData;
     return ERROR_SUCCESS;
 }
 
 void MatterWrapper::dispatchEvent(MatterStackEvent event)
 {
+    std::lock_guard<std::mutex> callbackLock(_eventCallbackMutex);
     if (_eventCallback != nullptr)
     {
         _eventCallback(event, _eventUserData);

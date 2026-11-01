@@ -19,6 +19,7 @@
 #include <atomic>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -30,6 +31,8 @@
 class OtaManager : public IOtaManager
 {
 public:
+    using OtaStateObserver = std::function<void(OtaState state)>;
+
     OtaManager(IOtaService& otaService, IHttpClient& httpClient, uint32_t taskStackSize = 16 * 1024, UBaseType_t taskPriority = tskIDLE_PRIORITY + 1);
     ~OtaManager() override;
 
@@ -58,6 +61,14 @@ public:
     sys_error_t processPendingRollbackTelemetry() override;
 
     /**
+     * @brief Set a non-blocking observer for OTA service state changes.
+     * @param[in] observer State observer, or an empty function to disable observation.
+     * @return sys_error_t ERROR_SUCCESS when set, or ERROR_INVALID_STATE while automatic work is running.
+     * @note Configure before startAutomatic(); callbacks run in OTA task context and must not block.
+     */
+    sys_error_t setStateObserver(OtaStateObserver observer);
+
+    /**
      * @brief Computes next periodic trigger interval applying standard randomization.
      *
      * @return uint32_t Target timeout in seconds.
@@ -82,6 +93,7 @@ public:
 private:
     static void _automaticTaskEntry(void* param);
     void        _automaticWorker();
+    void        _notifyStateObserver(OtaState state);
     bool        _isTwoStageConditionMet();
     sys_error_t _parseCheckResponse(const std::string& jsonStr, OtaCheckResult& outResult);
     sys_error_t _parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps);
@@ -99,6 +111,7 @@ private:
     std::atomic<bool>            _automaticRunning{false};
     OtaManagerOptions_t          _options;
     OtaPlatformHooks_t           _platformHooks;
+    OtaStateObserver             _stateObserver;
     OtaManagerStartupConfig_t    _startupConfig;
     bool                         _isInitialized;
     OtaCheckpointManager*        _checkpointMgr{nullptr};

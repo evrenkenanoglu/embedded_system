@@ -24,6 +24,7 @@
 #include <cstring>
 #include <limits>
 #include <new>
+#include <utility>
 
 /** INCLUDES ******************************************************************/
 
@@ -577,8 +578,15 @@ sys_error_t OtaManager::executeUpdate()
     serviceOptions.targetSize       = _pendingSize;
     serviceOptions.startOffset      = resumeOffset;
 
-    auto progressCallback = [this](OtaState state, size_t received, size_t total)
+    OtaState terminalState    = OtaState::Idle;
+    auto     progressCallback = [this, &terminalState](OtaState state, size_t received, size_t total)
     {
+        _notifyStateObserver(state);
+        if (state == OtaState::Success || state == OtaState::Failed)
+        {
+            terminalState = state;
+        }
+
         if (total > 0)
         {
             float percent = (static_cast<float>(received) / static_cast<float>(total)) * 100.0f;
@@ -601,9 +609,18 @@ sys_error_t OtaManager::executeUpdate()
 
     if (err != ERROR_SUCCESS)
     {
+        if (terminalState != OtaState::Failed)
+        {
+            _notifyStateObserver(OtaState::Failed);
+        }
         SYS_LOG_E("Download Stream execution transaction failed!");
         _sendTelemetryReport("failure", err);
         return err;
+    }
+
+    if (terminalState != OtaState::Success)
+    {
+        _notifyStateObserver(OtaState::Success);
     }
 
     /// 2. Purge checkpoint once download and cryptographic validation succeed
@@ -943,6 +960,26 @@ void OtaManager::setCheckpointManager(OtaCheckpointManager* checkpointMgr)
     std::lock_guard<std::recursive_mutex> lock(_mutex);
     _checkpointMgr = checkpointMgr;
     SYS_LOG_I("OtaCheckpointManager injected into OTA Manager.");
+}
+
+sys_error_t OtaManager::setStateObserver(OtaStateObserver observer)
+{
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
+    RETURN_IF_ERROR(
+        (_taskHandle.load() != nullptr || _automaticRunning.load()), // Expression
+        ERROR_INVALID_STATE                                          // Error Code
+    );
+
+    _stateObserver = std::move(observer);
+    return ERROR_SUCCESS;
+}
+
+void OtaManager::_notifyStateObserver(OtaState state)
+{
+    if (_stateObserver)
+    {
+        _stateObserver(state);
+    }
 }
 
 sys_error_t OtaManager::setDiagnosticStorage(IHAL_MEM* diagMem)

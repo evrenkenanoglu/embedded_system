@@ -2,6 +2,8 @@
 #include "PAL/Protocols/MATTER/IMatterStack.hpp"
 #include "PAL/Protocols/MATTER/MatterDevice.hpp"
 #include <esp_matter.h>
+#include <mutex>
+
 class MatterWrapper : public IMatterStack
 {
 public:
@@ -33,4 +35,5 @@ private:
     MatterStackEventCallback _eventCallback;
     void*                    _eventUserData;
     bool                     _started;
+    std::mutex               _eventCallbackMutex;
 };
