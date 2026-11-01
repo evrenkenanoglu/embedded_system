@@ -26,7 +26,7 @@
 
 /** LOCAL FUNCTIONS ***********************************************************/
 
-static void keyGenerationTask(void* param)
+void keyGenerationTask(void* param)
 {
     if (param == nullptr)
     {
@@ -38,7 +38,8 @@ static void keyGenerationTask(void* param)
     cpx_credentialsManager* manager = static_cast<cpx_credentialsManager*>(param);
     bool                    success = (manager->generateAndStoreKeys() == ERROR_SUCCESS);
 
-    EventBits_t bits = success ? KEY_GEN_COMPLETED : KEY_GEN_FAILED;
+    manager->_keyGenTaskHandle = nullptr;
+    EventBits_t bits           = success ? KEY_GEN_COMPLETED : KEY_GEN_FAILED;
     xEventGroupSetBits(manager->getEventGroup(), bits);
 
     vTaskDelete(NULL);

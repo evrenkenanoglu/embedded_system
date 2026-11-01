@@ -42,6 +42,8 @@ struct CredentialsCharData_t
  */
 class cpx_credentialsManager : public IHAL_CPX
 {
+    friend void keyGenerationTask(void* param);
+
 private:
     struct CredentialsData
     {
