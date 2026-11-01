@@ -2,6 +2,8 @@
 
 Use this skill when authoring, refactoring, reviewing, or analyzing C++ firmware and HAL/PAL components across the `embedded_system` codebase.
 
+**Companion skill:** Also load `embedded-safety-security-leak-prevention/SKILL.md` for any change that handles secrets, external input, shared state, storage, or physical outputs. Its rules (no secret logging, bounded formatting, bounded mutex waits, fail-safe outputs) apply alongside this skill's conventions.
+
 ---
 
 ## 1. File Structure and Include Hierarchy

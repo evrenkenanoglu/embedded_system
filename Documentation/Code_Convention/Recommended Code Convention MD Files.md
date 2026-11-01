@@ -7,6 +7,10 @@ for all C++ code conventions is the skills system:
   logging, concurrency, Doxygen):
   `embedded_system/.agents/skills/embedded-cpp-code-conventions/SKILL.md`
 
+- **Safety and security leak prevention** (secret logging, bounded
+  formatting and waits, callback lifetime, fail-safe outputs):
+  `embedded_system/.agents/skills/embedded-safety-security-leak-prevention/SKILL.md`
+
 - **HAL structure and driver naming** (directory layout,
   `io_`/`com_`/`cpx_`/`mem_`/`sys_` taxonomy, interface vs
   implementation, known deviations):

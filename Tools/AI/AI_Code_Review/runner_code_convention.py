@@ -14,6 +14,7 @@ DEFAULT_PROVIDER = "gemini"
 DEFAULT_TEMPLATES = [
     "prompts/code_convention_review.md",
     "../.agents/skills/embedded-cpp-code-conventions/SKILL.md",
+    "../.agents/skills/embedded-safety-security-leak-prevention/SKILL.md",
     "../.agents/skills/embedded-hal-architecture/SKILL.md",
 ]
 
