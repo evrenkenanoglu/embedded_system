@@ -130,7 +130,7 @@ sys_error_t sys_resetReason::init(void* params)
 sys_error_t sys_resetReason::feed()
 {
     /// Validate driver initialization state.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR(_initialized != HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
 
     // The reset reason is latched by the silicon at power-up; no periodic
     // hardware feed is required.

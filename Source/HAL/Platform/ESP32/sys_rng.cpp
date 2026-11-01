@@ -94,7 +94,7 @@ sys_error_t sys_rng::init(void* params)
 sys_error_t sys_rng::feed()
 {
     /// Validate driver initialization state.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR(_initialized != HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
 
     // The ESP32 TRNG requires no periodic hardware feed; entropy conditioning
     // is handled by the silicon peripheral itself.
