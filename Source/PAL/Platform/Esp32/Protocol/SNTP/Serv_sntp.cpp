@@ -93,21 +93,7 @@ sys_error_t Serv_sntp::init(const sntp_client_config_t& config)
     /// Register the instance before arming the SDK notification callback.
     sntpInstance = this;
 
-    /// Configure the SDK client in poll mode before initialization.
-    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_set_sync_mode(toSdkSyncMode(config.sync_mode));
-    sntp_set_sync_interval(config.sync_interval_ms);
-
     (void)esp_sntp_set_time_sync_notification_cb(&Serv_sntp::_sdkSyncNotificationTrampoline);
-
-    const char* servers[kMaxSntpServers] = {config.server_primary, config.server_secondary, config.server_tertiary};
-    for (uint8_t i = 0U; i < kMaxSntpServers; ++i)
-    {
-        if (servers[i] != nullptr)
-        {
-            esp_sntp_setservername(i, servers[i]);
-        }
-    }
 
     _initialized = 1U;
     SYS_LOG_I(
@@ -154,6 +140,20 @@ sys_error_t Serv_sntp::start()
     if (_running != 0U)
     {
         return ERROR_SUCCESS;
+    }
+
+    /// SDK configuration is marshalled onto the lwIP tcpip task, which exists only once the network stack is up; callers must start() after network-up.
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_set_sync_mode(toSdkSyncMode(_config.sync_mode));
+    sntp_set_sync_interval(_config.sync_interval_ms);
+
+    const char* servers[kMaxSntpServers] = {_config.server_primary, _config.server_secondary, _config.server_tertiary};
+    for (uint8_t i = 0U; i < kMaxSntpServers; ++i)
+    {
+        if (servers[i] != nullptr)
+        {
+            esp_sntp_setservername(i, servers[i]);
+        }
     }
 
     esp_sntp_init();

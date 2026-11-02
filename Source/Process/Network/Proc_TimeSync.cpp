@@ -180,6 +180,10 @@ sys_error_t Proc_TimeSync::_runSyncAttempt(uint32_t& retryCount)
 void Proc_TimeSync::_worker()
 {
     SYS_LOG_I("Proc_TimeSync: worker started");
+    if (_wdt != nullptr)
+    {
+        (void)_wdt->registerCurrentTask();
+    }
 
     for (;;)
     {
@@ -189,6 +193,16 @@ void Proc_TimeSync::_worker()
         {
             SYS_LOG_I("Proc_TimeSync: stop requested, worker exiting");
             break;
+        }
+
+        // SNTP SDK calls are marshalled onto the lwIP tcpip task, so polling starts only once the network is up.
+        // ISntpClient::start() is idempotent, so reconnects reuse the running client.
+        const sys_error_t sntpStartError = _sntpClient.start();
+        if (sntpStartError != ERROR_SUCCESS)
+        {
+            SYS_LOG_W("Proc_TimeSync: SNTP start failed (%d), retry in %us", static_cast<int>(sntpStartError), static_cast<unsigned>(_retryIntervalSec));
+            _sleepSec(_retryIntervalSec);
+            continue;
         }
 
         uint32_t retryCount = 0U;
@@ -225,9 +239,16 @@ void Proc_TimeSync::_worker()
         }
     }
 
-    /// Signal the supervisor that the worker is gone before returning from the task function.
-    // FreeRTOS deletes the task on return, so the handle is never dereferenced after task death.
+    // Drop the TWDT subscription first: a deleted task left subscribed triggers watchdog alarms.
+    if (_wdt != nullptr)
+    {
+        (void)_wdt->unregisterCurrentTask();
+    }
+
+    /// Signal the supervisor that the worker is gone, then delete the task; FreeRTOS aborts if a task function returns.
+    // The supervisor never probes the handle after kWorkerExitedBit is observed, so self-deletion is race-free.
     (void)xEventGroupSetBits(_eventGroup, kWorkerExitedBit);
+    vTaskDelete(nullptr);
 }
 
 void Proc_TimeSync::_workerTrampoline(void* param)
@@ -283,16 +304,9 @@ sys_error_t Proc_TimeSync::start()
         (void)xEventGroupSetBits(_eventGroup, kNetworkUpBit);
     }
 
-    RETURN_ON_ERROR((_sntpClient.start()));
-
     const BaseType_t created = xTaskCreate(_workerTrampoline, "Proc_TimeSync", kWorkerStackSize, this, kWorkerPriority, &_xHandle);
     if (created != pdPASS)
     {
-        const sys_error_t stopError = _sntpClient.stop();
-        if (stopError != ERROR_SUCCESS)
-        {
-            SYS_LOG_E("Proc_TimeSync: failed to stop SNTP client after task creation failure (%d)", static_cast<int>(stopError));
-        }
         return ERROR_OUT_OF_MEMORY;
     }
 

@@ -39,6 +39,7 @@ WifiConfigurationManager::WifiConfigurationManager(IHAL_CPX_WIFI& wifi, const Wi
     , _state(WifiMgrState::BOOT)
     , _connectAttempts(0)
     , _scanRequest(WifiScanRequest::NONE)
+    , _paused(false)
     , _scanResults(nullptr)
     , _scanResultCount(0)
     , _status{}
@@ -58,9 +59,10 @@ WifiConfigurationManager::WifiConfigurationManager(IHAL_CPX_WIFI& wifi, const Wi
         _apConfig = *apConfig;
     }
 
-    _eventGroup  = xEventGroupCreate();
-    _statusMutex = xSemaphoreCreateMutex();
-    _scanResults = new (std::nothrow) hal_wifi_ap_record_t[kMaxScanResults];
+    _eventGroup       = xEventGroupCreate();
+    _statusMutex      = xSemaphoreCreateMutex();
+    _subscribersMutex = xSemaphoreCreateMutex();
+    _scanResults      = new (std::nothrow) hal_wifi_ap_record_t[kMaxScanResults];
 
     _status.state           = _state;
     _status.halState        = WIFI_STATE_DISCONNECTED;
@@ -105,9 +107,9 @@ WifiConfigurationManager::~WifiConfigurationManager()
 sys_error_t WifiConfigurationManager::start()
 {
     RETURN_IF_ERROR(
-        (_eventGroup == nullptr || _statusMutex == nullptr || _scanResults == nullptr), // Expression
-        ERROR_NOT_INITIALIZED,                                                          // Error code
-        SYS_LOG_E("WiFi manager resources not allocated")                               // Error message
+        (_eventGroup == nullptr || _statusMutex == nullptr || _subscribersMutex == nullptr || _scanResults == nullptr), // Expression
+        ERROR_NOT_INITIALIZED,                                                                                          // Error code
+        SYS_LOG_E("WiFi manager resources not allocated")                                                               // Error message
     );
 
     // The HAL delivers events in driver context; the worker owns all HAL calls.

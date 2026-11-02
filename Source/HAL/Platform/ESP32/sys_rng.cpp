@@ -82,7 +82,7 @@ sys_error_t sys_rng::init(void* params)
     if (_mutex == nullptr)
     {
         _mutex = xSemaphoreCreateMutex();
-        RETURN_IF_ERROR(_mutex != nullptr, ERROR_OUT_OF_MEMORY);
+        RETURN_IF_ERROR((_mutex == nullptr), ERROR_OUT_OF_MEMORY);
     }
 
     /// Mark driver state as initialized and log status.
@@ -94,7 +94,7 @@ sys_error_t sys_rng::init(void* params)
 sys_error_t sys_rng::feed()
 {
     /// Validate driver initialization state.
-    RETURN_IF_ERROR(_initialized != HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
 
     // The ESP32 TRNG requires no periodic hardware feed; entropy conditioning
     // is handled by the silicon peripheral itself.
@@ -125,12 +125,12 @@ sys_error_t sys_rng::deInit()
 sys_error_t sys_rng::getRandomBytes(uint8_t* outputBuffer, size_t length)
 {
     /// Validate driver initialization, output buffer pointer, and requested length.
-    RETURN_IF_ERROR(_initialized == HAL_INITIALIZED, ERROR_NOT_INITIALIZED);
-    RETURN_IF_ERROR(outputBuffer != nullptr, ERROR_NULL_POINTER);
-    RETURN_IF_ERROR(length > 0U, ERROR_INVALID_ARG);
+    RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
+    RETURN_IF_ERROR((outputBuffer == nullptr), ERROR_NULL_POINTER);
+    RETURN_IF_ERROR((length == 0U), ERROR_INVALID_ARG);
 
     /// Acquire serialization mutex before hardware entropy buffer access.
-    RETURN_IF_ERROR(_lock(kMutexTimeoutMs), ERROR_DEVICE_BUSY);
+    RETURN_IF_ERROR((!_lock(kMutexTimeoutMs)), ERROR_DEVICE_BUSY);
 
     /// Read requested random byte stream from ESP32 hardware TRNG.
     esp_fill_random(outputBuffer, length);

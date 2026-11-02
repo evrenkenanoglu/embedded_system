@@ -81,6 +81,7 @@ public:
 
     /**
      * @brief Start periodic synchronization polling.
+     * @note Must be called only after the network stack is up; the SDK marshals configuration onto the network task.
      * @return sys_error_t ERROR_SUCCESS on success, ERROR_NOT_INITIALIZED / ERROR_INVALID_STATE otherwise.
      */
     virtual sys_error_t start() = 0;

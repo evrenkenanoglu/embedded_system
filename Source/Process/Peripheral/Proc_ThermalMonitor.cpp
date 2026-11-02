@@ -56,6 +56,7 @@ Proc_ThermalMonitor::Proc_ThermalMonitor(
     RETURN_IF_ERROR(_listenersMutex == nullptr, , SYS_LOG_E("Proc_ThermalMonitor: listener mutex creation failed"));
 
     setState(State::INITIALIZED);
+    SYS_LOG_I("Proc_ThermalMonitor: initialized");
 }
 
 Proc_ThermalMonitor::~Proc_ThermalMonitor()
