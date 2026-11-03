@@ -6,6 +6,7 @@
 @copyright  (c) 2026- Evren Kenanoglu - All Rights Reserved
 """
 
+import csv
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -68,32 +69,63 @@ class PartitionTableParser:
             else None
         )
 
-        with open(self.csv_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
+        with open(self.csv_path, "r", encoding="utf-8", newline="") as f:
+            for line_number, row in enumerate(csv.reader(f), start=1):
+                if not row or not any(field.strip() for field in row):
                     continue
 
-                parts = [p.strip() for p in line.split(",")]
-                if len(parts) < 5:
+                parts = [field.strip() for field in row]
+                if parts[0].startswith("#"):
                     continue
+                if len(parts) < 5:
+                    raise ValueError(
+                        f"Invalid partition CSV row {line_number}: expected at least "
+                        f"5 columns, got {len(parts)}."
+                    )
 
                 name = parts[0]
                 ptype = parts[1]
                 subtype = parts[2]
                 offset_str = parts[3]
                 size_str = parts[4]
+                if not name or not ptype or not subtype:
+                    raise ValueError(
+                        f"Invalid partition CSV row {line_number}: name, type, and "
+                        "subtype are required."
+                    )
+                if name in self.partitions:
+                    raise ValueError(
+                        f"Duplicate partition name '{name}' in {self.csv_path} "
+                        f"(row {line_number})."
+                    )
                 flags = (
                     [f.strip() for f in parts[5].split(":")]
                     if len(parts) > 5 and parts[5]
                     else []
                 )
 
-                size = int(size_str, 0)
+                try:
+                    size = int(size_str, 0)
+                    offset_value = int(offset_str, 0) if offset_str else None
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Invalid numeric offset or size in partition CSV row "
+                        f"{line_number}: {exc}"
+                    ) from exc
+                if size <= 0:
+                    raise ValueError(
+                        f"Partition '{name}' has invalid non-positive size {size}."
+                    )
+                if offset_value is not None and offset_value < 0:
+                    raise ValueError(
+                        f"Partition '{name}' has invalid negative offset "
+                        f"{offset_value}."
+                    )
+
                 offset = None
 
-                if offset_str:
-                    offset = int(offset_str, 0)
+                if offset_value is not None:
+                    offset = offset_value
                     if current_offset is not None:
                         current_offset = offset + size
                 elif can_resolve_offsets and current_offset is not None:
@@ -113,6 +145,11 @@ class PartitionTableParser:
                     size=size,
                     flags=flags,
                 )
+
+        if not self.partitions:
+            raise ValueError(
+                f"Partition table CSV contains no partitions: {self.csv_path}"
+            )
 
     def get_partition(self, name: str) -> PartitionEntry:
         if name not in self.partitions:
@@ -135,6 +172,45 @@ class PartitionTableParser:
                 f"were not supplied to PartitionTableParser by the caller."
             )
         return partition.offset
+
+    def validate_geometry(self, flash_size: int, sector_size: int = 1) -> None:
+        """Validate resolved partition ranges against flash and erase-sector geometry."""
+        if flash_size <= 0:
+            raise ValueError(f"Flash size must be positive, got {flash_size}.")
+        if sector_size <= 0:
+            raise ValueError(f"Erase-sector size must be positive, got {sector_size}.")
+
+        ranges = []
+        for partition in self.partitions.values():
+            if partition.offset is None:
+                raise ValueError(
+                    f"Cannot validate partition '{partition.name}': its offset is "
+                    "unresolved."
+                )
+            start = partition.offset
+            end = start + partition.size
+            if end > flash_size:
+                raise ValueError(
+                    f"Partition '{partition.name}' ends at {hex(end)}, beyond "
+                    f"configured flash size {hex(flash_size)}."
+                )
+            sector_start = start - start % sector_size
+            sector_end = ((end + sector_size - 1) // sector_size) * sector_size
+            if sector_end > flash_size:
+                raise ValueError(
+                    f"Partition '{partition.name}' erase range ends at "
+                    f"{hex(sector_end)}, beyond configured flash size {hex(flash_size)}."
+                )
+            ranges.append((sector_start, sector_end, partition.name))
+
+        ranges.sort()
+        for previous, current in zip(ranges, ranges[1:], strict=False):
+            if current[0] < previous[1]:
+                raise ValueError(
+                    f"Partitions '{previous[2]}' and '{current[2]}' overlap after "
+                    f"erase-sector rounding ({hex(previous[0])}-{hex(previous[1])} "
+                    f"and {hex(current[0])}-{hex(current[1])})."
+                )
 
     def generate_flash_args(self, binary_mapping: Dict[str, Path]) -> List[str]:
         """Generates esptool flash arguments (requires caller to have supplied layout parameters)."""

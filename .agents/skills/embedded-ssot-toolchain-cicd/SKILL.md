@@ -59,13 +59,13 @@ This specification defines the architectural invariants, configuration hierarchi
 ### A. Layer Hierarchy
 $$\text{Invoke Tasks (Tasks/)} \longrightarrow \text{BaseToolchain (Template/Lifecycle)} \longrightarrow \text{EspIdfToolchain (Vendor Commands)} \longrightarrow \text{idf.py / esptool}$$
 
-1. **`IToolchain` (`embedded_system/Tasks/toolchains/interface.py`)**:
+1. **`IToolchain` (`embedded_system/Tools/TOOLCHAIN/interface.py`)**:
    * Declares only universal embedded operations: `build`, `flash`, `monitor`, `test`, `clean`, `clean_all`.
    * Vendor-specific operations (`menuconfig`, `erase`, `flash_ota`) are excluded from the base interface.
-2. **`BaseToolchain` (`embedded_system/Tasks/toolchains/base.py`)**:
+2. **`BaseToolchain` (`embedded_system/Tools/TOOLCHAIN/base.py`)**:
    * Implements the Template Method pattern: stage banners, timing via `time.perf_counter()`, TTY color detection (`NO_COLOR` / `FORCE_COLOR` compliance), and exception handling.
    * Delegates default target/port resolution to subclass hooks (`_get_default_target()`, `_get_default_port()`).
-3. **`EspIdfToolchain` (`embedded_system/Tasks/toolchains/esp_idf.py`)**:
+3. **`EspIdfToolchain` (`embedded_system/Tools/TOOLCHAIN/esp_idf.py`)**:
    * Uses native ESP-IDF v5 `idf.py build merge-bin -o <out_name>` (eliminates `cd build` and manual `esptool.py` calls).
    * Does not source host activation scripts if `/.dockerenv` exists or `IDF_PATH` is already active.
    * Implements ESP-specific methods (`menuconfig`, `erase`, `flash_ota`) directly.

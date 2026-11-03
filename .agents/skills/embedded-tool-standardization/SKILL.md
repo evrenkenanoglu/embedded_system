@@ -435,6 +435,28 @@ uv pip compile requirements.in -o requirements.txt
 
 ---
 
+### Incident 9: Metadata Validation Used a Caller-Local Value
+- **Error Signature:**
+  ```text
+  NameError: name 'extra_esptool_args' is not defined
+  ```
+- **Trigger:** A validation helper read metadata through a name initialized only in its caller.
+- **Root Cause:** The generated metadata chip check was moved into preflight, but its local metadata mapping was not initialized in that helper's scope.
+- **Invariant Rule:** Keep metadata parsing/validation state local to the helper that consumes it, and run a positive selected-flash dry run after preflight changes.
+
+---
+
+### Incident 10: SDK Parser Offset Was Set on a Detached Globals Mapping
+- **Error Signature:**
+  ```text
+  Compiled partition table ... is stale relative to ...
+  ```
+- **Trigger:** A positive selected-flash dry run parsed matching generated CSV and compiled binary through ESP-IDF's parser but compared them as different.
+- **Root Cause:** `runpy.run_path()` returns a globals mapping distinct from the `__globals__` mapping used by functions defined in the loaded script. Updating `offset_part_table` on the returned mapping did not configure the SDK parser.
+- **Invariant Rule:** When loading a parser with `runpy`, set module-level parser options through the loaded function's `__globals__` (or use a properly registered module import), then verify the real generated binary before testing stale fixtures.
+
+---
+
 ## 7. Autonomous Self-Healing & Error Recording Protocol
 
 Whenever an AI agent executes, debugs, or modifies host tools and encounters an unexpected runtime error, CLI failure, or regression, it must execute this self-healing loop:

@@ -56,7 +56,7 @@ To keep `embedded_system` completely reusable across different microcontrollers 
 3. ❌ **ZERO Board Pins in `embedded_system`:** `embedded_system/` must never contain pin numbers, `sdkconfig`, or board layouts. Hardware instances are injected into test functions by reference.
 4. ✔️ **Board Ownership in `main/`:** `main/Proc_Hil_Test.cpp` pulls pin configurations from `main/hwConfig/`, instantiates drivers, calls generic test functions, and formats test report strings over UART.
 5. ✔️ **Host Assertions in `CI_CD/tests/hil/`:** Test assertions and dependency pruning execute on the host PC via `pytest-embedded` [1, 2] and `pytest-dependency`.
-6. ✔️ **Security Gating:** `Proc_Hil_Test.cpp` must be compiled **only** when HIL testing is enabled (`BUILD_HIL_TESTBED=ON` or `CONFIG_ENABLE_HIL_TEST_ENGINE=y`). It must never be included in production release binaries.
+6. ✔️ **Security Gating:** `Proc_Hil_Test.cpp` must be compiled **only** when HIL testing is enabled (`-DENABLE_HIL_TEST_PROCESS=ON`). It must never be included in production release binaries.
 
 ---
 
@@ -347,5 +347,5 @@ Scoped to `hil-hardware-testing`:
 - **ERR-004 — Test Harness Leaking into Release Firmware:**
   *Symptom:* Production devices responded to internal test commands over UART in the field.
   *Root Cause:* Test process was registered unconditionally in `main.cpp`.
-  *Preventive Rule:* Gate `Proc_Hil_Test` behind compile-time definitions (`BUILD_HIL_TESTBED=ON`) and exclude test files from release builds in CMake.
+  *Preventive Rule:* Gate `Proc_Hil_Test` behind the compile-time definition `ENABLE_HIL_TEST_PROCESS` (`-DENABLE_HIL_TEST_PROCESS=ON`) and exclude test files from release builds in CMake.
 ```

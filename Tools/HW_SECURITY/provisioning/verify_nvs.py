@@ -6,7 +6,6 @@ import csv
 import subprocess
 import sys
 import tempfile
-import zlib
 from pathlib import Path
 from typing import Any, Dict, Iterable, Set, Tuple
 
@@ -16,7 +15,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from factory.partition_parser import PartitionTableParser
-from nvs.partition_nvs_generator import find_nvs_partition_gen_tool, render_template_csv
+from nvs.partition_nvs_generator import (
+    find_nvs_partition_gen_tool,
+    nvs_keys_partition_crc,
+    render_template_csv,
+)
 
 
 def _required_nvs_entries(csv_path: Path) -> Set[Tuple[str, str]]:
@@ -75,7 +78,9 @@ def verify(config_path: Path) -> None:
             f"NVS key size mismatch: expected {key_size} bytes, found {len(key)}"
         )
 
-    expected_key_partition = key + zlib.crc32(key).to_bytes(4, "little") + b"\xff" * 12
+    expected_key_partition = (
+        key + nvs_keys_partition_crc(key).to_bytes(4, "little") + b"\xff" * 12
+    )
     if key_partition_path.read_bytes() != expected_key_partition:
         raise ValueError(
             "NVS key partition image does not match key, CRC, and erased padding"

@@ -1,10 +1,12 @@
 from functools import lru_cache
 from pathlib import Path
-from invoke import Context, task
+
 from core import CONFIG
 from core.config_resolver import resolve_config
-from embedded_system.Tools.TOOLCHAIN.factory import get_toolchain
+from invoke import Context, task
+
 from embedded_system.Tasks.build_config import generate as generate_build_config
+from embedded_system.Tools.TOOLCHAIN.factory import get_toolchain
 
 
 @lru_cache(maxsize=1)
@@ -55,6 +57,8 @@ def build(
         "port": "Serial communication port (e.g. COM3, /dev/ttyUSB0)",
         "dry_run": "Print commands without executing",
         "opts": "Forward extra flash options to idf.py",
+        "partitions": "Comma-separated configured partition/artifact names",
+        "group": "Configured artifact group to flash",
     }
 )
 def flash(
@@ -62,9 +66,29 @@ def flash(
     port: str = "",
     dry_run: bool = False,
     opts: str = "",
+    partitions: str = "",
+    group: str = "",
 ) -> None:
-    """Flash firmware binaries to physical hardware via USB/serial."""
-    _get_toolchain().flash(c, port=port, dry_run=dry_run, opts=opts)
+    """Flash firmware normally or write configured artifacts in one session."""
+    toolchain = _get_toolchain()
+    if partitions or group:
+        selected_flash = getattr(toolchain, "flash_selected", None)
+        if not callable(selected_flash):
+            raise NotImplementedError(
+                f"{type(toolchain).__name__} does not support selected-artifact "
+                "flashing."
+            )
+        selected_flash(
+            c,
+            partitions=partitions,
+            group=group,
+            port=port,
+            dry_run=dry_run,
+            opts=opts,
+        )
+        return
+
+    toolchain.flash(c, port=port, dry_run=dry_run, opts=opts)
 
 
 @task(

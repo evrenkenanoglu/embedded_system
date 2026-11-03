@@ -151,8 +151,8 @@ def pre_encrypt_partition_file(
         sys.executable,
         "-m",
         "espsecure",
-        "encrypt-flash-data",
-        "--aes-xts",  # Enforce AES-XTS for ESP32-S3
+        "encrypt_flash_data",
+        "--aes_xts",  # Enforce AES-XTS for ESP32-S3
         "--keyfile",
         str(flash_key_file.resolve()),
         "--address",
@@ -161,12 +161,7 @@ def pre_encrypt_partition_file(
         str(output_bin.resolve()),
         str(input_bin.resolve()),
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if res.returncode != 0:
-        # Fallback to underscore command variant on older versions
-        cmd[2] = "encrypt_flash_data"
-        cmd[3] = "--aes_xts"
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
 
     print(
         f"    [OK] Pre-encrypted (AES-XTS) {input_bin.name} -> {output_bin.name} (Address {hex(address)})"

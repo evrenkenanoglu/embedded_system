@@ -5,6 +5,7 @@ from abc import abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator, List, Optional
+
 from invoke import Context
 from invoke.exceptions import UnexpectedExit
 
@@ -113,6 +114,45 @@ class BaseToolchain(IToolchain):
         port_label = resolved_port or "AUTO"
         with self._stage("⚡", "FLASH", port_label):
             self._flash(c, port=resolved_port, dry_run=dry_run, opts=opts)
+
+    def flash_selected(
+        self,
+        c: Optional[Context],
+        partitions: str = "",
+        group: str = "",
+        port: str = "",
+        dry_run: bool = False,
+        opts: str = "",
+    ) -> None:
+        """Optional capability for backends that support configured image selection."""
+        resolved_port = (
+            str(port).strip()
+            if port and str(port).strip()
+            else self._get_default_port()
+        )
+        port_label = resolved_port or "AUTO"
+        with self._stage("⚡", "FLASH SELECTED ARTIFACTS", port_label):
+            self._flash_selected(
+                c,
+                partitions=partitions,
+                group=group,
+                port=resolved_port,
+                dry_run=dry_run,
+                opts=opts,
+            )
+
+    def _flash_selected(
+        self,
+        c: Optional[Context],
+        partitions: str,
+        group: str,
+        port: str,
+        dry_run: bool,
+        opts: str,
+    ) -> None:
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support selected-artifact flashing."
+        )
 
     def monitor(
         self,

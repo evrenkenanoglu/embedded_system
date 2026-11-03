@@ -22,6 +22,13 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from factory.partition_parser import PartitionTableParser
 
 
+def nvs_keys_partition_crc(key_bytes: bytes) -> int:
+    """Return the trailer CRC that ESP-IDF checks: crc32(crc32(0xFFFFFFFF, eky), tky)."""
+    half = len(key_bytes) // 2
+    eky, tky = key_bytes[:half], key_bytes[half:]
+    return zlib.crc32(tky, zlib.crc32(eky, 0xFFFFFFFF))
+
+
 def generate_nvs_keys(
     key_out_path: Path, key_size_bytes: int, key_bytes: Optional[bytes] = None
 ) -> bytes:
@@ -55,7 +62,7 @@ def write_nvs_keys_partition(
     if len(key_bytes) != key_size_bytes:
         raise ValueError("NVS encryption key does not match configured key_size_bytes")
 
-    crc = zlib.crc32(key_bytes)
+    crc = nvs_keys_partition_crc(key_bytes)
     partition_image_path.parent.mkdir(parents=True, exist_ok=True)
     partition_image_path.write_bytes(
         key_bytes + crc.to_bytes(4, "little") + b"\xff" * 12
