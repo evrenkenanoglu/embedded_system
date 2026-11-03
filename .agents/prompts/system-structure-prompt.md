@@ -47,7 +47,8 @@ The firmware adheres to strict vertical decoupling. Communication traverses down
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│ App Layer (WifiConfigurationManager, TimeManager, OtaManager, OnOff)   │
+│ App Layer (DeviceIdentityManager, WifiConfigurationManager,            │
+│            TimeManager, OtaManager, OnOff)                              │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ consumes
 ┌───────────────────────────────────▼────────────────────────────────────┐
@@ -101,6 +102,7 @@ The firmware adheres to strict vertical decoupling. Communication traverses down
   * Implements `IProcess`. Manages RTOS tasks, period tick execution, event handling, and peripheral supervisor lifecycles.
 * **`App/` (Application Domain Managers):**
   * Implements state machines coordinating network, time, power relays, and Matter endpoints.
+  * `Security/DeviceIdentityManager` loads or creates the runtime TLS identity through generic memory and cryptography interfaces. The project composition injects its certificate subject and validity from the generated project-SSoT header; persistence-format details remain internal.
 
 ---
 

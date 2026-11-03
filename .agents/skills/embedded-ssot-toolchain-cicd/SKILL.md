@@ -137,6 +137,7 @@ Before running or committing changes:
 | **ERR-013** | `/{workspace_dir}/.venv/bin/activate: No such file or directory` | `config_loader.py` passed unexpanded `{workspace_dir}` string into `_resolve_paths()`. | Expand all `{workspace_dir}` tokens across the entire config before converting paths to `Path`. |
 | **ERR-014** | `KeyError: 'firmware_dir'` in provisioning `main.py` | `config_provisioning.yaml` paths section omitted `firmware_dir`. | Explicitly map `firmware_dir: "{paths.build_dir}"` in `config_provisioning.yaml`. |
 | **ERR-015** | `TypeError: 'str' object cannot be interpreted as an integer` | Token expansion converted numeric values to strings before tool ingestion. | Tools must explicitly cast numeric parameters with `int()` (e.g. `key_size_bytes`, `port`). |
+| **ERR-016** | Application TLS certificate subject and validity were embedded in the portable identity manager. | Application policy was coupled to a reusable subsystem implementation and could not be changed through project configuration. | Put project-specific identity policy in `configs/config_project.yaml`, generate its app header through the canonical build-config task, and inject it into the manager. Keep serialization-format details internal. |
 
 ## Error Registry Maintenance
 

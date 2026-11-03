@@ -108,6 +108,17 @@ def ble_header(c: Context, dry_run: bool = False, config_path: str = "") -> None
 
 
 @task(
+    help={
+        "dry_run": "Print execution command without running",
+        "config_path": "Path to custom project config (defaults to configs/config_project.yaml)",
+    }
+)
+def identity_header(c: Context, dry_run: bool = False, config_path: str = "") -> None:
+    """Generate the application TLS identity config header from Master SSoT."""
+    _run_generator(c, "identity_header", dry_run=dry_run, config_override=config_path)
+
+
+@task(
     name="all",
     default=True,
     help={
@@ -116,5 +127,5 @@ def ble_header(c: Context, dry_run: bool = False, config_path: str = "") -> None
     },
 )
 def generate(c: Context, dry_run: bool = False, config_path: str = "") -> None:
-    """Generate partitions.csv, sdkconfig.hardware, project_version.cmake, ota_generated_config.h, time_generated_config.h, and ble_generated_config.h."""
+    """Generate partition, SDK, version, OTA, time, BLE, and device identity build artifacts."""
     _run_generator(c, "all", dry_run=dry_run, config_override=config_path)

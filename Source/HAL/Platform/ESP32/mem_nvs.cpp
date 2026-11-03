@@ -123,7 +123,10 @@ sys_error_t mem_nvs::readData(const void* addressOrKey, uint8_t* data, size_t le
     err = nvs_open_from_partition(_partitionName.c_str(), _namespace.c_str(), NVS_READONLY, &handle);
     if (err != ESP_OK)
     {
-        SYS_LOG_E("Failed to open NVS partition '%s' namespace '%s': 0x%x", _partitionName.c_str(), _namespace.c_str(), err);
+        if (err != ESP_ERR_NVS_NOT_FOUND && err != ESP_ERR_NOT_FOUND)
+        {
+            SYS_LOG_E("Failed to open NVS partition '%s' namespace '%s': 0x%x", _partitionName.c_str(), _namespace.c_str(), err);
+        }
         return TRANSLATE_ERROR(err);
     }
 
@@ -146,7 +149,10 @@ sys_error_t mem_nvs::readData(const void* addressOrKey, uint8_t* data, size_t le
     // If operation failed, log, close NVS, and return error
     if (err != ESP_OK)
     {
-        SYS_LOG_E("Failed to read key '%s' from partition '%s' namespace '%s': 0x%x", key, _partitionName.c_str(), _namespace.c_str(), err);
+        if (err != ESP_ERR_NVS_NOT_FOUND && err != ESP_ERR_NOT_FOUND)
+        {
+            SYS_LOG_E("Failed to read key '%s' from partition '%s' namespace '%s': 0x%x", key, _partitionName.c_str(), _namespace.c_str(), err);
+        }
         nvs_close(handle);
         return TRANSLATE_ERROR(err);
     }

@@ -18,6 +18,7 @@ VALID_TARGETS = (
     "ota_header",
     "time_header",
     "ble_header",
+    "identity_header",
 )
 
 
@@ -38,7 +39,7 @@ def generate(
     opts: str = "",
     dry_run: bool = False,
 ) -> None:
-    """Generate partitions.csv, sdkconfig.hardware, project_version.cmake, ota_generated_config.h."""
+    """Generate partitions.csv, sdkconfig.hardware, project_version.cmake, and configured application headers."""
     if target not in VALID_TARGETS:
         raise ValueError(
             f"Invalid target '{target}'. Available options: {', '.join(VALID_TARGETS)}"

@@ -3,6 +3,7 @@
 #include "System/errorTranslateHandler.h"
 #include "System/error_definitions.h"
 #include "esp_err.h"
+#include <nvs.h>
 
 ErrorTranslateImpl::ErrorTranslateImpl()
 {
@@ -47,7 +48,10 @@ sys_error_t ErrorTranslateImpl::translateError(int errorCode) const
 
         case ESP_ERR_NOT_SUPPORTED:
             return ERROR_NOT_SUPPORTED;
-            break;
+
+        case ESP_ERR_NOT_FOUND:
+        case ESP_ERR_NVS_NOT_FOUND:
+            return ERROR_NOT_FOUND;
 
         default:
             return ERROR_UNKNOWN;

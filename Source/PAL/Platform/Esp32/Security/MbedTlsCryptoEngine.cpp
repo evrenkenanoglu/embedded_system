@@ -17,7 +17,11 @@
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"
 
-// 3. C++ Standard Library Headers
+// 3. Third-Party / ESP-IDF SDK Headers
+#include <mbedtls/platform_util.h>
+
+// 4. C++ Standard Library Headers
+#include <algorithm>
 #include <cstring>
 #include <ctime>
 #include <vector>
@@ -63,6 +67,12 @@ sys_error_t MbedTlsCryptoEngine::_seedRng(EntropyContext& entropy, DrbgContext& 
 
 sys_error_t MbedTlsCryptoEngine::generateKeyPair(KeyType type, std::string& outPrivateKeyPem)
 {
+    if (!outPrivateKeyPem.empty())
+    {
+        mbedtls_platform_zeroize(outPrivateKeyPem.data(), outPrivateKeyPem.size());
+        outPrivateKeyPem.clear();
+    }
+
     EntropyContext entropy;
     DrbgContext    drbg;
     PkContext      pk;
@@ -108,12 +118,14 @@ sys_error_t MbedTlsCryptoEngine::generateKeyPair(KeyType type, std::string& outP
     ret = mbedtls_pk_write_key_pem(pk.get(), writeBuffer.data(), writeBuffer.size());
 
     RETURN_IF_ERROR(
-        (ret != 0),                                                           // Expression
-        ERROR_FAIL,                                                           // Error code
-        SYS_LOG_E("Failed to write private key to PEM buffer: -0x%04X", -ret) // Error message
+        (ret != 0),                                                            // Expression
+        ERROR_FAIL,                                                            // Error code
+        SYS_LOG_E("Failed to write private key to PEM buffer: -0x%04X", -ret), // Error message
+        mbedtls_platform_zeroize(writeBuffer.data(), writeBuffer.size())       // Cleanup
     );
 
     outPrivateKeyPem = reinterpret_cast<char*>(writeBuffer.data());
+    mbedtls_platform_zeroize(writeBuffer.data(), writeBuffer.size());
     return ERROR_SUCCESS;
 }
 
@@ -156,17 +168,38 @@ sys_error_t MbedTlsCryptoEngine::generateSelfSignedCertificate(const std::string
         SYS_LOG_E("Failed to set certificate names: -0x%04X", -ret) // Error message
     );
 
-    /// Generate an 8-byte dynamic serial number using standard epoch timestamp.
+    /// Generate a positive, non-zero serial number from the seeded CSPRNG.
     unsigned char serial_raw[8] = {0};
     time_t        current_time  = time(NULL);
-    std::memcpy(serial_raw, &current_time, sizeof(current_time));
-    mbedtls_x509write_crt_set_serial_raw(cert.get(), serial_raw, sizeof(current_time));
+    ret                         = mbedtls_ctr_drbg_random(drbg.get(), serial_raw, sizeof(serial_raw));
+    RETURN_IF_ERROR((ret != 0), ERROR_FAIL, SYS_LOG_E("Failed to generate TLS certificate serial number"));
+    serial_raw[0] &= 0x7FU;
+    if (std::all_of(serial_raw, serial_raw + sizeof(serial_raw), [](unsigned char value) { return value == 0U; }))
+    {
+        serial_raw[sizeof(serial_raw) - 1U] = 1U;
+    }
 
-    /// Convert calendar dates using secure standard library timezone conversions.
-    char start_date[16], end_date[16];
-    std::strftime(start_date, sizeof(start_date), "%Y%m%d%H%M%S", std::gmtime(&current_time));
-    time_t end_time = current_time + config.validitySeconds;
-    std::strftime(end_date, sizeof(end_date), "%Y%m%d%H%M%S", std::gmtime(&end_time));
+    constexpr time_t kMinimumCertificateEpoch = 1577836800; // 2020-01-01 UTC for devices without synchronized wall time.
+    if (current_time < kMinimumCertificateEpoch)
+    {
+        current_time = kMinimumCertificateEpoch;
+    }
+    mbedtls_x509write_crt_set_serial_raw(cert.get(), serial_raw, sizeof(serial_raw));
+
+    /// Convert calendar dates using task-local UTC structures.
+    char    start_date[16] = {};
+    char    end_date[16]   = {};
+    std::tm start_time{};
+    std::tm end_time{};
+    time_t  end_epoch_time = current_time + config.validitySeconds;
+    RETURN_IF_ERROR(
+        (gmtime_r(&current_time, &start_time) == nullptr || gmtime_r(&end_epoch_time, &end_time) == nullptr),
+        ERROR_FAIL,
+        SYS_LOG_E("Failed to convert TLS certificate validity dates"));
+    RETURN_IF_ERROR(
+        (std::strftime(start_date, sizeof(start_date), "%Y%m%d%H%M%S", &start_time) == 0U || std::strftime(end_date, sizeof(end_date), "%Y%m%d%H%M%S", &end_time) == 0U),
+        ERROR_FAIL,
+        SYS_LOG_E("Failed to format TLS certificate validity dates"));
     mbedtls_x509write_crt_set_validity(cert.get(), start_date, end_date);
 
     mbedtls_x509write_crt_set_basic_constraints(cert.get(), 0, -1);
