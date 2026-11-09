@@ -15,7 +15,6 @@
 
 #include "System/LogHandler.h"
 #include "System/errorTranslateHandler.h"
-#include "swConfig/ble_generated_config.h"
 
 #include <esp_err.h>
 #include <esp_random.h>
@@ -568,20 +567,6 @@ cpx_ble::cpx_ble()
     , _servicesRegistered(false)
     , _nextRequestId(1U)
 {
-    std::memcpy(_config.deviceName, BLE_DEVICE_NAME, sizeof(BLE_DEVICE_NAME));
-    _config.roleMask                              = static_cast<std::uint8_t>(hal_ble_role_t::CENTRAL) | static_cast<std::uint8_t>(hal_ble_role_t::PERIPHERAL);
-    _config.maxConnections                        = static_cast<std::uint8_t>(BLE_MAX_CONNECTIONS);
-    _config.preferredMtu                          = static_cast<std::uint16_t>(BLE_PREFERRED_MTU);
-    _config.connectionParams.minIntervalMs        = static_cast<std::uint16_t>(BLE_CONN_INTERVAL_MIN_MS);
-    _config.connectionParams.maxIntervalMs        = static_cast<std::uint16_t>(BLE_CONN_INTERVAL_MAX_MS);
-    _config.connectionParams.latency              = static_cast<std::uint16_t>(BLE_CONN_LATENCY);
-    _config.connectionParams.supervisionTimeoutMs = static_cast<std::uint16_t>(BLE_CONN_SUPERVISION_TIMEOUT_MS);
-    _config.security.enabled                      = false;
-    _config.security.bonding                      = false;
-    _config.security.mitmProtection               = false;
-    _config.security.secureConnections            = false;
-    _config.security.ioCapability                 = hal_ble_io_capability_t::NONE;
-    _config.security.minimumKeySize               = 0U;
 }
 
 cpx_ble::~cpx_ble()
