@@ -11,8 +11,8 @@
 #include "App/Protocols/OTA/OtaManager.hpp"
 #include "HAL/IHAL/IHal_Sys_ResetReason.h"
 #include "HAL/IHAL/IHal_Sys_Rng.h"
+#include "autogen/ota_generated_config.h"
 #include "cJSON.h"
-#include "swConfig/ota_generated_config.h"
 
 #define ENABLE_SYS_LOG_D
 #include "System/LogHandler.h"

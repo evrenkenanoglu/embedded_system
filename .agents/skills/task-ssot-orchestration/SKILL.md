@@ -189,3 +189,5 @@ inv vscode.sync
 ## Error Registry
 
 Before task-runner or SSoT orchestration work, review this registry and any related failure notes in applicable skills. Record verified, reusable mistakes found during the task before considering the work complete. Each entry must capture the symptom, root cause, and a preventive rule; use `ERR-NNN` IDs scoped to this file. Do not record speculation, transient output, or secrets. If no incident has been recorded yet, add the first entry here.
+
+- **ERR-001 — SSoT generator target rejected by the standalone task:** The new `wifi_header` target was added to the generator dispatch and workspace Invoke adapter, but `inv es.build-config.wifi-header` failed because the standalone `Tools/BUILD_CONFIG/tasks.py` wrapper still rejected it. Register each target in the generator choices and dispatch, the standalone wrapper's `VALID_TARGETS`, and the workspace adapter; run the canonical Invoke task to verify the complete route.

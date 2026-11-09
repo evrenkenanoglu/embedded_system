@@ -19,6 +19,7 @@ VALID_TARGETS = (
     "time_header",
     "ble_header",
     "identity_header",
+    "wifi_header",
 )
 
 

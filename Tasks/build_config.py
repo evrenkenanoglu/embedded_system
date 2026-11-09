@@ -81,7 +81,7 @@ def version(c: Context, dry_run: bool = False, config_path: str = "") -> None:
     }
 )
 def ota_header(c: Context, dry_run: bool = False, config_path: str = "") -> None:
-    """Generate main/swConfig/ota_generated_config.h from Master SSoT."""
+    """Generate main/autogen/ota_generated_config.h from Master SSoT."""
     _run_generator(c, "ota_header", dry_run=dry_run, config_override=config_path)
 
 
@@ -92,7 +92,7 @@ def ota_header(c: Context, dry_run: bool = False, config_path: str = "") -> None
     }
 )
 def time_header(c: Context, dry_run: bool = False, config_path: str = "") -> None:
-    """Generate main/swConfig/time_generated_config.h from Master SSoT."""
+    """Generate main/autogen/time_generated_config.h from Master SSoT."""
     _run_generator(c, "time_header", dry_run=dry_run, config_override=config_path)
 
 
@@ -103,7 +103,7 @@ def time_header(c: Context, dry_run: bool = False, config_path: str = "") -> Non
     }
 )
 def ble_header(c: Context, dry_run: bool = False, config_path: str = "") -> None:
-    """Generate main/swConfig/ble_generated_config.h from Master SSoT."""
+    """Generate main/autogen/ble_generated_config.h from Master SSoT."""
     _run_generator(c, "ble_header", dry_run=dry_run, config_override=config_path)
 
 
@@ -119,6 +119,17 @@ def identity_header(c: Context, dry_run: bool = False, config_path: str = "") ->
 
 
 @task(
+    help={
+        "dry_run": "Print execution command without running",
+        "config_path": "Path to custom project config (defaults to configs/config_project.yaml)",
+    }
+)
+def wifi_header(c: Context, dry_run: bool = False, config_path: str = "") -> None:
+    """Generate main/autogen/wifi_generated_config.h from Master SSoT."""
+    _run_generator(c, "wifi_header", dry_run=dry_run, config_override=config_path)
+
+
+@task(
     name="all",
     default=True,
     help={
@@ -127,5 +138,5 @@ def identity_header(c: Context, dry_run: bool = False, config_path: str = "") ->
     },
 )
 def generate(c: Context, dry_run: bool = False, config_path: str = "") -> None:
-    """Generate partition, SDK, version, OTA, time, BLE, and device identity build artifacts."""
+    """Generate partition, SDK, version, OTA, time, BLE, identity, and Wi-Fi build artifacts."""
     _run_generator(c, "all", dry_run=dry_run, config_override=config_path)

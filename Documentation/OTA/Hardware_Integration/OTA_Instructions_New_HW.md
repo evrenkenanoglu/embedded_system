@@ -22,7 +22,7 @@ inv es.build-config.all
 ✅ Generated: .../partitions.csv
 ✅ Generated: .../sdkconfig.hardware
 ✅ Generated: .../project_version.cmake
-✅ Generated: .../main/swConfig/ota_generated_config.h
+✅ Generated: .../main/autogen/ota_generated_config.h
 ```
 
 ---
