@@ -41,6 +41,7 @@ class EspIdfToolchain(BaseToolchain):
         self.activation_script = self._cfg(
             "idf_activate_script", "activate_esp-5.4-matter_1.4.2.sh"
         )
+        self.idf_py = self._resolve_idf_py_command()
 
     def _ctx(self, c: Optional[Context]) -> Context:
         """Guarantees a valid Invoke Context even when invoked from standalone scripts."""
@@ -79,6 +80,22 @@ class EspIdfToolchain(BaseToolchain):
 
     def _get_default_port(self) -> str:
         return str(self._cfg("port", "")).strip()
+
+    def _resolve_idf_py_command(self) -> str:
+        """Run idf.py with ESP-IDF's own interpreter so a project venv never shadows it.
+
+        export.sh leaves an already-listed venv first on PATH, so plain `idf.py`
+        would resolve the venv's python. The interpreter comes from the ESP-IDF
+        export that the container already sources.
+        """
+        env_path = os.environ.get("IDF_PYTHON_ENV_PATH", "").strip()
+        idf_path = os.environ.get("IDF_PATH", "").strip()
+        if IS_WINDOWS or not env_path or not idf_path:
+            return "idf.py"
+        python = Path(env_path) / "bin" / "python"
+        if not python.exists():
+            return "idf.py"
+        return f'"{python.as_posix()}" "{Path(idf_path).as_posix()}/tools/idf.py"'
 
     def _get_serializer(self) -> CommandSerializer:
         in_container = os.path.exists("/.dockerenv") or "IDF_PATH" in os.environ
@@ -169,7 +186,7 @@ class EspIdfToolchain(BaseToolchain):
         serializer.add(f'cd "{work_posix}"')
 
         build_cmd = (
-            f"idf.py "
+            f"{self.idf_py} "
             f"-DIDF_TARGET={resolved_target} "
             f"-DSDKCONFIG_DEFAULTS='{defaults_val}' "
             f"-DPROJECT_VER='{ver_str}' "
@@ -186,7 +203,7 @@ class EspIdfToolchain(BaseToolchain):
 
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
-        serializer.add(f"idf.py {port_flag} flash".strip(), extra=opts)
+        serializer.add(f"{self.idf_py} {port_flag} flash".strip(), extra=opts)
         serializer.add(self._verify_flash_command(port_flag, dry_run))
         serializer.run(self._ctx(c), dry_run=dry_run)
 
@@ -974,15 +991,15 @@ class EspIdfToolchain(BaseToolchain):
 
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
-        serializer.add(f"idf.py {port_flag} monitor".strip(), extra=opts)
+        serializer.add(f"{self.idf_py} {port_flag} monitor".strip(), extra=opts)
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _test(self, c: Optional[Context], dry_run: bool, opts: str) -> None:
         work_posix = self.work_dir.as_posix()
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
-        serializer.add("idf.py set-target linux")
-        serializer.add("idf.py build")
+        serializer.add(f"{self.idf_py} set-target linux")
+        serializer.add(f"{self.idf_py} build")
         serializer.add("./build/unit_test_app", extra=opts)
         serializer.run(self._ctx(c), dry_run=dry_run)
 
@@ -990,20 +1007,20 @@ class EspIdfToolchain(BaseToolchain):
         work_posix = self.work_dir.as_posix()
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
-        serializer.add("idf.py clean")
+        serializer.add(f"{self.idf_py} clean")
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _clean_all(self, c: Optional[Context], dry_run: bool) -> None:
         work_posix = self.work_dir.as_posix()
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
-        serializer.add("idf.py fullclean")
+        serializer.add(f"{self.idf_py} fullclean")
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _configure(self, c: Optional[Context], dry_run: bool, opts: str) -> None:
         serializer = self._get_serializer()
         serializer.add(f'cd "{self.work_dir.as_posix()}"')
-        serializer.add("idf.py menuconfig", extra=opts)
+        serializer.add(f"{self.idf_py} menuconfig", extra=opts)
         serializer.run(self._ctx(c), dry_run=dry_run)
 
     def _erase(self, c: Optional[Context], port: str, dry_run: bool, opts: str) -> None:
