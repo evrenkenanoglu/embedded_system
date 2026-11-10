@@ -196,7 +196,7 @@ sys_error_t HttpsServer::sendWsMessage(int clientId_sockfd, const uint8_t* data,
 
 sys_error_t HttpsServer::broadcastWs(const uint8_t* payload, size_t len, WsFrameType ws_type)
 {
-    RETURN_IF_ERROR((!_started || _server == NULL), ERROR_NOT_INITIALIZED, SYS_LOG_E("Server not started!"));
+    RETURN_IF_ERROR((!_started || _server == NULL), ERROR_NOT_INITIALIZED);
 
     static size_t maxClients = CONFIG_LWIP_MAX_LISTENING_TCP;
     size_t        fds        = maxClients;

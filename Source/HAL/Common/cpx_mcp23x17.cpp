@@ -61,7 +61,7 @@ cpx_mcp23x17::cpx_mcp23x17(IHAL_COM& comInterface, REG_BANK_MODE bankMode, IHAL_
     , _interruptPinB(interruptPinB)                                                   // Initialize interrupt pin B
     , _deviceAddress(MCP23017_I2C_ADDRESS)                                            // Default I2C address for MCP23017
     , _bankMode(bankMode)                                                             // 7th bit
-    , _isMirrorEnabled(static_cast<bool>(MIRROR_DISABLED))                            // 6th bit
+    , _isMirrorEnabled((interruptPinA == nullptr) != (interruptPinB == nullptr))      // 6th bit: mirror when only one INT line is wired
     , _isSequentialOperationDisabled(static_cast<bool>(SEQENTIAL_OPERATION_DISABLED)) // 5th bit
     , _isSlewRateDisabled(static_cast<bool>(SLEW_RATE_ENABLED))                       // 4th bit
     , _isHardwareAddressEnabled(static_cast<bool>(HAEN_ENABLED))                      // 3rd bit
@@ -256,17 +256,24 @@ void interruptListener(void* pvParameters)
     // Cast the parameters to the appropriate type
     cpx_mcp23x17* cpx_device = static_cast<cpx_mcp23x17*>(pvParameters);
 
-    QueueHandle_t eventQueueA = reinterpret_cast<QueueHandle_t>(cpx_device->getGpioA()->getEventQueue());
-    QueueHandle_t eventQueueB = reinterpret_cast<QueueHandle_t>(cpx_device->getGpioB()->getEventQueue());
+    // Either interrupt pin may be absent; only monitor the queues that exist
+    IHAL_IO_GPIO* gpioA       = cpx_device->getGpioA();
+    IHAL_IO_GPIO* gpioB       = cpx_device->getGpioB();
+    QueueHandle_t eventQueueA = gpioA ? reinterpret_cast<QueueHandle_t>(gpioA->getEventQueue()) : nullptr;
+    QueueHandle_t eventQueueB = gpioB ? reinterpret_cast<QueueHandle_t>(gpioB->getEventQueue()) : nullptr;
 
-    // Create a queue set for interruptA and interruptB eventQueues
-    QueueSetHandle_t queueSet = xQueueCreateSet(2 * IHAL_GPIO_EVENT_QUEUE_LENGTH); // Create a queue set to monitor both queues
+    QueueSetHandle_t queueSet = xQueueCreateSet(2 * IHAL_GPIO_EVENT_QUEUE_LENGTH);
 
     RETURN_IF_ERROR(queueSet == nullptr, );
 
-    // Add event queues to the queue set
-    RETURN_IF_ERROR(xQueueAddToSet(eventQueueA, queueSet) != pdTRUE, );
-    RETURN_IF_ERROR(xQueueAddToSet(eventQueueB, queueSet) != pdTRUE, );
+    if (eventQueueA)
+    {
+        RETURN_IF_ERROR(xQueueAddToSet(eventQueueA, queueSet) != pdTRUE, );
+    }
+    if (eventQueueB)
+    {
+        RETURN_IF_ERROR(xQueueAddToSet(eventQueueB, queueSet) != pdTRUE, );
+    }
 
     hal_gpio_event_t event;
 
@@ -308,11 +315,24 @@ sys_error_t cpx_mcp23x17::registerInputPinInterruptHandler(PORT port, uint8_t pi
 
 sys_error_t cpx_mcp23x17::handleInterruptA(void* params)
 {
+    if (_isMirrorEnabled)
+    {
+        // Mirrored INT line is shared by both ports: service both so the line is released
+        sys_error_t errA = handleInterrupt(PORT::A, params);
+        sys_error_t errB = handleInterrupt(PORT::B, params);
+        return (errA != ERROR_SUCCESS) ? errA : errB;
+    }
     return handleInterrupt(PORT::A, params);
 }
 
 sys_error_t cpx_mcp23x17::handleInterruptB(void* params)
 {
+    if (_isMirrorEnabled)
+    {
+        sys_error_t errA = handleInterrupt(PORT::A, params);
+        sys_error_t errB = handleInterrupt(PORT::B, params);
+        return (errA != ERROR_SUCCESS) ? errA : errB;
+    }
     return handleInterrupt(PORT::B, params);
 }
 
