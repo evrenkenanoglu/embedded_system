@@ -286,6 +286,42 @@ def test_smartplug_relay_actuation(dut):
 
 ---
 
+## 5A. Serial Telemetry & Automatic Log Extraction (`embedded_system/Tests/hil/telemetry/`)
+
+Host-side extraction of device state, faults, and logs from the serial stream. It is application-agnostic: firmware emits a fixed wire format, and the host decodes it with no per-application parser.
+
+### Tiers
+| Tier | Source on device | Host decoding |
+|------|------------------|---------------|
+| T0 | Every raw line | `RawLine` (host capture time, text) |
+| T1 | ESP-IDF `L (ms) TAG: msg` and `[HIL_REPORT]` lines | `LogLine`, `HilReportLine` |
+| T2 | `@TLM v=1 ...` records from `TelemetrySerialSubscriber` (notification bus) | `TelemetryRecord`, `DropRecord` (CRC-verified) |
+
+### Wire Format v1 (single line, at most 120 bytes)
+```text
+@TLM v=1 seq=42 ms=10432 kind=STATE id=0x21 cat=0x02 sev=W act=1 pl=0x00000000 crc=0x2E2E
+@TLM v=1 kind=DROP n=7
+```
+* `crc` is CRC-16/CCITT-FALSE over the bytes before ` crc=`. Check value for `"123456789"` is `0x29B1`. Firmware reuses `Crc16` with `Profile::CcittFalse()` from `Source/Library/Common/Crc.hpp`.
+* `DROP` records carry no CRC. They report records the firmware could not write.
+* `STATE` records replay to new subscribers, so a boot snapshot is available after the subscriber attaches.
+
+### Rules
+1. **Single emission point:** all `@TLM` output goes through `TelemetrySerialSubscriber` using one `printf` per record. Do not print `@TLM` from other code.
+2. **Subscriber constraints:** subscribers run in the dispatcher task and must not subscribe, unsubscribe, or publish (`INotificationSubscriber.hpp`).
+3. **Gated build:** the emitter, and `ENABLE_SERIAL_TELEMETRY`, exist only with `ENABLE_HIL_TEST_PROCESS=ON`. Production binaries do not include them.
+4. **Parser ownership:** the host parser is the only consumer of the wire format. It counts `corrupt_crc`, `malformed`, `oversize`, `dropped`, `gaps`, `lost`, `out_of_order`, and `unknown_ids`. It never assumes lines are complete; use `feed_chunk` on raw serial bytes.
+5. **Extending ids or kinds:** add a notification id in `Source/App/Notification/NotificationTypes.hpp`, then update `Tests/hil/telemetry/ids.py`. `test_id_table_matches_notification_types_header` must pass. Bump `v=` for any incompatible wire change.
+6. **Serial ownership:** capture with `es.platform.monitor --opts="--no-reset"` (ERR-006). Only one process may own the port.
+7. **Authorization:** telemetry capture on hardware is a HIL run. Do not flash or capture without explicit authorization.
+
+### Validation
+```bash
+.venv/bin/python -m pytest embedded_system/Tests/hil/telemetry -q
+```
+
+---
+
 ## 6. Hardware Safety, Quarantine & Flash Isolation
 
 1. **Relay Fail-Safe De-Energization:** Any test interacting with physical relays must guarantee that output pins are forced `LOW` (contacts open / load de-energized) on any failure path or abort.

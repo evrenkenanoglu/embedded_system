@@ -234,6 +234,24 @@ sys_error_t NotificationManager::publish(const user_notification_t& notification
     return ERROR_SUCCESS;
 }
 
+sys_error_t NotificationManager::publishState(notification_id_t id, notification_category_t category, notification_severity_t severity, bool active)
+{
+    user_notification_t notification{};
+    notification.id          = id;
+    notification.category    = category;
+    notification.kind        = notification_kind_t::STATE;
+    notification.severity    = severity;
+    notification.active      = active;
+    notification.payload.u32 = 0U;
+
+    const sys_error_t error = publish(notification);
+    if (error != ERROR_SUCCESS)
+    {
+        SYS_LOG_E("Notification state publish failed (error=%d)", static_cast<int>(error));
+    }
+    return error;
+}
+
 sys_error_t NotificationManager::subscribe(INotificationSubscriber& subscriber, notification_filter_t filter)
 {
     RETURN_IF_ERROR(

@@ -382,6 +382,17 @@ sys_error_t Proc_TimeSync::resume()
     return ERROR_SUCCESS;
 }
 
+void Proc_TimeSync::onWifiNetworkEvent(const hal_wifi_event_t* event, void* userData)
+{
+    Proc_TimeSync* self = static_cast<Proc_TimeSync*>(userData);
+    if (event == nullptr || self == nullptr)
+    {
+        return;
+    }
+
+    self->notifyNetworkEvent(event->event_type);
+}
+
 void Proc_TimeSync::notifyNetworkEvent(hal_wifi_event_type_t event)
 {
     switch (event)

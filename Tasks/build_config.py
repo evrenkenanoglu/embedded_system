@@ -130,6 +130,17 @@ def wifi_header(c: Context, dry_run: bool = False, config_path: str = "") -> Non
 
 
 @task(
+    help={
+        "dry_run": "Print execution command without running",
+        "config_path": "Path to custom project config (defaults to configs/config_project.yaml)",
+    }
+)
+def device_header(c: Context, dry_run: bool = False, config_path: str = "") -> None:
+    """Generate main/autogen/device_generated_config.h (power policy) from Master SSoT."""
+    _run_generator(c, "device_header", dry_run=dry_run, config_override=config_path)
+
+
+@task(
     name="all",
     default=True,
     help={
@@ -138,5 +149,5 @@ def wifi_header(c: Context, dry_run: bool = False, config_path: str = "") -> Non
     },
 )
 def generate(c: Context, dry_run: bool = False, config_path: str = "") -> None:
-    """Generate partition, SDK, version, OTA, time, BLE, identity, and Wi-Fi build artifacts."""
+    """Generate partition, SDK, version, OTA, time, BLE, identity, Wi-Fi, and device build artifacts."""
     _run_generator(c, "all", dry_run=dry_run, config_override=config_path)

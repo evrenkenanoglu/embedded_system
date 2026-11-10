@@ -45,6 +45,7 @@ WifiConfigurationManager::WifiConfigurationManager(IHAL_CPX_WIFI& wifi, const Wi
     , _status{}
     , _statusMutex(nullptr)
     , _subscribers{}
+    , _networkSubscribers{}
     , _subscribersMutex(nullptr)
 {
     if (_credentials.mem != nullptr && (_credentials.ssidKey == nullptr || _credentials.passwordKey == nullptr))
@@ -297,6 +298,54 @@ sys_error_t WifiConfigurationManager::unsubscribeEvent(WifiEventSubscription sub
     return ERROR_SUCCESS;
 }
 
+sys_error_t WifiConfigurationManager::subscribeNetworkEvent(hal_wifi_event_cb_t callback, void* user_data, WifiEventSubscription& subscription)
+{
+    if (callback == nullptr)
+    {
+        return ERROR_INVALID_ARG;
+    }
+
+    if (xSemaphoreTake(_subscribersMutex, portMAX_DELAY) != pdTRUE)
+    {
+        return ERROR_TIMEOUT;
+    }
+
+    sys_error_t result = ERROR_OUT_OF_MEMORY;
+    for (size_t i = 0; i < kWifiNetworkEventMaxSubscribers; ++i)
+    {
+        if (_networkSubscribers[i].callback == nullptr)
+        {
+            _networkSubscribers[i].callback = callback;
+            _networkSubscribers[i].userData = user_data;
+            subscription                    = static_cast<WifiEventSubscription>(i + 1); // 0 reserved as "invalid"
+            result                          = ERROR_SUCCESS;
+            break;
+        }
+    }
+
+    xSemaphoreGive(_subscribersMutex);
+    return result;
+}
+
+sys_error_t WifiConfigurationManager::unsubscribeNetworkEvent(WifiEventSubscription subscription)
+{
+    if (subscription == 0 || subscription > kWifiNetworkEventMaxSubscribers)
+    {
+        return ERROR_INVALID_ARG;
+    }
+
+    if (xSemaphoreTake(_subscribersMutex, portMAX_DELAY) != pdTRUE)
+    {
+        return ERROR_TIMEOUT;
+    }
+
+    _networkSubscribers[subscription - 1].callback = nullptr;
+    _networkSubscribers[subscription - 1].userData = nullptr;
+
+    xSemaphoreGive(_subscribersMutex);
+    return ERROR_SUCCESS;
+}
+
 /** PRIVATE METHODS *******************************************************/
 
 void WifiConfigurationManager::_workerTrampoline(void* param)
@@ -314,7 +363,31 @@ void WifiConfigurationManager::_halEventCb(const hal_wifi_event_t* event, void* 
     }
 
     WifiConfigurationManager* self = static_cast<WifiConfigurationManager*>(user_data);
+    self->_forwardNetworkEvent(*event);
     self->_applyEvent(*event);
+}
+
+void WifiConfigurationManager::_forwardNetworkEvent(const hal_wifi_event_t& event)
+{
+    if (xSemaphoreTake(_subscribersMutex, portMAX_DELAY) != pdTRUE)
+    {
+        return;
+    }
+
+    WifiNetworkEventSubscriber local[kWifiNetworkEventMaxSubscribers];
+    for (size_t i = 0; i < kWifiNetworkEventMaxSubscribers; ++i)
+    {
+        local[i] = _networkSubscribers[i];
+    }
+    xSemaphoreGive(_subscribersMutex);
+
+    for (size_t i = 0; i < kWifiNetworkEventMaxSubscribers; ++i)
+    {
+        if (local[i].callback != nullptr)
+        {
+            local[i].callback(&event, local[i].userData);
+        }
+    }
 }
 
 void WifiConfigurationManager::_applyEvent(const hal_wifi_event_t& event)

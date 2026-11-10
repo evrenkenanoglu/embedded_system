@@ -61,13 +61,21 @@ public:
     /**
      * @brief Deliver a network event from the connectivity source.
      *
-     * The owner of the WiFi stack must forward HAL_WIFI_EVENT_STA_GOT_IP /
-     * HAL_WIFI_EVENT_STA_LOST_IP here so the worker can gate synchronization
-     * on connectivity. Safe to call from ISR-free event contexts.
+     * Driven by onWifiNetworkEvent(). Safe to call from ISR-free event contexts.
      *
      * @param[in] event Network event type.
      */
     void notifyNetworkEvent(hal_wifi_event_type_t event);
+
+    /**
+     * @brief hal_wifi_event_cb_t trampoline for WifiConfigurationManager::subscribeNetworkEvent().
+     *
+     * Only the network link types are acted on; other HAL events are ignored.
+     *
+     * @param[in] event    HAL Wi-Fi event (valid only for the call).
+     * @param[in] userData Proc_TimeSync instance.
+     */
+    static void onWifiNetworkEvent(const hal_wifi_event_t* event, void* userData);
 
     /**
      * @brief Configure the synchronization cadence and retry policy.

@@ -15,28 +15,6 @@
 #include "App/Notification/NotificationManager.hpp"
 #include "System/LogHandler.h"
 
-/** LOCAL FUNCTIONS ***********************************************************/
-namespace
-{
-    void publishState(NotificationManager& notificationManager, notification_id_t id, bool active, notification_severity_t severity)
-    {
-        user_notification_t notification{};
-        notification.id          = id;
-        notification.category    = notification_category_t::CONNECTIVITY;
-        notification.kind        = notification_kind_t::STATE;
-        notification.severity    = severity;
-        notification.active      = active;
-        notification.sequence    = 0U;
-        notification.payload.u32 = 0U;
-
-        sys_error_t err = notificationManager.publish(notification);
-        if (err != ERROR_SUCCESS)
-        {
-            SYS_LOG_E("WiFi notification bridge: publish failed (err: %d)", static_cast<int>(err));
-        }
-    }
-} // namespace
-
 /** FUNCTIONS *****************************************************************/
 WifiNotificationBridge::WifiNotificationBridge(NotificationManager& notificationManager)
     : _notificationManager(notificationManager)
@@ -62,31 +40,53 @@ void WifiNotificationBridge::_forward(WifiEvent event)
     switch (event)
     {
         case WifiEvent::AP_SETUP_READY:
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_PROVISIONING_MODE), true, notification_severity_t::INFO);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_PROVISIONING_MODE),
+                notification_category_t::CONNECTIVITY,
+                notification_severity_t::INFO,
+                true);
             break;
 
         case WifiEvent::AP_SETUP_FINISH:
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_PROVISIONING_MODE), false, notification_severity_t::INFO);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_PROVISIONING_MODE),
+                notification_category_t::CONNECTIVITY,
+                notification_severity_t::INFO,
+                false);
             break;
 
         case WifiEvent::STA_SETUP_READY:
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), true, notification_severity_t::INFO);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), notification_category_t::CONNECTIVITY, notification_severity_t::INFO, true);
             break;
 
         case WifiEvent::STA_SETUP_FINISH:
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), false, notification_severity_t::INFO);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), notification_category_t::CONNECTIVITY, notification_severity_t::INFO, false);
             break;
 
         case WifiEvent::DISCONNECTED:
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTED_STA), false, notification_severity_t::INFO);
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_LINK_DISCONNECTED), true, notification_severity_t::WARNING);
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), true, notification_severity_t::WARNING);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTED_STA), notification_category_t::CONNECTIVITY, notification_severity_t::INFO, false);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_LINK_DISCONNECTED),
+                notification_category_t::CONNECTIVITY,
+                notification_severity_t::WARNING,
+                true);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), notification_category_t::CONNECTIVITY, notification_severity_t::WARNING, true);
             break;
 
         case WifiEvent::CONNECTED:
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), false, notification_severity_t::INFO);
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_LINK_DISCONNECTED), false, notification_severity_t::INFO);
-            publishState(_notificationManager, static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTED_STA), true, notification_severity_t::INFO);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTING), notification_category_t::CONNECTIVITY, notification_severity_t::INFO, false);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_LINK_DISCONNECTED),
+                notification_category_t::CONNECTIVITY,
+                notification_severity_t::INFO,
+                false);
+            _notificationManager.publishState(
+                static_cast<notification_id_t>(framework_notification_id_t::WIFI_CONNECTED_STA), notification_category_t::CONNECTIVITY, notification_severity_t::INFO, true);
             break;
 
         default:

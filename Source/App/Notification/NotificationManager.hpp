@@ -64,6 +64,16 @@ public:
     sys_error_t publish(const user_notification_t& notification);
 
     /**
+     * @brief Publish a STATE notification with a zero payload.
+     * @param[in] id       Notification id to set active or cleared.
+     * @param[in] category Category used for subscriber filtering.
+     * @param[in] severity Severity used for subscriber filtering.
+     * @param[in] active   True when the condition is present, false when it is cleared.
+     * @return sys_error_t Result of publish(). Failures are logged here.
+     */
+    sys_error_t publishState(notification_id_t id, notification_category_t category, notification_severity_t severity, bool active);
+
+    /**
      * @brief Register a subscriber. Active STATE entries matching the filter are replayed to it.
      * @param[in] subscriber Subscriber to register. Must outlive its registration.
      * @param[in] filter     Category mask and minimum severity.

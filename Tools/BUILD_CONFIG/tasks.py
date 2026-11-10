@@ -20,6 +20,7 @@ VALID_TARGETS = (
     "ble_header",
     "identity_header",
     "wifi_header",
+    "device_header",
 )
 
 

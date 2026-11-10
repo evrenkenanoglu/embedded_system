@@ -8,6 +8,8 @@
 #ifndef IPROCESS_HPP
 #define IPROCESS_HPP
 
+#include "System/error_definitions.h"
+
 class IProcess
 {
 public:

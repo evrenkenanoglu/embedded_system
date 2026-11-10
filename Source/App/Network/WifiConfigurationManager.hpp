@@ -109,6 +109,11 @@ typedef void (*WifiEventCb)(WifiEvent event, const WifiMgrStatus& status, void* 
 static constexpr size_t kWifiEventMaxSubscribers = 8;
 
 /**
+ * @brief Max simultaneous raw HAL network event subscribers.
+ */
+static constexpr size_t kWifiNetworkEventMaxSubscribers = 2;
+
+/**
  * @brief Credentials access policy for the manager
  *
  * Persists and loads SSID/password pairs through the memory HAL. Keys are
@@ -232,6 +237,27 @@ public:
      */
     sys_error_t unsubscribeEvent(WifiEventSubscription subscription);
 
+    /**
+     * @brief Subscribe to raw HAL Wi-Fi events (platform-independent link vocabulary).
+     *
+     * Every HAL event is forwarded unfiltered; subscribers select the types they need.
+     * Invoked from the HAL driver context: the callback must be short and must not block.
+     *
+     * @param callback Subscriber callback (must not be nullptr)
+     * @param user_data User context passed back to the callback
+     * @param subscription Out handle for unsubscribeNetworkEvent()
+     * @return sys_error_t ERROR_SUCCESS on success, ERROR_OUT_OF_MEMORY when full
+     */
+    sys_error_t subscribeNetworkEvent(hal_wifi_event_cb_t callback, void* user_data, WifiEventSubscription& subscription);
+
+    /**
+     * @brief Unsubscribe a previously registered network event subscriber.
+     *
+     * @param subscription Handle returned by subscribeNetworkEvent()
+     * @return sys_error_t ERROR_SUCCESS on success, ERROR_INVALID_ARG when unknown
+     */
+    sys_error_t unsubscribeNetworkEvent(WifiEventSubscription subscription);
+
 private:
     /** INTERNAL TYPES ********************************************************/
 
@@ -240,6 +266,7 @@ private:
     static void _workerTrampoline(void* param);
     void        _worker();
     void        _applyEvent(const hal_wifi_event_t& event);
+    void        _forwardNetworkEvent(const hal_wifi_event_t& event);
     static void _halEventCb(const hal_wifi_event_t* event, void* user_data);
 
     bool        _loadCredentials(hal_wifi_sta_config_t& sta);
@@ -277,8 +304,15 @@ private:
         void*       userData;
     };
 
-    WifiEventSubscriber _subscribers[kWifiEventMaxSubscribers];
-    SemaphoreHandle_t   _subscribersMutex;
+    struct WifiNetworkEventSubscriber
+    {
+        hal_wifi_event_cb_t callback;
+        void*               userData;
+    };
+
+    WifiEventSubscriber        _subscribers[kWifiEventMaxSubscribers];
+    WifiNetworkEventSubscriber _networkSubscribers[kWifiNetworkEventMaxSubscribers];
+    SemaphoreHandle_t          _subscribersMutex;
 
     /** CONSTANTS *************************************************************/
 
