@@ -1,4 +1,5 @@
 import csv
+import importlib.metadata
 import json
 import os
 import platform
@@ -20,6 +21,14 @@ from embedded_system.Tools.HW_SECURITY.provisioning.factory.partition_parser imp
 from embedded_system.Tools.TOOLCHAIN.base import BaseToolchain
 
 IS_WINDOWS = platform.system() == "Windows"
+
+
+def _esptool_major_version() -> int:
+    """Major version of the esptool used by `sys.executable -m esptool`."""
+    try:
+        return int(importlib.metadata.version("esptool").split(".")[0])
+    except importlib.metadata.PackageNotFoundError:
+        return 0
 
 
 class EspIdfToolchain(BaseToolchain):
@@ -298,6 +307,8 @@ class EspIdfToolchain(BaseToolchain):
             args.extend(["--port", port])
         if baud:
             args.extend(["--baud", str(baud)])
+        # esptool 5 removed --verify and verifies after writing by default.
+        verify_args = ["--verify"] if _esptool_major_version() < 5 else []
         args.extend(
             [
                 "--before",
@@ -305,7 +316,7 @@ class EspIdfToolchain(BaseToolchain):
                 "--after",
                 "no_reset",
                 "write_flash",
-                "--verify",
+                *verify_args,
                 "--flash_mode",
                 configured_settings["flash_mode"],
                 "--flash_freq",
