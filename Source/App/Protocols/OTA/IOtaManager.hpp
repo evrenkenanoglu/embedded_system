@@ -87,10 +87,8 @@ struct OtaManagerOptions_t
  */
 struct OtaPlatformHooks_t
 {
-    std::function<uint8_t()>  getBatteryPercentage = nullptr; ///< Returns battery capacity (0-100%)
-    std::function<int()>      getCurrentLocalHour  = nullptr; ///< Returns local hour (0-23) or -1 if clock is unsynced
-    std::function<uint32_t()> getRandomNumber      = nullptr; ///< Returns a 32-bit random integer
-    std::function<void()>     rebootSystem         = nullptr; ///< Triggers system soft-reboot
+    std::function<uint8_t()> getBatteryPercentage = nullptr; ///< Returns battery capacity (0-100%)
+    std::function<int()>     getCurrentLocalHour  = nullptr; ///< Returns local hour (0-23) or -1 if clock is unsynced
 };
 
 /**
@@ -104,7 +102,8 @@ struct OtaManagerStartupConfig_t
     IHAL_MEM*                                              factoryTrustStorage = nullptr;
     IHAL_MEM*                                              diagnosticStorage   = nullptr;
     OtaCheckpointManager*                                  checkpointManager   = nullptr;
-    class IHal_Sys_Rng*                                    rngDriver           = nullptr; ///< Optional hardware TRNG for jitter (falls back to hooks.getRandomNumber)
+    class IHal_Sys_Rng*                                    rngDriver           = nullptr; ///< Required hardware TRNG for update-check jitter
+    class IHal_Sys_Reset*                                  resetDriver         = nullptr; ///< Required software restart for applying updates
     class IHal_Sys_ResetReason*                            resetReasonDriver   = nullptr; ///< Optional silicon reset diagnostics for self-healing rollback
     std::vector<std::pair<std::string, OtaSelfTestHook_t>> selfTests;
 };

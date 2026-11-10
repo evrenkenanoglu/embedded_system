@@ -14,8 +14,6 @@
 
 #include "Library/Common/Crc.hpp"
 
-#include <esp_timer.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -88,7 +86,7 @@ namespace
         }
 
         char           record[kMaxRecordLength];
-        const uint32_t timestampMs  = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+        const uint32_t timestampMs  = static_cast<uint32_t>(_rtc.getMonotonicTimeUs() / 1000U);
         const int      prefixLength = std::snprintf(
             record,
             sizeof(record),

@@ -146,31 +146,7 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
     }
 
     /// Inline Wrapper Pipeline
-    auto intermediateCb = [this](const uint8_t* chunk, size_t chunkLen, bool isLastChunk) -> sys_error_t
-    {
-        if (!_isStreaming)
-        {
-            return ERROR_FAIL;
-        }
-
-        /// Content Length Calculation (reconstructs total binary length on 206 Partial Content)
-        if (_expectedSize == 0 && _httpClient.nativeHandle() != nullptr)
-        {
-            esp_http_client_handle_t espClient = reinterpret_cast<esp_http_client_handle_t>(_httpClient.nativeHandle());
-            int64_t                  len       = esp_http_client_get_content_length(espClient);
-            if (len > 0)
-            {
-                _expectedSize = _resumeOffset + static_cast<size_t>(len);
-            }
-        }
-
-        if (_streamCb)
-        {
-            return _streamCb(chunk, chunkLen, isLastChunk);
-        }
-
-        return ERROR_SUCCESS;
-    };
+    auto intermediateCb = std::bind(&OtaHttpTransport::_onIntermediateChunk, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
     sys_error_t err = _httpClient.sendRequest(IHttpUri::HttpMethod::GET, _path, headers, nullptr, 0, statusCode, intermediateCb);
 
@@ -182,6 +158,32 @@ sys_error_t OtaHttpTransport::startStream(OtaStreamCb_t callback)
         (err != ERROR_SUCCESS) ? err : ERROR_FAIL,                               // Error code
         SYS_LOG_E("HTTP request rejected by OTA Server! Status: %d", statusCode) // Error message
     );
+
+    return ERROR_SUCCESS;
+}
+
+sys_error_t OtaHttpTransport::_onIntermediateChunk(const uint8_t* chunk, size_t chunkLen, bool isLastChunk)
+{
+    if (!_isStreaming)
+    {
+        return ERROR_FAIL;
+    }
+
+    /// Content Length Calculation (reconstructs total binary length on 206 Partial Content)
+    if (_expectedSize == 0 && _httpClient.nativeHandle() != nullptr)
+    {
+        esp_http_client_handle_t espClient = reinterpret_cast<esp_http_client_handle_t>(_httpClient.nativeHandle());
+        int64_t                  len       = esp_http_client_get_content_length(espClient);
+        if (len > 0)
+        {
+            _expectedSize = _resumeOffset + static_cast<size_t>(len);
+        }
+    }
+
+    if (_streamCb)
+    {
+        return _streamCb(chunk, chunkLen, isLastChunk);
+    }
 
     return ERROR_SUCCESS;
 }

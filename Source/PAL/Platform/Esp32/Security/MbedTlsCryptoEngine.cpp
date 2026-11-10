@@ -129,6 +129,14 @@ sys_error_t MbedTlsCryptoEngine::generateKeyPair(KeyType type, std::string& outP
     return ERROR_SUCCESS;
 }
 
+namespace
+{
+    bool isZeroByte(unsigned char value)
+    {
+        return value == 0U;
+    }
+} // namespace
+
 sys_error_t MbedTlsCryptoEngine::generateSelfSignedCertificate(const std::string& privateKeyPem, const CertificateConfig& config, std::string& outCertificatePem)
 {
     EntropyContext   entropy;
@@ -174,7 +182,7 @@ sys_error_t MbedTlsCryptoEngine::generateSelfSignedCertificate(const std::string
     ret                         = mbedtls_ctr_drbg_random(drbg.get(), serial_raw, sizeof(serial_raw));
     RETURN_IF_ERROR((ret != 0), ERROR_FAIL, SYS_LOG_E("Failed to generate TLS certificate serial number"));
     serial_raw[0] &= 0x7FU;
-    if (std::all_of(serial_raw, serial_raw + sizeof(serial_raw), [](unsigned char value) { return value == 0U; }))
+    if (std::all_of(serial_raw, serial_raw + sizeof(serial_raw), isZeroByte))
     {
         serial_raw[sizeof(serial_raw) - 1U] = 1U;
     }

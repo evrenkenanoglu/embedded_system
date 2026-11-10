@@ -80,6 +80,17 @@ private:
      */
     sys_error_t _parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps);
 
+    /**
+     * @brief Forwards one received HTTP body chunk to the stream callback and tracks the expected total size.
+     *
+     * @param[in] chunk       Pointer to the received body bytes.
+     * @param[in] chunkLen    Byte length of the received chunk.
+     * @param[in] isLastChunk Flag indicating if the transfer cycle is concluding.
+     *
+     * @return sys_error_t ERROR_SUCCESS if the chunk was accepted, otherwise an error status code.
+     */
+    sys_error_t _onIntermediateChunk(const uint8_t* chunk, size_t chunkLen, bool isLastChunk);
+
 private:
     IHttpClient& _httpClient;
     std::string  _serverCert;

@@ -94,6 +94,7 @@ private:
     static void _automaticTaskEntry(void* param);
     void        _automaticWorker();
     void        _notifyStateObserver(OtaState state);
+    void        _onServiceProgress(OtaState state, size_t received, size_t total, OtaState& terminalState);
     bool        _isTwoStageConditionMet();
     sys_error_t _parseCheckResponse(const std::string& jsonStr, OtaCheckResult& outResult);
     sys_error_t _parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps);
@@ -117,6 +118,7 @@ private:
     OtaCheckpointManager*        _checkpointMgr{nullptr};
     IHAL_MEM*                    _diagStorage{nullptr};
     IHal_Sys_Rng*                _rngDriver{nullptr};
+    IHal_Sys_Reset*              _resetDriver{nullptr};
     IHal_Sys_ResetReason*        _resetReasonDriver{nullptr};
 
     // Transient target context

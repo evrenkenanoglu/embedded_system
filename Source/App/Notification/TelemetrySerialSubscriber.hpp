@@ -12,6 +12,7 @@
 #pragma once
 
 #include "App/Notification/INotificationSubscriber.hpp"
+#include "HAL/IHAL/IHal_Sys_Rtc.h"
 
 #include <cstdint>
 
@@ -24,12 +25,16 @@
 class TelemetrySerialSubscriber : public INotificationSubscriber
 {
 public:
-    TelemetrySerialSubscriber() = default;
+    explicit TelemetrySerialSubscriber(IHal_Sys_Rtc& rtc)
+        : _rtc(rtc)
+    {
+    }
 
     void onNotification(const user_notification_t& notification) override;
 
 private:
     void _recordDrop();
 
-    uint32_t _droppedCount = 0U;
+    IHal_Sys_Rtc& _rtc;
+    uint32_t      _droppedCount = 0U;
 };

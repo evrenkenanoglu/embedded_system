@@ -55,7 +55,8 @@ sys_error_t ThermalProtectionManager::start()
     RETURN_IF_ERROR(_recoveryHysteresisC <= 0.0F, ERROR_INVALID_CONFIG, SYS_LOG_E("Thermal recovery hysteresis must be positive"));
 
     /// Subscribe to the acquisition process samples.
-    RETURN_ON_ERROR(_monitor.addListener([this](const thermal_sample_t& sample) { onSample(sample); }), SYS_LOG_E("Failed to subscribe thermal protection listener"));
+    RETURN_ON_ERROR(
+        _monitor.addListener(std::bind(&ThermalProtectionManager::onSample, this, std::placeholders::_1)), SYS_LOG_E("Failed to subscribe thermal protection listener"));
 
     SYS_LOG_I(
         "ThermalProtectionManager armed (warn=%.1fC, shutdown=%.1fC, hyst=%.1fC)", (double)_warningTemperatureC, (double)_shutdownTemperatureC, (double)_recoveryHysteresisC);

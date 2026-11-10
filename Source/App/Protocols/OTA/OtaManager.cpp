@@ -9,6 +9,7 @@
  */
 
 #include "App/Protocols/OTA/OtaManager.hpp"
+#include "HAL/IHAL/IHal_Sys_Reset.h"
 #include "HAL/IHAL/IHal_Sys_ResetReason.h"
 #include "HAL/IHAL/IHal_Sys_Rng.h"
 #include "autogen/ota_generated_config.h"
@@ -132,6 +133,7 @@ sys_error_t OtaManager::deInit()
     _checkpointMgr     = nullptr;
     _diagStorage       = nullptr;
     _rngDriver         = nullptr;
+    _resetDriver       = nullptr;
     _resetReasonDriver = nullptr;
     _startupConfig     = {};
     return ERROR_SUCCESS;
@@ -141,23 +143,15 @@ uint32_t OtaManager::calculateNextCheckInterval() const
 {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    if (_options.jitterRangeSec == 0 || (!_platformHooks.getRandomNumber && _rngDriver == nullptr))
+    if (_options.jitterRangeSec == 0 || _rngDriver == nullptr)
     {
         return std::max<uint32_t>(1, _options.baseCheckIntervalSec);
     }
 
     const uint64_t jitterWindow = static_cast<uint64_t>(_options.jitterRangeSec) * 2U;
-    uint32_t       rawRandom    = 0U;
 
-    if (_rngDriver != nullptr)
-    {
-        // Prefer the injected hardware TRNG: bias-free jitter without SDK coupling.
-        rawRandom = _rngDriver->getRandomRange(0U, static_cast<uint32_t>(jitterWindow) - 1U);
-    }
-    else
-    {
-        rawRandom = _platformHooks.getRandomNumber() % static_cast<uint32_t>(jitterWindow);
-    }
+    // Bias-free jitter from the injected hardware TRNG.
+    const uint32_t rawRandom = _rngDriver->getRandomRange(0U, static_cast<uint32_t>(jitterWindow) - 1U);
 
     const int64_t offset   = static_cast<int64_t>(rawRandom) - _options.jitterRangeSec;
     const int64_t interval = static_cast<int64_t>(_options.baseCheckIntervalSec) + offset;
@@ -288,9 +282,14 @@ sys_error_t OtaManager::startAutomatic(const OtaManagerStartupConfig_t& startupC
         SYS_LOG_W("OTA manager is already initialized or running.")                    // Error message
     );
     RETURN_IF_ERROR(
-        (!startupConfig.hooks.rebootSystem),                        // Expression
+        (!startupConfig.rngDriver),                                 // Expression
         ERROR_INVALID_ARG,                                          // Error code
-        SYS_LOG_E("Automatic OTA requires a reboot platform hook.") // Error message
+        SYS_LOG_E("Automatic OTA requires a random number driver.") // Error message
+    );
+    RETURN_IF_ERROR(
+        (!startupConfig.resetDriver),                              // Expression
+        ERROR_INVALID_ARG,                                         // Error code
+        SYS_LOG_E("Automatic OTA requires a system reset driver.") // Error message
     );
     RETURN_IF_ERROR(
         (startupConfig.factoryTrustStorage == nullptr && startupConfig.options.serverCert.empty()), // Expression
@@ -306,6 +305,7 @@ sys_error_t OtaManager::startAutomatic(const OtaManagerStartupConfig_t& startupC
     }
 
     _rngDriver         = _startupConfig.rngDriver;
+    _resetDriver       = _startupConfig.resetDriver;
     _resetReasonDriver = _startupConfig.resetReasonDriver;
 
     setCheckpointManager(_startupConfig.checkpointManager);
@@ -579,31 +579,7 @@ sys_error_t OtaManager::executeUpdate()
     serviceOptions.startOffset      = resumeOffset;
 
     OtaState terminalState    = OtaState::Idle;
-    auto     progressCallback = [this, &terminalState](OtaState state, size_t received, size_t total)
-    {
-        _notifyStateObserver(state);
-        if (state == OtaState::Success || state == OtaState::Failed)
-        {
-            terminalState = state;
-        }
-
-        if (total > 0)
-        {
-            float percent = (static_cast<float>(received) / static_cast<float>(total)) * 100.0f;
-            SYS_LOG_D("Progress: %zu/%zu bytes (%.2f%%)", received, total, percent);
-
-            /// Persist checkpoint periodically at 4 KB flash sector erase boundaries
-            if (_checkpointMgr != nullptr && received > 0 && received < total && (received % 4096 == 0))
-            {
-                OtaCheckpoint_t cp{};
-                std::strncpy(cp.targetVersion, _pendingVersion.c_str(), sizeof(cp.targetVersion) - 1);
-                std::strncpy(cp.targetHash, _pendingTargetSignature.c_str(), sizeof(cp.targetHash) - 1);
-                cp.targetSize   = total;
-                cp.bytesWritten = received;
-                _checkpointMgr->save(cp);
-            }
-        }
-    };
+    auto     progressCallback = std::bind(&OtaManager::_onServiceProgress, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::ref(terminalState));
 
     sys_error_t err = _otaService.startUpdate(serviceOptions, progressCallback);
 
@@ -762,14 +738,13 @@ void OtaManager::rebootSystem()
 {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    if (_platformHooks.rebootSystem)
+    if (_resetDriver != nullptr)
     {
-        SYS_LOG_I("Executing platform soft reboot via callback...");
-        _platformHooks.rebootSystem();
-        return;
+        SYS_LOG_I("Executing system soft reboot via reset driver...");
+        _resetDriver->restartSystem();
     }
 
-    SYS_LOG_E("System reboot failed: No system reset callback registered.");
+    SYS_LOG_E("System reboot failed: No system reset driver registered.");
 }
 
 sys_error_t OtaManager::_parseUrl(const std::string& url, std::string& outHost, std::string& outPath, int& outPort, bool& outIsHttps)
@@ -972,6 +947,32 @@ sys_error_t OtaManager::setStateObserver(OtaStateObserver observer)
 
     _stateObserver = std::move(observer);
     return ERROR_SUCCESS;
+}
+
+void OtaManager::_onServiceProgress(OtaState state, size_t received, size_t total, OtaState& terminalState)
+{
+    _notifyStateObserver(state);
+    if (state == OtaState::Success || state == OtaState::Failed)
+    {
+        terminalState = state;
+    }
+
+    if (total > 0)
+    {
+        float percent = (static_cast<float>(received) / static_cast<float>(total)) * 100.0f;
+        SYS_LOG_D("Progress: %zu/%zu bytes (%.2f%%)", received, total, percent);
+
+        /// Persist checkpoint periodically at 4 KB flash sector erase boundaries
+        if (_checkpointMgr != nullptr && received > 0 && received < total && (received % 4096 == 0))
+        {
+            OtaCheckpoint_t cp{};
+            std::strncpy(cp.targetVersion, _pendingVersion.c_str(), sizeof(cp.targetVersion) - 1);
+            std::strncpy(cp.targetHash, _pendingTargetSignature.c_str(), sizeof(cp.targetHash) - 1);
+            cp.targetSize   = total;
+            cp.bytesWritten = received;
+            _checkpointMgr->save(cp);
+        }
+    }
 }
 
 void OtaManager::_notifyStateObserver(OtaState state)

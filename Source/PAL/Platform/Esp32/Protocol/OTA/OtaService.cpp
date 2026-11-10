@@ -191,7 +191,7 @@ sys_error_t OtaService::startUpdate(const OtaOptions_t& options, OtaProgressCb_t
     }
 
     /// Start Stream Callback Bindings.
-    auto streamCb = [this](const uint8_t* chunk, size_t chunkLen, bool isLastChunk) -> sys_error_t { return this->_handleTransportChunk(chunk, chunkLen, isLastChunk); };
+    auto streamCb = std::bind(&OtaService::_handleTransportChunk, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
     err = _transport.startStream(streamCb);
 

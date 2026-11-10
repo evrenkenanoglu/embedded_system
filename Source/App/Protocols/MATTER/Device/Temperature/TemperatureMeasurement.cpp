@@ -50,7 +50,8 @@ TemperatureMeasurement::~TemperatureMeasurement() = default;
 sys_error_t TemperatureMeasurement::start()
 {
     /// Subscribe to the acquisition process samples.
-    RETURN_ON_ERROR(_monitor.addListener([this](const thermal_sample_t& sample) { onSample(sample); }), SYS_LOG_E("Failed to subscribe temperature measurement listener"));
+    RETURN_ON_ERROR(
+        _monitor.addListener(std::bind(&TemperatureMeasurement::onSample, this, std::placeholders::_1)), SYS_LOG_E("Failed to subscribe temperature measurement listener"));
 
     return ERROR_SUCCESS;
 }

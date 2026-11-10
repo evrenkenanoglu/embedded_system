@@ -15,7 +15,6 @@
 #include "HAL/IHAL/IHal_Cpx_Wifi.h"
 #include "Process/Process.hpp"
 
-#include "esp_bit_defs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
@@ -30,9 +29,9 @@
  * manager worker task. State transitions are reported through typed WifiEvent
  * publications; these bits are only the worker's command/completion queue.
  */
-#define WIFI_CFG_CREDENTIALS_STORED BIT4 /*!< New credentials stored via storeCredentials() */
-#define WIFI_CFG_SCAN_REQUESTED     BIT5 /*!< Scan requested via requestScan() */
-#define WIFI_CFG_SCAN_DONE          BIT6 /*!< Scan finished, results available via getScanResults() */
+#define WIFI_CFG_CREDENTIALS_STORED (1U << 4) /*!< New credentials stored via storeCredentials() */
+#define WIFI_CFG_SCAN_REQUESTED     (1U << 5) /*!< Scan requested via requestScan() */
+#define WIFI_CFG_SCAN_DONE          (1U << 6) /*!< Scan finished, results available via getScanResults() */
 
 /** TYPEDEFS ******************************************************************/
 
