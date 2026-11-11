@@ -1,19 +1,12 @@
-Here is the complete, updated **`embedded_system/.agents/skills/hil-hardware-testing/SKILL.md`** incorporating the two-tier architecture, pure C++ contract regression tests, the `Proc_Hil_Test` board process, and `pytest-embedded` host orchestration.
-
----
-
-### File: `embedded_system/.agents/skills/hil-hardware-testing/SKILL.md`
-
-```markdown
 ---
 name: hil-hardware-testing
 description: >-
   Authoritative specification for production Hardware-in-the-Loop (HIL) testing.
   Enforces clean two-tier test separation (generic platform-agnostic HAL/PAL regression
   in embedded_system vs. board/application integration in CI_CD), on-target orchestration
-  via Proc_Hil_Test, host execution via pytest-embedded + pytest-dependency, fail-safe
+via Proc_Hil_Test, host execution via the pyserial hil_capture fixture, fail-safe
   hardware quarantine, and zero test framework dependencies in firmware.
-version: 4.0.0
+version: 4.1.0
 target_runtime: Python 3.13 / pytest-embedded / ESP-IDF v5.4.1 / FreeRTOS
 target_silicon: ESP32-C6 (ESP32-C6-WROOM-1)
 ---
@@ -55,7 +48,7 @@ To keep `embedded_system` completely reusable across different microcontrollers 
 2. ❌ **ZERO Framework Headers in Firmware HIL:** Generic test cases must **never** include `unity.h`, Ceedling headers, or custom JSON-RPC UART parsers. They are pure C++ functions returning `sys_error_t`.
 3. ❌ **ZERO Board Pins in `embedded_system`:** `embedded_system/` must never contain pin numbers, `sdkconfig`, or board layouts. Hardware instances are injected into test functions by reference.
 4. ✔️ **Board Ownership in `main/`:** `main/Proc_Hil_Test.cpp` pulls pin configurations from `main/hwConfig/`, instantiates drivers, calls generic test functions, and formats test report strings over UART.
-5. ✔️ **Host Assertions in `CI_CD/tests/hil/`:** Test assertions and dependency pruning execute on the host PC via `pytest-embedded` [1, 2] and `pytest-dependency`.
+5. ✔️ **Host Assertions in `CI_CD/tests/hil/`:** Test assertions execute on the host PC. The `hil_capture` fixture reads the serial stream; fixtures and module-level skips gate dependent suites.
 6. ✔️ **Security Gating:** `Proc_Hil_Test.cpp` must be compiled **only** when HIL testing is enabled (`-DENABLE_HIL_TEST_PROCESS=ON`). It must never be included in production release binaries.
 
 ---
@@ -67,15 +60,20 @@ Embedded_IoT_BT_WIFI_Base_Project
 ├── CI_CD/
 │   ├── config_hil.yaml                       # SSoT bench settings (ports, baudrates, loopbacks)
 │   └── tests/
-│       └── hil/                              # Host-Side HIL Test Engine (Pytest)
-│           ├── conftest.py                   # Pytest fixtures & serial configuration
+│       └── hil/                              # Host-side HIL test engine (pytest)
+│           ├── conftest.py                   # hil_capture fixture, case discovery, profiles
 │           ├── suites/
-│           │   ├── test_01_hal_regression.py # Asserts [HIL_REPORT] lines from Proc_Hil_Test
-│           │   ├── test_02_board_relays.py   # Physical relay actuation & sensing
-│           │   ├── test_03_board_thermal.py  # NTC temperature & emergency thermal cutoff
-│           │   ├── test_04_matter_hil.py     # Matter commissioning & On/Off cluster
-│           │   └── test_05_ota_pipeline.py   # Dual-bank OTA updates & rollback
-│           └── requirements.txt              # pytest, pytest-embedded, pytest-dependency
+│           │   ├── test_00_telemetry_contract.py  # @TLM framing, CRC, id table
+│           │   ├── test_01_hal_regression.py      # Generic HAL cases from [HIL_REPORT]
+│           │   ├── test_02_board_relays.py        # Placeholder skip until relay tests exist
+│           │   ├── test_03_board_thermal.py       # Placeholder skip; NTC not implemented
+│           │   ├── test_crypto_security.py        # Signature, x509, partition flags
+│           │   ├── test_fleet_operations.py       # Host OTA fleet logic
+│           │   ├── test_ota_resiliency.py         # Host OTA checkpoint logic
+│           │   ├── test_matter_hil.py             # Application firmware (skip)
+│           │   ├── test_serial.py                 # Application firmware (skip)
+│           │   └── test_passive_monitoring.py     # Application firmware (skip)
+│           └── requirements.txt              # pytest, pytest-embedded, pytest-html
 │
 ├── embedded_system/                          # Reusable Platform-Agnostic Middleware
 │   ├── Source/                               # PURE PRODUCTION CODE (Zero test files here!)
@@ -105,9 +103,10 @@ Every generic test is a self-contained C++ function returning `sys_error_t`. It 
 
 ### Implementation Rules:
 * Single-line function signatures in header and implementation.
-* Error-predicate formatting: `RETURN_IF_ERROR((cond_is_error), errCode, ...)`.
+* Check each call explicitly with `if (err != ERROR_SUCCESS) { return err; }`. The HIL cases do not use `RETURN_IF_ERROR` (0 uses in `Tests/hil/cases/`), so each failure returns its own code to the report line.
+* Mismatches return the contract error (`ERROR_FAIL`, `ERROR_INVALID_ARG`, `ERROR_NULL_POINTER`).
 * Allman braces and 80-column section separator blocks.
-* Procedural function steps documented using `///` without `###` or `Step X:` noise. Private notes use `//`.
+* Procedural steps documented with `///`; private notes use `//`.
 
 ### Canonical Example: `hil_test_sys_rng.hpp` / `.cpp`
 ```cpp
@@ -136,33 +135,28 @@ sys_error_t hil_test_sys_rng_contract(IHal_Sys_Rng& rng);
 /** FUNCTIONS *****************************************************************/
 sys_error_t hil_test_sys_rng_contract(IHal_Sys_Rng& rng)
 {
-    /// Initialize TRNG driver instance
-    RETURN_IF_ERROR(
-        (rng.init() != ERROR_SUCCESS),                                // Expression
-        ERROR_FAIL                                                    // Error Code
-    );
+    sys_error_t err = rng.init();
+    if (err != ERROR_SUCCESS)
+    {
+        return err;
+    }
 
-    /// Sample consecutive 32-bit random words
-    const uint32_t sampleA = rng.getRandomU32();
-    const uint32_t sampleB = rng.getRandomU32();
+    uint8_t buffer[16] = {0};
 
-    /// Assert samples are non-zero and non-identical
-    RETURN_IF_ERROR(
-        (sampleA == 0U && sampleB == 0U),                             // Expression
-        ERROR_INVALID_DATA                                            // Error Code
-    );
-    RETURN_IF_ERROR(
-        (sampleA == sampleB),                                         // Expression
-        ERROR_INVALID_DATA                                            // Error Code
-    );
+    /// Reject a null output pointer and a zero-length request
+    err = rng.getRandomBytes(nullptr, sizeof(buffer));
+    if (err != ERROR_NULL_POINTER)
+    {
+        return ERROR_FAIL;
+    }
 
-    /// Verify range bounding [min, max]
-    const uint32_t val = rng.getRandomRange(10U, 20U);
-    RETURN_IF_ERROR(
-        (val < 10U || val > 20U),                                     // Expression
-        ERROR_OUT_OF_RANGE                                            // Error Code
-    );
+    err = rng.getRandomBytes(buffer, 0U);
+    if (err != ERROR_INVALID_ARG)
+    {
+        return ERROR_FAIL;
+    }
 
+    /// ... remaining checks: non-zero output and range bounds (see the file)
     return ERROR_SUCCESS;
 }
 ```
@@ -178,42 +172,46 @@ Output lines are standard ASCII, easily parsed by Pytest:
 ```text
 [HIL_REPORT] BEGIN_HAL_REGRESSION
 [HIL_REPORT] TEST: sys_rng_contract -> PASS
-[HIL_REPORT] TEST: com_i2c_probe -> PASS
-[HIL_REPORT] TEST: io_gpio_loopback -> PASS
-[HIL_REPORT] END_HAL_REGRESSION: 3 PASSED, 0 FAILED
+[HIL_REPORT] TEST: com_i2c_contract -> PASS
+[HIL_REPORT] TEST: io_gpio_contract -> SKIP (no wired sense pin on this board)
+[HIL_REPORT] END_HAL_REGRESSION: <n> PASSED, <m> FAILED
 ```
+Reports are emitted with `SYS_LOG_I` / `SYS_LOG_E`. The host matches the `[HIL_REPORT]` text, so the ESP-IDF log prefix does not matter. A setup failure emits `[HIL_REPORT] ABORT: ...` instead.
 
-### Canonical Implementation Pattern:
+### Canonical Implementation Pattern (`main/application/Proc_Hil_Test.cpp`):
 ```cpp
 void Proc_Hil_Test::_runBattery()
 {
-    vTaskDelay(pdMS_TO_TICKS(500U));
+    vTaskDelay(pdMS_TO_TICKS(kSettleDelayMs));
+    _passCount = 0U;
+    _failCount = 0U;
 
-    std::printf("[HIL_REPORT] BEGIN_HAL_REGRESSION\n");
-    std::fflush(stdout);
+    /// Telemetry subscribes before any result is produced so the host receives the full STATE snapshot.
+    /// On setup failure, emit ABORT and return (ScopeGuards undo partial setup).
+    SYS_LOG_I("[HIL_REPORT] BEGIN_HAL_REGRESSION");
 
-    /// Execute Generic TRNG Contract Test
     {
         sys_rng rng;
         _reportResult("sys_rng_contract", hil_test_sys_rng_contract(rng));
     }
 
-    /// Execute Generic I2C Probe Test with Board Pins and MCP23017 Address
     {
-        com_i2c bus(hwConfig::I2C_PORT_0, hwConfig::PIN_I2C_SDA, hwConfig::PIN_I2C_SCL);
-        _reportResult("com_i2c_probe", hil_test_com_i2c_contract(bus, 0x20U));
+        com_i2c bus(HW::I2C::i2cConfig);
+        _reportResult("com_i2c_contract", hil_test_com_i2c_contract(bus, kI2cExpectedAddress));
     }
 
-    /// Execute Ephemeral Scratchpad NVS Test
+    /// io_gpio is reported as SKIP until a second GPIO is wired to the drive pin.
+    SYS_LOG_I("[HIL_REPORT] TEST: io_gpio_contract -> SKIP (no wired sense pin on this board)");
+
     {
-        mem_nvs scratchNvs("hil_scratch");
-        _reportResult("mem_nvs_scratch", hil_test_mem_nvs_contract(scratchNvs));
+        mem_nvs nvs("hil_scratch");
+        _reportResult("mem_nvs_contract", hil_test_mem_nvs_contract(nvs));
     }
 
-    std::printf("[HIL_REPORT] END_HAL_REGRESSION: %lu PASSED, %lu FAILED\n", _passCount, _failCount);
-    std::fflush(stdout);
+    SYS_LOG_I("[HIL_REPORT] END_HAL_REGRESSION: %lu PASSED, %lu FAILED", static_cast<unsigned long>(_passCount), static_cast<unsigned long>(_failCount));
 }
 ```
+Adding a case means one new `hil_test_*` file in `embedded_system/Tests/hil/cases/` plus one `_reportResult` block here. Keep the test names `<area>_<unit>_contract` so the host regex matches.
 
 ---
 
@@ -235,11 +233,13 @@ Host tests read the target through the `hil_capture` session fixture in `CI_CD/t
 | `test_01_hal_regression.py` | Generic HAL cases; `io_gpio` skips without a jumpered sense pin |
 | `test_crypto_security.py` | Signature (needs `inv es.crypto.provision-sign`), x509 chain, partition flags; eFuse checks under production profile |
 | `test_fleet_operations.py`, `test_ota_resiliency.py` | Host OTA server tests |
-| `test_02`–`test_05`, `test_serial.py`, `test_passive_monitoring.py`, `test_matter_hil.py` | Skipped: need the application firmware or are superseded |
+| `test_02_board_relays.py`, `test_03_board_thermal.py` | Placeholders: skip with a reason until relay and NTC support exist |
+| `test_matter_hil.py`, `test_serial.py`, `test_passive_monitoring.py` | Application firmware: module-level skip until the HIL image runs `Proc_App` |
 
 ```bash
-timeout 600 .venv/bin/python -m pytest CI_CD/tests/hil --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider -W ignore
+mkdir -p Out/test_reports && .venv/bin/python -m pytest CI_CD/tests/hil --html=Out/test_reports/hil_report.html --self-contained-html --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider -W ignore
 ```
+Reports go to `{paths.output_dir}/test_reports/` (`CI_CD/config_hil.yaml`). Do not use `-W ignore` in verification runs; run `--strict-markers --collect-only` first so marker errors are not hidden.
 
 ---
 
@@ -279,12 +279,26 @@ Host-side extraction of device state, faults, and logs from the serial stream. I
 
 ---
 
+## 5B. Naming, Structure & Style Standards (`CI_CD/tests/hil/` and `Tests/hil/`)
+
+1. **Files:** `test_<NN>_<topic>.py` with a two-digit ordering prefix, where the topic names the behavior (`test_01_hal_regression.py`). Legacy topic-only names (`test_serial.py`) are allowed only for application-firmware suites that are module-skipped.
+2. **Tests:** `test_<behavior>` in `snake_case`. Parametrized HAL cases get their id from the firmware case name (`hil_test_<area>_<unit>` → `<area>_<unit>_contract`).
+3. **Firmware cases:** `hil_test_<area>_<unit>.{hpp,cpp}`, with the function `hil_test_<area>_<unit>_contract`. `discover_hal_cases()` relies on this exact pattern.
+4. **Header block:** every Python suite and C++ file starts with `@file`, `@brief`, and `@copyright` (`(c) 2026- Evren Kenanoglu - All Rights Reserved`).
+5. **Skip reasons:** every `pytest.skip` and `pytest.mark.skip` has a `reason=` that names what is missing.
+6. **Registered markers only:** `target`, `env` (from pytest-embedded), and `production_profile` (from `conftest.py`). Strict collection must pass.
+7. **Pinned dependencies:** `CI_CD/tests/hil/requirements.txt` lists only what the suites import. Do not list unused plugins.
+8. **Placeholders:** a placeholder is a skip-only test with a clear reason and no fixtures. No pointer stubs and no duplicate test names across files.
+9. **Ownership:** host assertions in `CI_CD/tests/hil/`; firmware-side cases in `embedded_system/Tests/hil/cases/`; board binding in `main/application/Proc_Hil_Test.cpp`.
+
+---
+
 ## 6. Hardware Safety, Quarantine & Flash Isolation
 
 1. **Relay Fail-Safe De-Energization:** Any test interacting with physical relays must guarantee that output pins are forced `LOW` (contacts open / load de-energized) on any failure path or abort.
-2. **Ephemeral NVS Namespace (`hil_scratch`):** HIL tests are strictly forbidden from writing to production `fctry` or `nvs_keys` partitions. Storage tests operate exclusively in `hil_scratch` and clean up keys upon exit.
-3. **Task Watchdog Protection:** `Proc_Hil_Test` feeds the hardware Task Watchdog (`IHal_Sys_Wdt`). If a hardware transaction hangs for $>3000\text{ ms}$, the hardware WDT triggers a panic restart rather than locking the test bench.
-4. **Panic Trace Decoding:** If the target silicon panics during HIL, `pytest-embedded-idf` decodes the register dump and GDB backtrace from `build/` ELF symbols automatically [2, 3].
+2. **Ephemeral NVS Namespace (`hil_scratch`):** HIL tests are strictly forbidden from writing to production `fctry` or `nvs_keys` partitions. Storage tests operate exclusively in `hil_scratch`; `hil_test_mem_nvs` erases its own probe key.
+3. **No Task Watchdog Feeding (not implemented):** `Proc_Hil_Test` does not configure or feed a task watchdog. A hung transaction is bounded on the host by `CAPTURE_DEADLINE_S` in `conftest.py`, and the run fails with the missing `END_HAL_REGRESSION` line. Do not claim WDT recovery until it exists.
+4. **Panic Trace Decoding (manual):** `pytest-embedded-idf` is not installed. On a panic, decode the backtrace against the `build/` ELF with `addr2line` or the ESP-IDF monitor decoder.
 
 ---
 
@@ -293,14 +307,23 @@ Host-side extraction of device state, faults, and logs from the serial stream. I
 All HIL operations are driven via PyInvoke CLI tasks:
 
 ```bash
-# 1. Run full HIL battery (Stage 1 HAL regression + Stage 2 Board tests)
-inv es.ci-cd.hil
+# 1. Pipeline stage (dry run first; a real run flashes the board)
+inv es.ci-cd.hil --dry-run
 
-# 2. Run only Stage 1 Generic HAL regression
-pytest CI_CD/tests/hil/suites/test_01_hal_regression.py --embedded-services idf,serial -s
+# 2. Build the HIL image (Proc_Hil_Test enabled)
+inv es.platform.build --defines="ENABLE_HIL_TEST_PROCESS=ON"
 
-# 3. Run only Stage 2 Board Integration tests
-pytest CI_CD/tests/hil/suites/test_02_board_relays.py --embedded-services idf,serial -s
+# 3. Flash the connected board (confirm the port with the user first)
+inv es.platform.flash --port=/dev/ttyACM0
+
+# 4. Collect-only with strict markers (no hardware needed)
+.venv/bin/python -m pytest CI_CD/tests/hil --collect-only -q --strict-markers
+
+# 5. Full directory run with HTML report (the board must be on /dev/ttyACM0)
+mkdir -p Out/test_reports && .venv/bin/python -m pytest CI_CD/tests/hil --html=Out/test_reports/hil_report.html --self-contained-html --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider
+
+# 6. Production profile (provisioned units only; enables eFuse checks)
+.venv/bin/python -m pytest CI_CD/tests/hil --hil-profile=production --port=/dev/ttyACM0
 ```
 
 ---
@@ -313,8 +336,10 @@ Before running or committing HIL test changes:
 - [ ] **Interface Contracts:** Generic tests in `embedded_system/Tests/hil/cases/` take `IHal_*` references and return `sys_error_t`.
 - [ ] **Board Decoupling:** Generic test cases contain no pin numbers or `main/hwConfig/` references.
 - [ ] **Production Gating:** `Proc_Hil_Test.cpp` is gated under a compile-time option and excluded from release firmware.
-- [ ] **Dependency Pruning:** Board tests declare `@pytest.mark.dependency(depends=[...])` referencing upstream HAL tests.
+- [ ] **Gating, Not Dependency Markers:** Suites gate via module-level skips or fixtures with a reason. `@pytest.mark.dependency` is not used because `pytest-dependency` is not installed.
+- [ ] **Strict Collection:** `pytest CI_CD/tests/hil --collect-only -q --strict-markers` reports zero errors.
 - [ ] **Storage Safety:** Flash tests operate strictly on `hil_scratch` and never write to the manufacturing `fctry` partition.
+- [ ] **Reports:** Full runs use `--html=Out/test_reports/hil_report.html`; the console log is kept alongside it.
 
 ---
 
@@ -322,23 +347,22 @@ Before running or committing HIL test changes:
 
 Scoped to `hil-hardware-testing`:
 
-- **ERR-001 — In-Flight Relay Left Energized on Test Abort:**
-  *Symptom:* A test assertion failed and the physical relay coil remained energized indefinitely.
-  *Root Cause:* Test logic lacked fail-safe cleanup on early return.
-  *Preventive Rule:* Hardware drivers must force safe quiescent states (`LOW` / open-circuit) in destructors or explicit process `stop()` routines.
+- **ERR-001 — Strict-marker failure hidden by warning filter:**
+  *Symptom:* The HIL collection looked clean in a default run, but `--strict-markers` failed with `'dependency' not registered`.
+  *Root Cause:* `@pytest.mark.dependency` referenced a plugin that is not installed; `-W ignore` hid the unknown-marker warning.
+  *Preventive Rule:* Remove markers for unavailable plugins and run `--collect-only --strict-markers` before every HIL run.
 
-- **ERR-002 — Production `fctry` Partition Corruption from HIL Tests:**
-  *Symptom:* After running a HIL test suite, the device lost its calibrated factory credentials and Root CA certificates.
-  *Root Cause:* Test wrote mock data to the default `nvs` partition without scoping to an isolated namespace.
-  *Preventive Rule:* Force all generic and board storage tests to use the ephemeral `hil_scratch` namespace; audit that `fctry` is mounted read-only during tests.
+- **ERR-002 — Fixture `dut` missing from the HIL harness:**
+  *Symptom:* Suites requesting `dut` errored at setup on the board.
+  *Root Cause:* The `hil_capture` harness reads serial directly and does not provide `dut`.
+  *Preventive Rule:* Request only fixtures the harness defines (`hil_capture`, `hil_pinout`). Application suites that still use `dut` must stay module-skipped until they are ported.
 
-- **ERR-003 — Cascade Failure Storm on Bus Faults:**
-  *Symptom:* An unplugged I2C expander caused 40 downstream tests to fail, flooding CI logs with secondary errors.
-  *Root Cause:* Tests were executed as a flat sequential list without dependency awareness.
-  *Preventive Rule:* All board suites must declare `@pytest.mark.dependency(depends=["hal_i2c"])` so dependent tests are marked `SKIPPED` immediately upon bus failure.
+- **ERR-003 — Production-only checks failing on dev boards:**
+  *Symptom:* eFuse and secure-boot checks failed on an unprovisioned development board.
+  *Root Cause:* Provisioned-unit assertions ran unconditionally.
+  *Preventive Rule:* Mark provisioned-unit checks `production_profile` so they skip without `--hil-profile=production`. Never burn eFuses to make a dev board pass.
 
-- **ERR-004 — Test Harness Leaking into Release Firmware:**
-  *Symptom:* Production devices responded to internal test commands over UART in the field.
-  *Root Cause:* Test process was registered unconditionally in `main.cpp`.
-  *Preventive Rule:* Gate `Proc_Hil_Test` behind the compile-time definition `ENABLE_HIL_TEST_PROCESS` (`-DENABLE_HIL_TEST_PROCESS=ON`) and exclude test files from release builds in CMake.
-```
+- **ERR-004 — Duplicate suites from pointer stubs:**
+  *Symptom:* Two files (`test_04_matter_hil.py`, `test_05_ota_pipeline.py`) duplicated the real suites and reported the same tests twice.
+  *Root Cause:* Stub files were kept as numbered placeholders during a refactor.
+  *Preventive Rule:* One suite per topic. Delete pointer stubs instead of keeping them; a placeholder needs its own skip reason and no duplicate tests.
