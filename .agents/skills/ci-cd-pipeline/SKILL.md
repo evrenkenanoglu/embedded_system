@@ -51,6 +51,7 @@ Use this skill when changing or debugging repository-root `CI_CD/` configuration
 - Suites read the board through the `hil_capture` fixture, which opens the port without resetting it. Only use the reset fallback when the boot marker is missing.
 - Eligibility for eFuse checks is set by `--hil-profile`. Default is `dev`, which skips `production_profile` tests. Pass `--hil-profile=production` only for a provisioned unit that is authorized for those checks. Never burn eFuses to satisfy a test.
 - `test_crypto_security.py` needs `build/provisioning/target_signature.sig`, created by `inv es.crypto.provision-sign`. That step also catalogs the release into the gitignored release catalog. Run it only when the release flow is intended.
+- The signature covers the exact `build/<binary>.bin`. Any rebuild invalidates it, and the tamper test then fails with `InvalidSignature`. Re-run the sign step after every build before the HIL run.
 - Report skips with their reasons. A green run with skipped production or hardware-only checks is not evidence that those checks passed.
 
 
