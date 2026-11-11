@@ -50,6 +50,27 @@ def resolve_config_file() -> Path:
 CONFIG_FILE = resolve_config_file()
 
 
+def _flatten_dotted(data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+    flat: Dict[str, Any] = {}
+    for key, val in data.items():
+        full_key = f"{prefix}{key}"
+        if isinstance(val, dict):
+            flat.update(_flatten_dotted(val, f"{full_key}."))
+        else:
+            flat[full_key] = val
+    return flat
+
+
+def _load_ssot_context() -> Dict[str, Any]:
+    """Flattens the root project SSoT so child configs can reference `{section.key}` tokens."""
+    for parent in [BASE_DIR, *BASE_DIR.parents]:
+        cand = parent / "configs" / "config_project.yaml"
+        if cand.exists():
+            with open(cand, "r", encoding="utf-8") as f:
+                return _flatten_dotted(yaml.safe_load(f) or {})
+    return {}
+
+
 def _expand_placeholders(data: Any, context: Dict[str, str]) -> Any:
     if isinstance(data, dict):
         return {k: _expand_placeholders(v, context) for k, v in data.items()}
@@ -83,6 +104,7 @@ def _load_and_resolve_yaml() -> dict:
     server_root = str(Path(server_root_raw).resolve())
 
     context = {
+        **_load_ssot_context(),
         "project_root_dir": project_root,
         "server_root_dir": server_root,
     }

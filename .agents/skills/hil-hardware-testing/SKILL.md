@@ -219,69 +219,26 @@ void Proc_Hil_Test::_runBattery()
 
 ## 5. Host Pytest Architecture & Dependency Gating (`CI_CD/tests/hil/`)
 
-Host testing uses **`pytest-embedded`** [1, 2] for serial capture, panic trace decoding [2, 3], and **`pytest-dependency`** for topological execution ordering.
+Host tests read the target through the `hil_capture` session fixture in `CI_CD/tests/hil/conftest.py`, not `pytest-embedded`'s `dut`. The fixture opens the port with DTR and RTS low so opening it does not reset the board, reads until `END_HAL_REGRESSION`, and pulses reset only if the boot marker is still absent after 8 s. `pytest-dependency` is not installed, so `@pytest.mark.dependency` is inert; order work with fixtures and module-level skips instead.
 
-### Stage 1: HAL Regression Suite (`test_01_hal_regression.py`)
-```python
-"""
-@file       test_01_hal_regression.py
-@brief      Pytest verifying target-side generic HAL regression test results.
-"""
+### Harness rules
+1. **Cases come from firmware.** `discover_hal_cases()` parses `Tests/hil/cases/hil_test_*.cpp`, and `test_hal_case` is parametrized per case. A new firmware case gets a host test automatically; never hard-code case names.
+2. **Provisioned-unit checks** carry `@pytest.mark.production_profile`. They skip unless `--hil-profile=production` is passed. Never burn eFuses to make a dev board pass.
+3. **Application-firmware suites** (anything needing `Proc_App`) call `pytest.skip(..., allow_module_level=True)` with a reason until the HIL image runs that flow.
+4. **Every skip states its reason.** Silent skips are not allowed.
+5. **Collection errors fail the stage.** `CI_CD/config_hil.yaml` runs the whole `CI_CD/tests/hil` directory, so one broken import blocks every suite.
 
-import pytest
+### Suite map
+| File | Scope |
+|------|-------|
+| `test_00_telemetry_contract.py` | `@TLM` framing, CRC, and ID table on hardware |
+| `test_01_hal_regression.py` | Generic HAL cases; `io_gpio` skips without a jumpered sense pin |
+| `test_crypto_security.py` | Signature (needs `inv es.crypto.provision-sign`), x509 chain, partition flags; eFuse checks under production profile |
+| `test_fleet_operations.py`, `test_ota_resiliency.py` | Host OTA server tests |
+| `test_02`–`test_05`, `test_serial.py`, `test_passive_monitoring.py`, `test_matter_hil.py` | Skipped: need the application firmware or are superseded |
 
-
-@pytest.mark.target("esp32c6")
-@pytest.mark.env("hil")
-@pytest.mark.dependency(name="hal_begin")
-def test_hal_regression_stream_start(dut):
-    """Assert target firmware booted and began HAL regression battery."""
-    dut.expect(r"\[HIL_REPORT\] BEGIN_HAL_REGRESSION", timeout=10)
-
-
-@pytest.mark.target("esp32c6")
-@pytest.mark.env("hil")
-@pytest.mark.dependency(name="hal_rng", depends=["hal_begin"])
-def test_generic_sys_rng(dut):
-    """Verify hardware TRNG entropy check passed."""
-    dut.expect(r"\[HIL_REPORT\] TEST: sys_rng_contract -> PASS", timeout=3)
-
-
-@pytest.mark.target("esp32c6")
-@pytest.mark.env("hil")
-@pytest.mark.dependency(name="hal_i2c", depends=["hal_begin"])
-def test_generic_com_i2c(dut):
-    """Verify I2C master bus arbitration and device probing passed."""
-    dut.expect(r"\[HIL_REPORT\] TEST: com_i2c_probe -> PASS", timeout=3)
-
-
-@pytest.mark.target("esp32c6")
-@pytest.mark.env("hil")
-@pytest.mark.dependency(name="hal_summary", depends=["hal_rng", "hal_i2c"])
-def test_hal_regression_summary(dut):
-    """Verify entire HAL battery completed with 0 failures."""
-    dut.expect(r"\[HIL_REPORT\] END_HAL_REGRESSION: \d+ PASSED, 0 FAILED", timeout=5)
-```
-
-### Stage 2: Board & Application Integration Suite (`test_02_board_relays.py`)
-```python
-"""
-@file       test_02_board_relays.py
-@brief      Board-specific HIL test for MCP23X17 expander and relay actuation.
-"""
-
-import pytest
-
-
-@pytest.mark.target("esp32c6")
-@pytest.mark.env("hil")
-@pytest.mark.dependency(name="board_relays", depends=["hal_i2c"])
-def test_smartplug_relay_actuation(dut):
-    """
-    Assert relay actuation and status notification.
-    If generic test_generic_com_i2c fails, this test is SKIPPED automatically!
-    """
-    dut.expect(r"Proc_PowerSwitchEventManager: initialized", timeout=5)
+```bash
+timeout 600 .venv/bin/python -m pytest CI_CD/tests/hil --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider -W ignore
 ```
 
 ---

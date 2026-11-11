@@ -16,6 +16,7 @@ class IToolchain(ABC):
         image_bin: str = "",
         dry_run: bool = False,
         opts: str = "",
+        defines: str = "",
     ) -> None:
         pass
 

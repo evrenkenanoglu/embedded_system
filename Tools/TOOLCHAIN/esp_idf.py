@@ -147,6 +147,7 @@ class EspIdfToolchain(BaseToolchain):
         image_bin: str,
         dry_run: bool,
         opts: str,
+        defines: str,
     ) -> None:
         work_posix = self.work_dir.as_posix()
         resolved_target = target or self._get_default_target()
@@ -194,12 +195,16 @@ class EspIdfToolchain(BaseToolchain):
         serializer = self._get_serializer()
         serializer.add(f'cd "{work_posix}"')
 
+        # idf.py only accepts global -D cache entries before the subcommand.
+        cmake_defines = " ".join(f"-D {entry}" for entry in defines.split())
+
         build_cmd = (
             f"{self.idf_py} "
             f"-DIDF_TARGET={resolved_target} "
             f"-DSDKCONFIG_DEFAULTS='{defaults_val}' "
             f"-DPROJECT_VER='{ver_str}' "
             f"-DPROJECT_VER_NUMBER={ver_num} "
+            f"{cmake_defines + ' ' if cmake_defines else ''}"
             f"build merge-bin -o {out_name}"
         )
         serializer.add(build_cmd, extra=opts)

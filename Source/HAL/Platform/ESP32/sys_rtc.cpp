@@ -206,7 +206,7 @@ sys_error_t sys_rtc::setTimezone(const char* tzString)
 {
     /// Validate initialization state, timezone string pointer, and buffer capacity.
     RETURN_IF_ERROR((_initialized != HAL_INITIALIZED), ERROR_NOT_INITIALIZED);
-    RETURN_IF_ERROR((tzString == nullptr), ERROR_NULL_POINTER);
+    RETURN_IF_ERROR((tzString == nullptr), ERROR_INVALID_ARG);
 
     const size_t len = std::strlen(tzString);
     RETURN_IF_ERROR((len >= sizeof(_tzString)), ERROR_INVALID_ARG);

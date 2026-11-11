@@ -51,7 +51,7 @@ namespace
         return std::printf("%s\n", record) == (recordLength + 1);
     }
 
-    bool writeNotificationRecord(const user_notification_t& notification)
+    bool writeNotificationRecord(const user_notification_t& notification, uint32_t timestampMs)
     {
         const char* kind = nullptr;
         switch (notification.kind)
@@ -85,9 +85,8 @@ namespace
                 return false;
         }
 
-        char           record[kMaxRecordLength];
-        const uint32_t timestampMs  = static_cast<uint32_t>(_rtc.getMonotonicTimeUs() / 1000U);
-        const int      prefixLength = std::snprintf(
+        char      record[kMaxRecordLength];
+        const int prefixLength = std::snprintf(
             record,
             sizeof(record),
             "@TLM v=1 seq=%u ms=%lu kind=%s id=0x%02X cat=0x%02X sev=%s act=%u pl=0x%08X",
@@ -123,7 +122,8 @@ void TelemetrySerialSubscriber::onNotification(const user_notification_t& notifi
         _droppedCount = 0U;
     }
 
-    if (!writeNotificationRecord(notification))
+    const uint32_t timestampMs = static_cast<uint32_t>(_rtc.getMonotonicTimeUs() / 1000U);
+    if (!writeNotificationRecord(notification, timestampMs))
     {
         _recordDrop();
     }

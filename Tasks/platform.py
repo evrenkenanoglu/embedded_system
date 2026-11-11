@@ -37,6 +37,7 @@ def _get_toolchain():
         "image_bin": "Merged binary path (defaults to factory.bin)",
         "dry_run": "Print commands without executing",
         "opts": "Forward extra build options to idf.py",
+        "defines": "Space-separated CMake cache entries, e.g. 'ENABLE_HIL_TEST_PROCESS=ON'",
     },
 )
 def build(
@@ -45,10 +46,16 @@ def build(
     image_bin: str = "",
     dry_run: bool = False,
     opts: str = "",
+    defines: str = "",
 ) -> None:
     """Build application firmware and generate merged factory binary."""
     _get_toolchain().build(
-        c, target=target, image_bin=image_bin, dry_run=dry_run, opts=opts
+        c,
+        target=target,
+        image_bin=image_bin,
+        dry_run=dry_run,
+        opts=opts,
+        defines=defines,
     )
 
 

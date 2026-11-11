@@ -84,6 +84,7 @@ class BaseToolchain(IToolchain):
         image_bin: str = "",
         dry_run: bool = False,
         opts: str = "",
+        defines: str = "",
     ) -> None:
         resolved_target = (
             str(target).strip()
@@ -97,6 +98,7 @@ class BaseToolchain(IToolchain):
                 image_bin=image_bin,
                 dry_run=dry_run,
                 opts=opts,
+                defines=defines,
             )
 
     def flash(
@@ -319,6 +321,7 @@ class BaseToolchain(IToolchain):
         image_bin: str,
         dry_run: bool,
         opts: str,
+        defines: str,
     ) -> None:
         pass
 

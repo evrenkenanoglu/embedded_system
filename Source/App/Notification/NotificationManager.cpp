@@ -497,8 +497,9 @@ void NotificationManager::_replaySnapshot(size_t slotIndex)
     {
         return;
     }
-    subscriber_slot_t& slot    = _slots[slotIndex];
-    const bool         claimed = slot.active && slot.replayPending && !slot.pendingRemoval;
+    subscriber_slot_t& slot     = _slots[slotIndex];
+    const bool         claimed  = slot.active && slot.replayPending && !slot.pendingRemoval;
+    const uint16_t     baseline = slot.baselineSequence;
     if (claimed)
     {
         slot.inFlightCount.fetch_add(1);
@@ -510,6 +511,7 @@ void NotificationManager::_replaySnapshot(size_t slotIndex)
         return;
     }
 
+    /// Entries after the baseline reach this subscriber through the queue or dirty-state drain.
     bool completed = true;
     for (size_t id = 0; id < kNotificationTotalIds; ++id)
     {
@@ -531,7 +533,7 @@ void NotificationManager::_replaySnapshot(size_t slotIndex)
         notification = _snapshot[id].notification;
         xSemaphoreGive(_stateMutex);
 
-        if (present)
+        if (present && !isAfterBaseline(notification.sequence, baseline))
         {
             _deliverToSlot(slotIndex, notification, false);
         }
