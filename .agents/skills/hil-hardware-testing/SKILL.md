@@ -221,20 +221,22 @@ Host tests read the target through the `hil_capture` session fixture in `CI_CD/t
 
 ### Harness rules
 1. **Cases come from firmware.** `discover_hal_cases()` parses `Tests/hil/cases/hil_test_*.cpp`, and `test_hal_case` is parametrized per case. A new firmware case gets a host test automatically; never hard-code case names.
-2. **Provisioned-unit checks** carry `@pytest.mark.production_profile`. They skip unless `--hil-profile=production` is passed. Never burn eFuses to make a dev board pass.
-3. **Application-firmware suites** (anything needing `Proc_App`) call `pytest.skip(..., allow_module_level=True)` with a reason until the HIL image runs that flow.
-4. **Every skip states its reason.** Silent skips are not allowed.
-5. **Collection errors fail the stage.** `CI_CD/config_hil.yaml` runs the whole `CI_CD/tests/hil` directory, so one broken import blocks every suite.
+2. **Image modes.** `--hil-image={hil,app}` (default `hil`) selects the firmware image under test. Each suite that needs one image carries `@pytest.mark.image("hil" | "app")`; `pytest_collection_modifyitems` skips the other image's items with a reason. Unmarked tests run in both images. `test_00_telemetry_contract.py::test_image_matches_selection` fails if the board boots a different image than the one selected.
+3. **No eFuse operations.** No test reads or burns eFuses, and there is no production profile. Do not reintroduce `espefuse` calls, `--hil-profile`, or `production_profile` markers.
+4. **Signature freshness.** `test_signature_tamper_detection` checks `build/*.bin` against `build/provisioning/target_signature.sig`. Run `inv es.crypto.provision-sign` after every firmware build, before the HIL run. The sign step is host-only (hash, sign, manifest catalog).
+5. **Every skip states its reason.** Silent skips are not allowed.
+6. **Collection errors fail the stage.** `CI_CD/config_hil.yaml` runs the whole `CI_CD/tests/hil` directory, so one broken import blocks every suite.
 
 ### Suite map
 | File | Scope |
 |------|-------|
 | `test_00_telemetry_contract.py` | `@TLM` framing, CRC, and ID table on hardware |
 | `test_01_hal_regression.py` | Generic HAL cases; `io_gpio` skips without a jumpered sense pin |
-| `test_crypto_security.py` | Signature (needs `inv es.crypto.provision-sign`), x509 chain, partition flags; eFuse checks under production profile |
-| `test_fleet_operations.py`, `test_ota_resiliency.py` | Host OTA server tests |
-| `test_02_board_relays.py`, `test_03_board_thermal.py` | Placeholders: skip with a reason until relay and NTC support exist |
-| `test_matter_hil.py`, `test_serial.py`, `test_passive_monitoring.py` | Application firmware: module-level skip until the HIL image runs `Proc_App` |
+| `test_crypto_security.py` | Host-side: signature structure and tamper detection (needs `inv es.crypto.provision-sign`), x509 chain, partition flags |
+| `test_fleet_operations.py`, `test_ota_resiliency.py` | Host OTA server tests (any image) |
+| `test_passive_monitoring.py` | `image("app")`: `@TLM` boot and Wi-Fi terminal-state checks |
+| `test_02_board_relays.py`, `test_03_board_thermal.py` | `image("app")` placeholders: skip with a reason until relay and NTC support exist |
+| `test_matter_hil.py` | `image("app")` placeholder: skip until Matter state IDs are published |
 
 ```bash
 mkdir -p Out/test_reports && .venv/bin/python -m pytest CI_CD/tests/hil --html=Out/test_reports/hil_report.html --self-contained-html --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider -W ignore
@@ -310,21 +312,27 @@ All HIL operations are driven via PyInvoke CLI tasks:
 # 1. Pipeline stage (dry run first; a real run flashes the board)
 inv es.ci-cd.hil --dry-run
 
-# 2. Build the HIL image (Proc_Hil_Test enabled)
-inv es.platform.build --defines="ENABLE_HIL_TEST_PROCESS=ON"
+# 2. Build the image under test. Pass the define explicitly every time: build/CMakeCache.txt
+#    persists the last value, so a bare build can silently keep the other image.
+inv es.platform.build --defines="ENABLE_HIL_TEST_PROCESS=ON"    # --hil-image=hil
+inv es.platform.build --defines="ENABLE_HIL_TEST_PROCESS=OFF"   # --hil-image=app
 
-# 3. Flash the connected board (confirm the port with the user first)
-inv es.platform.flash --port=/dev/ttyACM0
+# 3. Re-sign the freshly built binary (required by the signature test)
+inv es.crypto.provision-sign
 
-# 4. Collect-only with strict markers (no hardware needed)
+# 4. Flash ONLY the application slot. Never run the default flash group: it also writes
+#    the factory (fctry) and nvs_keys partitions.
+inv es.platform.flash --port=/dev/ttyACM0 --partitions=ota_0
+
+# 5. Collect-only with strict markers (no hardware needed)
 .venv/bin/python -m pytest CI_CD/tests/hil --collect-only -q --strict-markers
 
-# 5. Full directory run with HTML report (the board must be on /dev/ttyACM0)
-mkdir -p Out/test_reports && .venv/bin/python -m pytest CI_CD/tests/hil --html=Out/test_reports/hil_report.html --self-contained-html --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider
-
-# 6. Production profile (provisioned units only; enables eFuse checks)
-.venv/bin/python -m pytest CI_CD/tests/hil --hil-profile=production --port=/dev/ttyACM0
+# 6. Full directory run with HTML report (the board must be on /dev/ttyACM0)
+mkdir -p Out/test_reports && .venv/bin/python -m pytest CI_CD/tests/hil --hil-image=hil --html=Out/test_reports/hil_hil_report.html --self-contained-html --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider --strict-markers
+.venv/bin/python -m pytest CI_CD/tests/hil --hil-image=app --html=Out/test_reports/hil_app_report.html --self-contained-html --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider --strict-markers
 ```
+
+Verified on hardware (ESP32-C6, unprovisioned dev board, `ota_0` only): `hil` 26 passed / 6 skipped; `app` 20 passed / 12 skipped.
 
 ---
 
@@ -335,7 +343,9 @@ Before running or committing HIL test changes:
 - [ ] **Zero Test Frameworks in Firmware:** Confirmed zero `#include "unity.h"` or custom JSON RPC parsers in firmware source code.
 - [ ] **Interface Contracts:** Generic tests in `embedded_system/Tests/hil/cases/` take `IHal_*` references and return `sys_error_t`.
 - [ ] **Board Decoupling:** Generic test cases contain no pin numbers or `main/hwConfig/` references.
-- [ ] **Production Gating:** `Proc_Hil_Test.cpp` is gated under a compile-time option and excluded from release firmware.
+- [ ] **Image Gating:** `Proc_Hil_Test.cpp` is gated by `ENABLE_HIL_TEST_PROCESS` and excluded from release firmware. Each image-specific suite has an `image` marker.
+- [ ] **No eFuse Operations:** `grep -rniE "espefuse|efuse|production_profile" CI_CD/tests/hil` finds only comments.
+- [ ] **Signature Fresh:** `inv es.crypto.provision-sign` ran after the last build.
 - [ ] **Gating, Not Dependency Markers:** Suites gate via module-level skips or fixtures with a reason. `@pytest.mark.dependency` is not used because `pytest-dependency` is not installed.
 - [ ] **Strict Collection:** `pytest CI_CD/tests/hil --collect-only -q --strict-markers` reports zero errors.
 - [ ] **Storage Safety:** Flash tests operate strictly on `hil_scratch` and never write to the manufacturing `fctry` partition.
@@ -360,7 +370,17 @@ Scoped to `hil-hardware-testing`:
 - **ERR-003 — Production-only checks failing on dev boards:**
   *Symptom:* eFuse and secure-boot checks failed on an unprovisioned development board.
   *Root Cause:* Provisioned-unit assertions ran unconditionally.
-  *Preventive Rule:* Mark provisioned-unit checks `production_profile` so they skip without `--hil-profile=production`. Never burn eFuses to make a dev board pass.
+  *Preventive Rule:* No eFuse-touching tests exist, and the production profile was removed by request. Never burn eFuses to make a dev board pass.
+
+- **ERR-005 — Signature test failed after a rebuild:**
+  *Symptom:* `test_signature_tamper_detection` raised `InvalidSignature` on the app image after a rebuild.
+  *Root Cause:* `target_signature.sig` was made for the previous binary; the test checks the current `build/*.bin`.
+  *Preventive Rule:* Re-run `inv es.crypto.provision-sign` after every build, before flashing. Do not edit the test to hide a stale signature.
+
+- **ERR-006 — Telemetry compiled out of the application image:**
+  *Symptom:* The app image booted but emitted no `@TLM` records; `test_app_boot_and_ready_states` had no data.
+  *Root Cause:* `ENABLE_SERIAL_TELEMETRY` was defined only inside the HIL branch of `main/CMakeLists.txt`, so `TelemetrySerialSubscriber` was not built for the app image.
+  *Preventive Rule:* Gate telemetry on its own option (default ON) and set compile definitions with `target_compile_definitions` after `idf_component_register`. Do not use `add_compile_definitions` there; it fails in the IDF requirements pass.
 
 - **ERR-004 — Duplicate suites from pointer stubs:**
   *Symptom:* Two files (`test_04_matter_hil.py`, `test_05_ota_pipeline.py`) duplicated the real suites and reported the same tests twice.
