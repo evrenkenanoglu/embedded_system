@@ -10,23 +10,14 @@ from invoke import Context, task
 
 TOOL_NAME = "build-config"
 
-VALID_TARGETS = (
-    "all",
-    "partitions",
-    "sdkconfig",
-    "version",
-    "ota_header",
-    "time_header",
-    "ble_header",
-    "identity_header",
-    "wifi_header",
-    "device_header",
-)
+TOOL_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOL_DIR))
+from generate_artifacts import BUILD_TARGETS as VALID_TARGETS  # noqa: E402
 
 
 @task(
     help={
-        "config": "Path to resolved project config YAML (default: config.example.yaml)",
+        "config": "Path to resolved project config YAML (required)",
         "target": f"Artifact target: {', '.join(VALID_TARGETS)} (default: all)",
         "workspace": "Workspace root directory (default: auto-detected)",
         "opts": "Forward arbitrary extra flags directly to generate_artifacts.py",
@@ -35,7 +26,7 @@ VALID_TARGETS = (
 )
 def generate(
     c: Context,
-    config: str = "config.example.yaml",
+    config: str = "",
     target: str = "all",
     workspace: str = "",
     opts: str = "",
@@ -46,12 +37,13 @@ def generate(
         raise ValueError(
             f"Invalid target '{target}'. Available options: {', '.join(VALID_TARGETS)}"
         )
+    if not config or not str(config).strip():
+        raise ValueError("--config is required (pass the resolved project config YAML)")
 
-    tool_dir = Path(__file__).resolve().parent
-    script_path = tool_dir / "generate_artifacts.py"
+    script_path = TOOL_DIR / "generate_artifacts.py"
     config_path = Path(config)
     if not config_path.is_absolute() and not config_path.exists():
-        config_path = (tool_dir / config).resolve()
+        config_path = (TOOL_DIR / config).resolve()
 
     # CRITICAL: Always use sys.executable (never hardcoded 'python')
     cmd_parts = [
