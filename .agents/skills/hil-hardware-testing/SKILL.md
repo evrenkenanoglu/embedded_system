@@ -320,9 +320,9 @@ inv es.platform.build --defines="ENABLE_HIL_TEST_PROCESS=OFF"   # --hil-image=ap
 # 3. Re-sign the freshly built binary (required by the signature test)
 inv es.crypto.provision-sign
 
-# 4. Flash ONLY the application slot. Never run the default flash group: it also writes
-#    the factory (fctry) and nvs_keys partitions.
-inv es.platform.flash --port=/dev/ttyACM0 --partitions=ota_0
+# 4. Full flash on the first run of each image (developer bench, user decision). Never
+#    burn eFuses, and never flash a production profile, from HIL tooling.
+inv es.platform.flash --port=/dev/ttyACM0
 
 # 5. Collect-only with strict markers (no hardware needed)
 .venv/bin/python -m pytest CI_CD/tests/hil --collect-only -q --strict-markers
@@ -332,7 +332,9 @@ mkdir -p Out/test_reports && .venv/bin/python -m pytest CI_CD/tests/hil --hil-im
 .venv/bin/python -m pytest CI_CD/tests/hil --hil-image=app --html=Out/test_reports/hil_app_report.html --self-contained-html --port=/dev/ttyACM0 --baud=115200 -v -rs -p no:cacheprovider --strict-markers
 ```
 
-Verified on hardware (ESP32-C6, unprovisioned dev board, `ota_0` only): `hil` 26 passed / 6 skipped; `app` 20 passed / 12 skipped.
+Verified on hardware (ESP32-C6, unprovisioned dev board, full flash, signed before each run): `hil` 27 passed / 6 skipped; `app` 20 passed / 13 skipped; both exit 0.
+
+`mem_ota_slots_contract` (in `embedded_system/Tests/hil/cases/`) is the `ota_1` coverage. It runs read-only through `IHal_Mem_Partition` and checks that both OTA slots resolve, are 64 KB aligned, and do not overlap. It also checks that at least one slot holds an image (`0xE9`) and that any other slot is erased. Partition-table reads from host flash are ciphertext, so this check runs on the device.
 
 ---
 
