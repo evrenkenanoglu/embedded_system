@@ -7,14 +7,19 @@
 """
 
 import argparse
+import os
 import sys
+import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(SCRIPT_DIR.parent / "ap_password"))
 
 import yaml
+from engine import load_password_record, write_password_file
 from factory.audit_logger import AuditLogger
 from factory.partition_parser import PartitionTableParser
 from factory.provision_hardware import (
@@ -168,7 +173,11 @@ def pre_encrypt_partition_file(
     )
 
 
-def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path:
+def step_generate_nvs(
+    cfg: Dict[str, Any],
+    parser: PartitionTableParser,
+    ap_password_record: Optional[Path] = None,
+) -> Path:
     print("\n" + "=" * 60)
     print(" STEP 1: GENERATING ENCRYPTED NVS & PRE-ENCRYPTING TARGETS")
     print("=" * 60)
@@ -195,29 +204,67 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
     )
     print(f"[*] Template File    : {template_file}")
 
-    # 1. Reuse the key paired with existing artifacts or generate a fresh one.
-    key_size_bytes = int(nvs_cfg["key_size_bytes"])
-    key_bytes = ensure_nvs_keys(nvs_key_file, key_size_bytes)
-    write_nvs_keys_partition(key_bytes, nvs_keys_partition_file, key_size_bytes)
-    print(f"[*] NVS key ready ({key_size_bytes} bytes)")
-
-    # 2. Render CSV and compile encrypted NVS partition
-    render_template_csv(
-        template_file, rendered_csv, nvs_cfg["template_variables"], project_root
+    # 1. Validate the per-device credential before creating provisioning artifacts.
+    template_variables = dict(nvs_cfg["template_variables"])
+    password_mode = (
+        str(template_variables.get("AP_PASSWORD_MODE", "config")).strip().lower()
     )
-    print(f"[OK] Rendered CSV written to: {rendered_csv}")
+    if password_mode not in ("config", "per_device"):
+        raise ValueError("AP_PASSWORD_MODE must be config or per_device")
+    if password_mode == "per_device" and ap_password_record is None:
+        raise ValueError("Per-device SoftAP credentials require --ap-password-record")
+    if password_mode == "config" and ap_password_record is not None:
+        raise ValueError("--ap-password-record is only valid in per_device mode")
 
-    if (
-        not invoke_nvs_partition_gen(
-            rendered_csv, nvs_bin_file, partition_size, nvs_key_file, encrypt=True
+    password_temp = (
+        tempfile.TemporaryDirectory(prefix="ap-password-nvs-")
+        if password_mode == "per_device"
+        else nullcontext(None)
+    )
+    with password_temp as temp_name:
+        rendered_csv_path = rendered_csv
+        if password_mode == "per_device":
+            temp_dir = Path(temp_name)
+            os.chmod(temp_dir, 0o700)
+            rendered_csv_path = temp_dir / f"nvs_{target_name}_rendered.csv"
+            expected_device_id = str(template_variables.get("DEVICE_ID", ""))
+            if not expected_device_id:
+                raise ValueError("Provisioning config must define DEVICE_ID")
+            password = load_password_record(ap_password_record, expected_device_id)
+            password_file = write_password_file(temp_dir / "ap_password.txt", password)
+            del password
+            template_variables["AP_PASSWORD_FILE"] = str(password_file)
+
+        # 2. Reuse the key paired with existing artifacts or generate a fresh one.
+        key_size_bytes = int(nvs_cfg["key_size_bytes"])
+        key_bytes = ensure_nvs_keys(nvs_key_file, key_size_bytes)
+        write_nvs_keys_partition(key_bytes, nvs_keys_partition_file, key_size_bytes)
+        print(f"[*] NVS key ready ({key_size_bytes} bytes)")
+
+        # 3. Render CSV and compile encrypted NVS partition.
+        render_template_csv(
+            template_file, rendered_csv_path, template_variables, project_root
         )
-        or not nvs_bin_file.exists()
-    ):
-        raise RuntimeError("Failed to generate encrypted NVS binary.")
+        if password_mode == "per_device":
+            print("[OK] Rendered per-device NVS CSV in a private temporary directory")
+        else:
+            print(f"[OK] Rendered CSV written to: {rendered_csv_path}")
+
+        if (
+            not invoke_nvs_partition_gen(
+                rendered_csv_path,
+                nvs_bin_file,
+                partition_size,
+                nvs_key_file,
+                encrypt=True,
+            )
+            or not nvs_bin_file.exists()
+        ):
+            raise RuntimeError("Failed to generate encrypted NVS binary.")
 
     print(f"[SUCCESS] Encrypted NVS partition binary created: {nvs_bin_file}")
 
-    # 3. Resolve Flash Encryption key path from config
+    # 4. Resolve Flash Encryption key path from config.
     flash_key_file = (
         Path(paths_cfg.get("keys_dir", "keys")) / "flash_encryption_key.bin"
     )
@@ -226,7 +273,7 @@ def step_generate_nvs(cfg: Dict[str, Any], parser: PartitionTableParser) -> Path
             flash_key_file = Path(k.get("key_file")).resolve()
             break
 
-    # 4. Automatically pre-encrypt all 4 binary targets using AES-XTS for their physical offsets
+    # 5. Automatically pre-encrypt the configured targets for their physical offsets.
     flash_targets = hw_cfg.get("flash_targets", {})
     print("[*] Pre-encrypting binary targets for physical flash addresses (AES-XTS)...")
 
@@ -674,6 +721,12 @@ def main() -> int:
         default=None,
         help="Required passphrase when --target-mode=hardware to authorize physical eFuse burns",
     )
+    parser.add_argument(
+        "--ap-password-record",
+        type=Path,
+        default=None,
+        help="Owner-only per-device SoftAP password record used for NVS generation",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Force dry-run mode")
     args = parser.parse_args()
 
@@ -703,7 +756,7 @@ def main() -> int:
 
         # 1. Run NVS generation once per release/fixture session
         if args.step in ["all", "nvs"]:
-            step_generate_nvs(config, pt_parser)
+            step_generate_nvs(config, pt_parser, args.ap_password_record)
 
         # 2. Run release code-signing once per release/fixture session
         if args.step in ["all", "sign"]:

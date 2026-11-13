@@ -55,6 +55,7 @@ def _resolve_config_path(config: str, tool_dir: Path) -> Path:
         "burn_password": "Passphrase required when --target-mode=hardware to burn eFuses",
         "continuous": "Run in automated continuous fixture loop awaiting device insertion",
         "project_root": "Explicit project root directory override",
+        "ap_password_record": "Owner-only per-device SoftAP password record",
         "opts": "Forward arbitrary extra flags directly to runner.py",
         "dry_run": "Print execution command without running",
     }
@@ -67,6 +68,7 @@ def run(
     burn_password: str = "",
     continuous: bool = False,
     project_root: str = "",
+    ap_password_record: str = "",
     opts: str = "",
     dry_run: bool = False,
 ) -> None:
@@ -93,6 +95,8 @@ def run(
         cmd_parts.append("--continuous")
     if project_root:
         cmd_parts.append(f'--project-root "{project_root}"')
+    if ap_password_record:
+        cmd_parts.append(f'--ap-password-record "{ap_password_record}"')
     if dry_run:
         cmd_parts.append("--dry-run")
 
@@ -201,14 +205,20 @@ def flash_nvs(
 @task(
     help={
         "config_path": "Path to resolved provisioning YAML config",
+        "ap_password_record": "Owner-only per-device SoftAP password record",
         "dry_run": "Print execution command without running",
     }
 )
 def verify_nvs(
-    c: Context, config_path: str = "config.example.yaml", dry_run: bool = False
+    c: Context,
+    config_path: str = "config.example.yaml",
+    ap_password_record: str = "",
+    dry_run: bool = False,
 ) -> None:
     """Verify generated NVS artifacts without device I/O."""
     config_file = _resolve_config_path(config_path, TOOL_DIR)
     verifier_script = TOOL_DIR / "verify_nvs.py"
     cmd = f'"{sys.executable}" "{verifier_script}" --config "{config_file}"'
+    if ap_password_record:
+        cmd += f' --ap-password-record "{ap_password_record}"'
     c.run(cmd, dry=dry_run, pty=(sys.platform != "win32"), env=_execution_env())

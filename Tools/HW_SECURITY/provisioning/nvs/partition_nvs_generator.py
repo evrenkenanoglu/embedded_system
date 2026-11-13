@@ -29,6 +29,19 @@ def nvs_keys_partition_crc(key_bytes: bytes) -> int:
     return zlib.crc32(tky, zlib.crc32(eky, 0xFFFFFFFF))
 
 
+def _write_private_file(path: Path, contents: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as output:
+            fd = -1
+            output.write(contents)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
 def generate_nvs_keys(
     key_out_path: Path, key_size_bytes: int, key_bytes: Optional[bytes] = None
 ) -> bytes:
@@ -40,14 +53,14 @@ def generate_nvs_keys(
     elif len(key_bytes) != key_size_bytes:
         raise ValueError("Configured NVS key does not match key_size_bytes")
 
-    key_out_path.parent.mkdir(parents=True, exist_ok=True)
-    key_out_path.write_bytes(key_bytes)
+    _write_private_file(key_out_path, key_bytes)
     return key_bytes
 
 
 def ensure_nvs_keys(key_path: Path, key_size_bytes: int) -> bytes:
     """Reuse a valid generated key or create one for a new NVS artifact set."""
     if key_path.exists():
+        key_path.chmod(0o600)
         key_bytes = key_path.read_bytes()
         if len(key_bytes) == key_size_bytes:
             return key_bytes
@@ -63,9 +76,8 @@ def write_nvs_keys_partition(
         raise ValueError("NVS encryption key does not match configured key_size_bytes")
 
     crc = nvs_keys_partition_crc(key_bytes)
-    partition_image_path.parent.mkdir(parents=True, exist_ok=True)
-    partition_image_path.write_bytes(
-        key_bytes + crc.to_bytes(4, "little") + b"\xff" * 12
+    _write_private_file(
+        partition_image_path, key_bytes + crc.to_bytes(4, "little") + b"\xff" * 12
     )
 
 
@@ -100,7 +112,8 @@ def render_template_csv(
             if placeholder in stripped_line:
                 # Handle file paths
                 if isinstance(value, str) and any(
-                    value.endswith(ext) for ext in [".crt", ".pem", ".bin", ".key"]
+                    value.endswith(ext)
+                    for ext in [".crt", ".pem", ".bin", ".key", ".txt"]
                 ):
                     val_path = (
                         Path(value).resolve()
@@ -126,9 +139,7 @@ def render_template_csv(
         if not skip_line:
             rendered_lines.append(stripped_line + "\n")
 
-    output_csv_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_csv_path, "w", encoding="utf-8") as f:
-        f.writelines(rendered_lines)
+    _write_private_file(output_csv_path, "".join(rendered_lines).encode("utf-8"))
 
 
 def find_nvs_partition_gen_tool() -> Optional[List[str]]:

@@ -49,6 +49,7 @@ def run_main(
     continuous: bool = False,
     project_root: Optional[Path] = None,
     dry_run: bool = False,
+    ap_password_record: Optional[Path] = None,
 ) -> int:
     """Executes main.py with resolved configuration and step arguments."""
     cmd = [
@@ -64,6 +65,8 @@ def run_main(
 
     if project_root:
         cmd.extend(["--project-root", str(project_root)])
+    if ap_password_record:
+        cmd.extend(["--ap-password-record", str(ap_password_record)])
     if burn_password:
         cmd.extend(["--burn-password", burn_password])
     if continuous:
@@ -76,7 +79,11 @@ def run_main(
     return result.returncode
 
 
-def interactive_menu(config_path: Path, project_root: Optional[Path] = None) -> None:
+def interactive_menu(
+    config_path: Path,
+    project_root: Optional[Path] = None,
+    ap_password_record: Optional[Path] = None,
+) -> None:
     """Displays an interactive selection menu when no step flags are provided."""
     while True:
         print("\n" + "=" * 55)
@@ -105,6 +112,7 @@ def interactive_menu(config_path: Path, project_root: Optional[Path] = None) -> 
                 target_mode="virtual",
                 dry_run=True,
                 project_root=project_root,
+                ap_password_record=ap_password_record,
             )
             break
         elif choice == "2":
@@ -115,6 +123,7 @@ def interactive_menu(config_path: Path, project_root: Optional[Path] = None) -> 
                 target_mode="hardware",
                 burn_password=pwd,
                 project_root=project_root,
+                ap_password_record=ap_password_record,
             )
             break
         elif choice == "3":
@@ -126,10 +135,16 @@ def interactive_menu(config_path: Path, project_root: Optional[Path] = None) -> 
                 burn_password=pwd,
                 continuous=True,
                 project_root=project_root,
+                ap_password_record=ap_password_record,
             )
             break
         elif choice == "4":
-            run_main(config_path, "nvs", project_root=project_root)
+            run_main(
+                config_path,
+                "nvs",
+                project_root=project_root,
+                ap_password_record=ap_password_record,
+            )
             break
         elif choice == "5":
             run_main(config_path, "sign", project_root=project_root)
@@ -213,6 +228,12 @@ def main() -> int:
         help="Passphrase for hardware eFuse burns",
     )
     parser.add_argument(
+        "--ap-password-record",
+        type=Path,
+        default=None,
+        help="Owner-only per-device SoftAP password record for NVS generation",
+    )
+    parser.add_argument(
         "--continuous",
         action="store_true",
         help="Continuous assembly-line batch mode",
@@ -241,7 +262,11 @@ def main() -> int:
 
     # Launch interactive menu if no step arguments were passed
     if not selected_step:
-        interactive_menu(config_file, project_root=args.project_root)
+        interactive_menu(
+            config_file,
+            project_root=args.project_root,
+            ap_password_record=args.ap_password_record,
+        )
         return 0
 
     return run_main(
@@ -252,6 +277,7 @@ def main() -> int:
         continuous=args.continuous,
         project_root=args.project_root,
         dry_run=args.dry_run,
+        ap_password_record=args.ap_password_record,
     )
 
 

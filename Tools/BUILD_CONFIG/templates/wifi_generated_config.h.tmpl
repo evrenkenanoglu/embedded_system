@@ -3,22 +3,24 @@
 #define WIFI_GENERATED_CONFIG_H
 
 // Application Wi-Fi defaults (SSoT: network.wifi.access_point.*; AP SSID is composed at runtime from DEVICE_PRODUCT_NAME)
+// One-time developer action: remove saved station credentials without erasing the NVS partition.
+#define WIFI_CLEAR_STA_CREDENTIALS_ONCE ${clear_station_credentials_once}
 #define WIFI_AP_CHANNEL           ${channel}U
 #define WIFI_AP_MAX_CONNECTIONS   ${max_connections}U
 ${ap_password_block}
+#define WIFI_AP_PASSWORD_NVS_NAMESPACE ${ap_password_namespace}
+#define WIFI_AP_PASSWORD_NVS_KEY       ${ap_password_key}
+#define WIFI_AP_PASSWORD_NVS_PARTITION ${ap_password_partition}
 #define WIFI_AP_WPA3_ENABLED      ${wpa3_enabled}
 #define WIFI_AP_PMF_REQUIRED      ${pmf_required}
 #define WIFI_AP_PMF_CAPABLE       ${pmf_capable}
 #define WIFI_AP_IPV4_ADDRESS      ${ap_ipv4}
 #define WIFI_AP_WELCOME_PATH      ${welcome_path}
+#define WIFI_AP_WELCOME_SCHEME    ${welcome_scheme}
 
 // mDNS service advertised on the station network (SSoT: network.mdns.*)
 #define MDNS_HOSTNAME             ${mdns_hostname}
 #define MDNS_INSTANCE_NAME        ${mdns_instance}
 #define MDNS_HTTPS_PORT           ${mdns_port}U
-
-// Station defaults seeded into credential storage on first boot (SSoT: network.wifi.station.*)
-#define WIFI_STA_DEFAULT_SSID     ${station_ssid}
-#define WIFI_STA_DEFAULT_PASSWORD ${station_password}
 
 #endif // WIFI_GENERATED_CONFIG_H

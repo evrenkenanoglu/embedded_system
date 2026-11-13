@@ -3,17 +3,20 @@
 
 import argparse
 import csv
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Iterable, Set, Tuple
+from typing import Any, Dict, Iterable, Optional, Set, Tuple
 
 import yaml
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(SCRIPT_DIR.parent / "ap_password"))
 
+from engine import load_password_record, write_password_file
 from factory.partition_parser import PartitionTableParser
 from nvs.partition_nvs_generator import (
     find_nvs_partition_gen_tool,
@@ -45,7 +48,7 @@ def _run_tool(command: Iterable[str]) -> None:
         raise RuntimeError(f"ESP-IDF NVS tool failed: {details}")
 
 
-def verify(config_path: Path) -> None:
+def verify(config_path: Path, ap_password_record: Optional[Path] = None) -> None:
     with config_path.open("r", encoding="utf-8") as source:
         config: Dict[str, Any] = yaml.safe_load(source)
 
@@ -98,13 +101,29 @@ def verify(config_path: Path) -> None:
             f"found {len(encrypted_image)}"
         )
 
-    variables = nvs.get("template_variables", {})
-    required_entries = {
+    variables = dict(nvs.get("template_variables", {}))
+    password_mode = str(variables.get("AP_PASSWORD_MODE", "config")).strip().lower()
+    if password_mode not in ("config", "per_device"):
+        raise ValueError("AP_PASSWORD_MODE must be config or per_device")
+    if password_mode == "per_device" and ap_password_record is None:
+        raise ValueError("Per-device SoftAP credentials require --ap-password-record")
+    if password_mode == "config" and ap_password_record is not None:
+        raise ValueError("--ap-password-record is only valid in per_device mode")
+
+    root_ca_entries = {
         ("sec_pki", "root_ca_pem"),
         ("sec_pki", "ca_backup_pem"),
     }
+    required_entries = set(root_ca_entries)
+    if password_mode == "per_device":
+        required_entries.add(
+            (
+                str(variables["AP_PASSWORD_NAMESPACE"]),
+                str(variables["AP_PASSWORD_KEY"]),
+            )
+        )
     template_entries = _required_nvs_entries(template_path)
-    if not required_entries.issubset(template_entries):
+    if not root_ca_entries.issubset(template_entries):
         raise ValueError(
             "NVS template is missing required primary/backup Root CA entries"
         )
@@ -120,14 +139,25 @@ def verify(config_path: Path) -> None:
 
     with tempfile.TemporaryDirectory(prefix="verify-nvs-") as temp_name:
         temp_dir = Path(temp_name)
+        os.chmod(temp_dir, 0o700)
         rendered_template = temp_dir / "nvs.csv"
         decrypted_image = temp_dir / "decrypted.bin"
         expected_plaintext = temp_dir / "expected.bin"
 
+        if password_mode == "per_device":
+            expected_device_id = str(variables.get("DEVICE_ID", ""))
+            if not expected_device_id:
+                raise ValueError("Provisioning config must define DEVICE_ID")
+            password = load_password_record(ap_password_record, expected_device_id)
+            variables["AP_PASSWORD_FILE"] = str(
+                write_password_file(temp_dir / "ap_password.txt", password)
+            )
+            del password
+
         render_template_csv(template_path, rendered_template, variables, workspace)
         if not required_entries.issubset(_required_nvs_entries(rendered_template)):
             raise ValueError(
-                "Rendered NVS template is missing required Root CA entries"
+                "Rendered NVS template is missing required Root CA or SoftAP credential entries"
             )
 
         _run_tool(
@@ -169,9 +199,15 @@ def main() -> int:
     parser.add_argument(
         "--config", type=Path, required=True, help="Resolved provisioning YAML"
     )
+    parser.add_argument(
+        "--ap-password-record",
+        type=Path,
+        default=None,
+        help="Owner-only per-device SoftAP password record used to verify NVS contents",
+    )
     args = parser.parse_args()
     try:
-        verify(args.config.resolve())
+        verify(args.config.resolve(), args.ap_password_record)
     except Exception as error:
         print(f"NVS verification failed: {error}", file=sys.stderr)
         return 1

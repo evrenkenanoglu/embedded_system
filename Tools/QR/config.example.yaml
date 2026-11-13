@@ -1,0 +1,10 @@
+---
+# ==============================================================================
+# Standalone defaults for the generic QR generator (Tools/QR/main.py)
+# Usage: python main.py config.example.yaml --payload-env QR_PAYLOAD ...
+# The traceability log path is intentionally NOT configurable here.
+# ==============================================================================
+qr:
+  error_correction: M
+  scale: 10
+  border: 4

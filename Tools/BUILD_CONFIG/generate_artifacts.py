@@ -638,19 +638,6 @@ def generate_device_header(cfg: Dict[str, Any], out_path: Path) -> Path:
     return out_path
 
 
-def _validated_ssid(section: Dict[str, Any], key_path: str) -> str:
-    ssid = str(section.get("ssid", "")).strip()
-    if (
-        not ssid
-        or not ssid.isascii()
-        or any(ord(char) < 0x20 or ord(char) > 0x7E for char in ssid)
-    ):
-        raise ValueError(f"{key_path} must contain printable ASCII characters")
-    if len(ssid.encode("ascii")) > 32:
-        raise ValueError(f"{key_path} must contain at most 32 bytes")
-    return ssid
-
-
 def _validated_passphrase(section: Dict[str, Any], key_path: str) -> str:
     password = str(section.get("password", ""))
     if (
@@ -662,12 +649,8 @@ def _validated_passphrase(section: Dict[str, Any], key_path: str) -> str:
     return password
 
 
-AP_PASSWORD_MODES = ("config", "per_device")
-AP_PASSWORD_NVS_KEY = "ap_password"
-
-
 def generate_wifi_header(cfg: Dict[str, Any], out_path: Path) -> Path:
-    """Generates portable Wi-Fi app defaults from network.wifi.access_point and network.wifi.station."""
+    """Generates portable Wi-Fi app defaults from network.wifi.access_point."""
     network = cfg.get("network")
     wifi = network.get("wifi") if isinstance(network, dict) else None
     access_point = wifi.get("access_point") if isinstance(wifi, dict) else None
@@ -675,15 +658,11 @@ def generate_wifi_header(cfg: Dict[str, Any], out_path: Path) -> Path:
         raise ValueError(
             "config_project.yaml is missing the 'network.wifi.access_point:' SSoT block"
         )
-    station = wifi.get("station") if isinstance(wifi, dict) else None
-    if not isinstance(station, dict):
+    clear_station_credentials_once = wifi.get("clear_station_credentials_once", False)
+    if not isinstance(clear_station_credentials_once, bool):
         raise ValueError(
-            "config_project.yaml is missing the 'network.wifi.station:' SSoT block"
+            "network.wifi.clear_station_credentials_once must be a boolean"
         )
-
-    station_ssid = _validated_ssid(station, "network.wifi.station.ssid")
-    station_password = _validated_passphrase(station, "network.wifi.station.password")
-
     channel = int(access_point.get("channel", 0))
     if channel < 1 or channel > 14:
         raise ValueError("network.wifi.access_point.channel must be in the range 1..14")
@@ -695,7 +674,7 @@ def generate_wifi_header(cfg: Dict[str, Any], out_path: Path) -> Path:
         )
 
     password_mode = str(access_point.get("password_mode", "config")).strip().lower()
-    if password_mode not in AP_PASSWORD_MODES:
+    if password_mode not in ("config", "per_device"):
         raise ValueError(
             "network.wifi.access_point.password_mode must be config or per_device"
         )
@@ -710,14 +689,21 @@ def generate_wifi_header(cfg: Dict[str, Any], out_path: Path) -> Path:
             f"#define WIFI_AP_PASSWORD          {json.dumps(password)}",
         ]
     else:
-        # Documented contract: firmware reads the per-device passphrase from the fctry NVS partition
-        # under WIFI_AP_PASSWORD_NVS_KEY. The literal is never compiled into firmware.
         ap_password_lines = [
-            "// SoftAP passphrase is per device (SSoT: network.wifi.access_point.password_mode: per_device).",
-            "// No literal here: read it from the factory NVS partition (fctry) under WIFI_AP_PASSWORD_NVS_KEY.",
+            "// SoftAP passphrase is loaded from encrypted factory NVS at startup.",
             "#define WIFI_AP_PASSWORD_PER_DEVICE true",
-            f"#define WIFI_AP_PASSWORD_NVS_KEY  {json.dumps(AP_PASSWORD_NVS_KEY)}",
         ]
+    ap_password_namespace = str(access_point.get("nvs_namespace", "wifi_cfg")).strip()
+    ap_password_key = str(access_point.get("nvs_key", "ap_password")).strip()
+    ap_password_partition = str(access_point.get("nvs_partition", "")).strip()
+    if (
+        not re.fullmatch(r"[A-Za-z0-9_]{1,15}", ap_password_namespace)
+        or not re.fullmatch(r"[A-Za-z0-9_]{1,15}", ap_password_key)
+        or not re.fullmatch(r"[A-Za-z0-9_]{1,15}", ap_password_partition)
+    ):
+        raise ValueError(
+            "network.wifi.access_point NVS namespace/key/partition must be 1..15 alphanumeric or underscore characters"
+        )
 
     auth_mode = str(access_point.get("auth_mode", "")).strip().lower()
     if auth_mode not in ("wpa2_psk", "wpa3_psk"):
@@ -750,6 +736,11 @@ def generate_wifi_header(cfg: Dict[str, Any], out_path: Path) -> Path:
         raise ValueError(
             "network.wifi.access_point.welcome_path must start with '/' and contain no whitespace"
         )
+    welcome_scheme = str(access_point.get("welcome_scheme", "")).strip().lower()
+    if welcome_scheme != "http":
+        raise ValueError(
+            "network.wifi.access_point.welcome_scheme must be http for captive-portal detection"
+        )
 
     mdns = network.get("mdns")
     if not isinstance(mdns, dict):
@@ -773,17 +764,22 @@ def generate_wifi_header(cfg: Dict[str, Any], out_path: Path) -> Path:
             {
                 "channel": str(channel),
                 "max_connections": str(max_connections),
+                "clear_station_credentials_once": (
+                    "true" if clear_station_credentials_once else "false"
+                ),
                 "ap_password_block": "\n".join(ap_password_lines),
+                "ap_password_namespace": json.dumps(ap_password_namespace),
+                "ap_password_key": json.dumps(ap_password_key),
+                "ap_password_partition": json.dumps(ap_password_partition),
                 "wpa3_enabled": "true" if auth_mode == "wpa3_psk" else "false",
                 "pmf_required": "true" if pmf_required else "false",
                 "pmf_capable": "true" if pmf_capable else "false",
                 "ap_ipv4": json.dumps(ap_ipv4),
                 "welcome_path": json.dumps(welcome_path),
+                "welcome_scheme": json.dumps(welcome_scheme),
                 "mdns_hostname": json.dumps(mdns_hostname),
                 "mdns_instance": json.dumps(mdns_instance),
                 "mdns_port": str(mdns_port),
-                "station_ssid": json.dumps(station_ssid),
-                "station_password": json.dumps(station_password),
             },
         ),
         encoding="utf-8",

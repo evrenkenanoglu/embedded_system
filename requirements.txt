@@ -131,6 +131,7 @@ ruamel-yaml-clib==0.2.15  # via semgrep
 ruyaml==0.91.0            # via yamlfix
 safety==3.8.1             # via -r Tools/CODE_ANALYSIS/STATIC_CODE_ANALYSIS/requirements.txt
 safety-schemas==0.0.16    # via safety
+segno==1.6.6              # via -r Tools/QR/requirements.in
 semantic-version==2.10.0  # via semgrep
 semgrep==1.176.1          # via -r Tools/CODE_ANALYSIS/STATIC_CODE_ANALYSIS/requirements.txt
 setuptools==84.0.0        # via ruyaml

@@ -1,0 +1,2 @@
+# Generic QR generator runtime dependency (not installed by this tool; install only after approval).
+segno>=1.6.1

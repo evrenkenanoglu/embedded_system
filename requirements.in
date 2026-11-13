@@ -10,4 +10,5 @@ detools>=0.49.0
 -r Tools/PKI/requirements.txt
 -r Tools/FORMATTER/requirements.in
 -r Tools/AI/AI_Assistant_Runner/requirements.in
+-r Tools/QR/requirements.in
 pywin32>=311 ; sys_platform == 'win32'

@@ -9,3 +9,7 @@ gateway_url,data,string,{GATEWAY_URL}
 sec_pki,namespace,,
 root_ca_pem,file,string,{ROOT_CA_PATH}
 ca_backup_pem,file,string,{ROOT_CA_BACKUP_PATH}
+{DEVICE_CERT_NAMESPACE},namespace,,
+{DEVICE_CERT_KEY},file,string,{DEVICE_CERT_PATH}
+{AP_PASSWORD_NAMESPACE},namespace,,
+{AP_PASSWORD_KEY},file,string,{AP_PASSWORD_FILE}
